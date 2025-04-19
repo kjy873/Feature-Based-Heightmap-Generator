@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARININGS
+﻿#define _CRT_SECURE_NO_WARININGS
 #include <gl/glew.h>
 #include <gl/freeglut.h>
 #include <gl/freeglut_ext.h>
@@ -17,6 +17,8 @@
 #include <string.h>
 #include <string>
 
+#define RESULUTION 1024
+
 using namespace std;
 
 bool MoveCameraForward = false;
@@ -31,6 +33,10 @@ float windowHeight = 600;
 const float defaultSize = 0.05;
 
 // one bezier curve by 4 control points
+// sampling by 0.01
+// this curve defines the directional flow of the terrain it represents
+// During curve creation, the elevation component is initially set to zero, 
+// and the actual terrain height is later diffused or interpolated based on the elevation constraints of the control points
 vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]) {
 
 	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -47,6 +53,19 @@ vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]) {
 	}
 
 	return bezierPoints;
+}
+
+glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u) {
+	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
+	P = (1 - u) * (1 - u) * (1 - u) * ControlPoints[0] +
+		3 * (1 - u) * (1 - u) * u * ControlPoints[1] +
+		3 * (1 - u) * u * u * ControlPoints[2] +
+		u * u * u * ControlPoints[3];
+	return P;
+}
+
+void normalize(glm::vec3& v) {
+	v = (v / static_cast<float>(RESULUTION)) * 2.0f - 1.0f;
 }
 
 struct COLOR {
@@ -66,7 +85,6 @@ GLvoid setColorRand(COLOR& c) {
 	c.G = (float)(rand() % 256 + 1) / 255;
 	c.B = (float)(rand() % 256 + 1) / 255;
 	c.A = 1.0f;
-
 }
 glm::vec3* returnColorRand2() {
 	glm::vec3 color[2];
@@ -84,6 +102,25 @@ glm::vec3* returnColor8(const glm::vec3 c) {
 	return color;
 }
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
+
+// two constraint points at least are attached to a curve, at extremities
+// height, radius, gradient constraint range, gradient constraint angle, position on curve attached 
+// constraints can include any combination of the six elements except for u (position), which is always required.
+// since there are 64 possible combinations, an 8-bit flag is used to represent the presence or absence of each element
+// there is no separate constructor or factory function — values are directly assigned to the constraint elements at the time of creation
+// if certain combinations of flags are used frequently, helper functions can be created for convenience
+struct ConstraintPoint {
+	uint8_t flag;
+	float h, r, a, b, alpha, beta, u;
+	enum ConstraintFlag {
+		HAS_H = 1 << 0, 
+		HAS_R = 1 << 1,
+		HAS_A = 1 << 2,
+		HAS_B = 1 << 3,
+		HAS_ALPHA = 1 << 4,
+		HAS_BETA = 1 << 5
+	};
+};
 
 // mouse point to GL coordinate
 struct mouseLocationGL {
@@ -123,38 +160,25 @@ void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int posit
 inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexName, GLuint& fragment, const char* fragmentName);
 
 // shape struct
-struct diagram {
+struct Shape {
 	GLuint VAO{ NULL };												// VAO
-	glm::vec3 center = glm::vec3(0.0f, 0.0f, 0.0f);					// center
-	float radius = defaultSize;										// radius
-	glm::vec3 initialCenter = glm::vec3(0.0f, 0.0f, 0.0f);			// initial center
 	vector<glm::vec3> position;										// vertex positions
 	vector<glm::vec3> currentPosition;								// current vertex positions
 	vector<glm::vec3> color;										// vertex colors
-	vector<glm::vec3> normals;									    // vertex normal vectors
-	vector<glm::vec3> currentNormals;								// current normal vectors
 	int vertices = 0;												// number of vertices
-	bool polyhedron = false;										// polyhedron?
-	vector<int> index;												// index for EBO
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
-	float width{ 0 };
-	float height{ 0 };
-	float depth{ 0 };
+	vector<ConstraintPoint> CP;										// constraint points
 
 	//2D shape
-	diagram(int vertexCount) : vertices(vertexCount) {
+	Shape(int vertexCount) : vertices(vertexCount) {
 		position.resize(vertices);
 		currentPosition.resize(vertices);
 		color.resize(vertices);
-		if (vertices == 4) {
-			index.resize(6);
-			index = vector<int>{ 0, 1, 3, 1, 2, 3 };
-		}
 	}
 };
 
 // shape: init line
-void setLine(diagram& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
+void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
 	for (int i = 0; i < 2; i++) {
 		dst.color[i] = glm::vec3(c[i]);
 	}
@@ -164,46 +188,6 @@ void setLine(diagram& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, con
 	InitBufferLine(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
 }
 
-// move
-inline void move(diagram& dia, glm::vec3 delta) {
-	dia.TSR = glm::translate(glm::mat4(1.0f), delta) * dia.TSR;
-	dia.center = glm::vec3(dia.TSR * glm::vec4(dia.initialCenter, 1.0f));
-	for (int i = 0; i < dia.position.size(); i++) dia.currentPosition[i] = glm::vec3(dia.TSR * glm::vec4(dia.position[i], 1.0f));
-	for (int i = 0; i < dia.currentNormals.size(); i++) dia.currentNormals[i] = glm::vec3(dia.TSR * glm::vec4(dia.normals[i], 1.0f));
-}
-// rotate
-inline void rotateByCenter(diagram& dia, glm::vec3 axis, const float& degree) {
-	dia.TSR = glm::translate(glm::mat4(1.0f), -dia.center) * dia.TSR;
-	dia.TSR = glm::rotate(glm::mat4(1.0f), glm::radians(degree), glm::normalize(axis)) * dia.TSR;
-	dia.TSR = glm::translate(glm::mat4(1.0f), dia.center) * dia.TSR;
-	dia.center = glm::vec3(dia.TSR * glm::vec4(dia.initialCenter, 1.0f));
-	for (int i = 0; i < dia.position.size(); i++) dia.currentPosition[i] = glm::vec3(dia.TSR * glm::vec4(dia.position[i], 1.0f));
-	for (int i = 0; i < dia.currentNormals.size(); i++) dia.currentNormals[i] = glm::vec3(dia.TSR * glm::vec4(dia.normals[i], 1.0f));
-}
-// orbit
-inline void moveAndRotate(diagram& dia, glm::vec3 axis, glm::vec3 delta, const float& degree) {
-	dia.TSR = glm::translate(glm::mat4(1.0f), -(dia.center + delta)) * dia.TSR;
-	dia.TSR = glm::rotate(glm::mat4(1.0f), glm::radians(degree), glm::vec3(axis)) * dia.TSR;
-	dia.TSR = glm::translate(glm::mat4(1.0f), dia.center + delta) * dia.TSR;
-	dia.center = glm::vec3(dia.TSR * glm::vec4(dia.initialCenter, 1.0f));
-	for (int i = 0; i < dia.position.size(); i++) dia.currentPosition[i] = glm::vec3(dia.TSR * glm::vec4(dia.position[i], 1.0f));
-	for (int i = 0; i < dia.currentNormals.size(); i++) dia.currentNormals[i] = glm::vec3(dia.TSR * glm::vec4(dia.normals[i], 1.0f));
-}
-// camera orbit
-inline void moveAndRotateByMatrix(glm::mat4& TSR, glm::vec3 axis, glm::vec3 center, glm::vec3 moving, const float& degree) {
-	TSR = glm::translate(TSR, -(center + moving)) * TSR;
-	TSR = glm::rotate(TSR, glm::radians(degree), glm::vec3(axis)) * TSR;
-	TSR = glm::translate(TSR, (center + moving)) * TSR;
-}
-// scale
-inline void scaleByCenter(diagram& dia, glm::vec3 size) {
-	glm::vec3 preLocation = glm::vec3(dia.center);
-	move(dia, -dia.center);
-	dia.TSR = glm::scale(glm::mat4(1.0f), size) * dia.TSR;
-	move(dia, preLocation);
-	dia.center = glm::vec3(dia.TSR * glm::vec4(dia.initialCenter, 1.0f));
-	for (int i = 0; i < dia.position.size(); i++) dia.currentPosition[i] = glm::vec3(dia.TSR * glm::vec4(dia.position[i], 1.0f));
-}
 // normal vector of a, b
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
 	return glm::normalize(glm::cross(a, b));
@@ -213,14 +197,14 @@ GLint width, height;
 GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
-vector <diagram> axes;
+vector <Shape> axes;
 // camera
 glm::vec3 camera[3];
 glm::vec3 CameraForward;
 glm::vec3 CameraRight;
 glm::mat4 view = glm::mat4(1.0f);
 
-vector<vector<diagram>> FeatureCurves;
+vector<vector<Shape>> FeatureCurves;
 
 
 void main(int argc, char** argv) {
@@ -252,15 +236,11 @@ void main(int argc, char** argv) {
 	glutMainLoop();
 }
 
-
-
-
-
 void init() {
 	glClearColor(backgroundColor.R, backgroundColor.G, backgroundColor.B, backgroundColor.A);
 	
 	// axes
-	diagram* temp = new diagram(2);
+	Shape* temp = new Shape(2);
 	setLine(*temp, glm::vec3(-4.0, 0.0, 0.0), glm::vec3(4.0, 0.0, 0.0), returnColorRand2());
 	axes.push_back(*temp);
 	setLine(*temp, glm::vec3(0.0, -4.0, 0.0), glm::vec3(0.0, 4.0, 0.0), returnColorRand2());
@@ -275,18 +255,18 @@ void init() {
 	view = glm::lookAt(camera[0], camera[1], camera[2]);
 	CameraForward = camera[1] - camera[0];;
 
-	// �ѤѤѤѤѤѤѤѤѤѤѤѤѤ� Generate feature curve �ѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤ�
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	glm::vec3 ControlPoints[4] = { 
-		glm::vec3(-1.0f, -1.0f, 0.0f),
-		glm::vec3(-0.3333f, 1.0f, 1.0f), 
-		glm::vec3(0.3333f, 1.0f, -1.0f), 
-		glm::vec3(1.0f, -1.0f, 0.0f) 
+		glm::vec3(-1.0f, 0.0f, 0.0f),
+		glm::vec3(-0.3333f, 0.0f, 1.0f),
+		glm::vec3(0.3333f, 0.0f, -1.0f),
+		glm::vec3(1.0f, 0.0f, 0.0f)
 	};
 
 	vector<glm::vec3> bezierPoints = bezier(ControlPoints);  // points for bezier curve
-	vector<diagram> bezierLines; // lines for bezier curve
+	vector<Shape> bezierLines; // lines for bezier curve
 	
-	diagram* line = new diagram(2);
+	Shape* line = new Shape(2);
 	for (auto i = bezierPoints.begin(); i != bezierPoints.end() - 1; i++) {
 		setLine(*line, *i, *(i + 1), returnColorRand2());
 		bezierLines.push_back(*line);
@@ -294,7 +274,41 @@ void init() {
 	delete(line);
 
 	FeatureCurves.push_back(bezierLines);
-	// �ѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤѤ�
+
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate constraint points ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+	ConstraintPoint c1; // constraint height
+	c1.flag = ConstraintPoint::ConstraintFlag::HAS_H;
+	c1.h = 0.0f;
+	c1.u = 0.0f;
+
+	ConstraintPoint c2; // constraint left gradient
+	c2.flag = ConstraintPoint::ConstraintFlag::HAS_R | 
+		ConstraintPoint::ConstraintFlag::HAS_A |
+		ConstraintPoint::ConstraintFlag::HAS_ALPHA;
+	c2.r = 0.05f;
+	c2.b = 0.2f;
+	c2.beta = 20.0f;
+	c2.u = 0.5f;
+
+	ConstraintPoint c3; // constraint both gradient
+	c3.flag = ConstraintPoint::ConstraintFlag::HAS_R |
+		ConstraintPoint::ConstraintFlag::HAS_A |
+		ConstraintPoint::ConstraintFlag::HAS_ALPHA |
+		ConstraintPoint::ConstraintFlag::HAS_B |
+		ConstraintPoint::ConstraintFlag::HAS_BETA;
+	c3.r = 0.03f;
+	c3.a = 0.2f;
+	c3.alpha = 10.0f;
+	c3.b = 0.1f;
+	c3.beta = 25.0f;
+	c3.u = 0.8f;
+
+	ConstraintPoint c4; // constraint height
+	c4.flag = ConstraintPoint::ConstraintFlag::HAS_H;
+	c4.h = 0.0f;
+	c4.u = 1.0f;
+
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -303,45 +317,33 @@ void idleScene() {
 	glutPostRedisplay();
 }
 
-inline void draw(const vector<diagram> dia) {
+inline void draw(const vector<Shape> dia) {
 	for (const auto& d : dia) {
 		glBindVertexArray(d.VAO);
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
 		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 		else if (d.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-		else if (d.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		else if (d.vertices == 5 && d.polyhedron) glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
-		else if (d.vertices == 8 && d.polyhedron) glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 	}
 }
-inline void drawWireframe(const vector<diagram> dia) {
+inline void drawWireframe(const vector<Shape> dia) {
 	for (const auto& d : dia) {
 		glBindVertexArray(d.VAO);
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
 		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 		else if (d.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
-		else if (d.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
-		else if (d.vertices == 5 && d.polyhedron) glDrawElements(GL_LINE_LOOP, 18, GL_UNSIGNED_INT, 0);
-		else if (d.vertices == 8 && d.polyhedron) glDrawElements(GL_LINE_LOOP, 36, GL_UNSIGNED_INT, 0);
 	}
 }
-inline void draw(const diagram& dia) {
+inline void draw(const Shape& dia) {
 	glBindVertexArray(dia.VAO);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-	else if (dia.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	else if (dia.vertices == 5 && dia.polyhedron) glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
-	else if (dia.vertices == 8 && dia.polyhedron) glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 }
-inline void drawWireframe(const diagram& dia) {
+inline void drawWireframe(const Shape& dia) {
 	glBindVertexArray(dia.VAO);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
-	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
-	else if (dia.vertices == 5 && dia.polyhedron) glDrawElements(GL_LINE_LOOP, 18, GL_UNSIGNED_INT, 0);
-	else if (dia.vertices == 8 && dia.polyhedron) glDrawElements(GL_LINE_LOOP, 36, GL_UNSIGNED_INT, 0);
 }
 
 GLvoid drawScene() {
@@ -536,7 +538,7 @@ void make_shaderProgram(GLuint& shaderProgramID) {
 	glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
 	if (!result) {
 		glGetProgramInfoLog(shaderProgramID, 512, NULL, errorLog);
-		cerr << "ERROR: shader program ���� ����\n" << errorLog << endl;
+		cerr << "ERROR: shader program 연결 실패\n" << errorLog << endl;
 		return;
 	}
 }
@@ -547,7 +549,7 @@ inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexNa
 }
 // init buffer
 void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
-	cout << "���� �ʱ�ȭ" << endl;
+	cout << "버퍼 초기화" << endl;
 	GLuint VBO_position, VBO_color;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -571,7 +573,7 @@ void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize, co
 	glEnableVertexAttribArray(cAttribute);
 }
 void InitBufferTriangle(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
-	cout << "���� �ʱ�ȭ" << endl;
+	cout << "버퍼 초기화" << endl;
 	GLuint VBO_position, VBO_color;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -597,7 +599,7 @@ void InitBufferTriangle(GLuint& VAO, const glm::vec3* position, int positionSize
 void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int positionSize,
 	const glm::vec3* color, const int colorSize,
 	const int* index, const int indexSize, const glm::vec3* normals, const int normalSize) {
-	//cout << "EBO �ʱ�ȭ" << endl;
+	//cout << "EBO 초기화" << endl;
 	GLuint VBO_position, VBO_color, NBO, EBO;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
