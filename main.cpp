@@ -80,47 +80,40 @@ GLvoid setColor(COLOR& c, GLclampf r, GLclampf g, GLclampf b, GLclampf a) {
 	c.B = b;
 	c.A = a;
 }
-GLvoid setColorRand(COLOR& c) {
-	c.R = (float)(rand() % 256 + 1) / 255;
-	c.G = (float)(rand() % 256 + 1) / 255;
-	c.B = (float)(rand() % 256 + 1) / 255;
-	c.A = 1.0f;
-}
+
 glm::vec3* returnColorRand2() {
 	glm::vec3 color[2];
 	for (int i = 0; i < 2; i++) color[i] = glm::vec3((float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255);
 	return color;
 }
-glm::vec3* returnColorRand8() {
-	glm::vec3 color[8];
-	for (int i = 0; i < 8; i++) color[i] = glm::vec3((float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255);
-	return color;
-}
-glm::vec3* returnColor8(const glm::vec3 c) {
-	glm::vec3 color[8];
-	for (int i = 0; i < 8; i++) color[i] = c;
-	return color;
-}
+
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
 // two constraint points at least are attached to a curve, at extremities
-// height, radius, gradient constraint range, gradient constraint angle, position on curve attached 
+// height, radius, gradient constraint range, gradient constraint angle, position on curve attached and noise parameters(A, R)
 // constraints can include any combination of the six elements except for u (position), which is always required.
 // since there are 64 possible combinations, an 8-bit flag is used to represent the presence or absence of each element
 // there is no separate constructor or factory function — values are directly assigned to the constraint elements at the time of creation
 // if certain combinations of flags are used frequently, helper functions can be created for convenience
 struct ConstraintPoint {
 	uint8_t flag;
-	float h, r, a, b, alpha, beta, u;
+	float h, r, a, b, alpha, beta, u, A, R;
 	enum ConstraintFlag {
 		HAS_H = 1 << 0, 
 		HAS_R = 1 << 1,
 		HAS_A = 1 << 2,
 		HAS_B = 1 << 3,
 		HAS_ALPHA = 1 << 4,
-		HAS_BETA = 1 << 5
+		HAS_BETA = 1 << 5,
+		HAS_AMPLITUDE = 1 << 6,
+		HAS_RESPONSE = 1 << 7
 	};
 };
+
+// linear interpolation
+float lerp(float a, float b, float t) {
+	return (1 - t) * a + t * b;
+}
 
 // mouse point to GL coordinate
 struct mouseLocationGL {
@@ -205,6 +198,7 @@ glm::vec3 CameraRight;
 glm::mat4 view = glm::mat4(1.0f);
 
 vector<vector<Shape>> FeatureCurves;
+vector<ConstraintPoint> constraintPoints;
 
 
 void main(int argc, char** argv) {
@@ -307,6 +301,44 @@ void init() {
 	c4.flag = ConstraintPoint::ConstraintFlag::HAS_H;
 	c4.h = 0.0f;
 	c4.u = 1.0f;
+
+	constraintPoints.push_back(c1);
+	constraintPoints.push_back(c2);
+	constraintPoints.push_back(c3);
+	constraintPoints.push_back(c4);
+
+
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+	// rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
+	// since it is linearly approximated, the direction is perpendicular to each segment (u₂ - u₁)
+	for (int i = 0; i < constraintPoints.size() - 1; i++) {
+		float u1 = constraintPoints[i].u;
+		float u2 = constraintPoints[i + 1].u;
+		for (float u = u1; u < u2; u += 0.01f) {
+		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + 0.01f) - pointOnBezier(ControlPoints, u)) / 0.01f;
+			glm::vec3 normal = glm::vec3(tangent.z, 0.0f, -tangent.x);
+
+			// rectangles are generated in the direction of the normal and its opposite
+
+
+
+
+			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+
+
+			float t = (u - u1) / (u2 - u1);
+
+			float interpolatedHeight = lerp(constraintPoints[i].h, constraintPoints[i + 1].h, t);
+
+			
+
+		}
+
+	}
+
+	
+
+
 
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
