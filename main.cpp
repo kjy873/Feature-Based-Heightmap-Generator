@@ -98,7 +98,7 @@ COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 struct ConstraintPoint {
 	uint8_t flag;
 	float h, r, a, b, alpha, beta, u, A, R;
-	enum ConstraintFlag {
+	enum Flag {
 		HAS_H = 1 << 0, 
 		HAS_R = 1 << 1,
 		HAS_A = 1 << 2,
@@ -113,6 +113,11 @@ struct ConstraintPoint {
 // linear interpolation
 float lerp(float a, float b, float t) {
 	return (1 - t) * a + t * b;
+}
+
+// hold interpolation
+float hold(float p, float t) {
+	return (1 - t) * p + t * p;
 }
 
 // mouse point to GL coordinate
@@ -271,25 +276,25 @@ void init() {
 
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate constraint points ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	ConstraintPoint c1; // constraint height
-	c1.flag = ConstraintPoint::ConstraintFlag::HAS_H;
+	c1.flag = ConstraintPoint::Flag::HAS_H;
 	c1.h = 0.0f;
 	c1.u = 0.0f;
 
 	ConstraintPoint c2; // constraint left gradient
-	c2.flag = ConstraintPoint::ConstraintFlag::HAS_R | 
-		ConstraintPoint::ConstraintFlag::HAS_A |
-		ConstraintPoint::ConstraintFlag::HAS_ALPHA;
+	c2.flag = ConstraintPoint::Flag::HAS_R | 
+		ConstraintPoint::Flag::HAS_A |
+		ConstraintPoint::Flag::HAS_ALPHA;
 	c2.r = 0.05f;
 	c2.b = 0.2f;
 	c2.beta = 20.0f;
 	c2.u = 0.5f;
 
 	ConstraintPoint c3; // constraint both gradient
-	c3.flag = ConstraintPoint::ConstraintFlag::HAS_R |
-		ConstraintPoint::ConstraintFlag::HAS_A |
-		ConstraintPoint::ConstraintFlag::HAS_ALPHA |
-		ConstraintPoint::ConstraintFlag::HAS_B |
-		ConstraintPoint::ConstraintFlag::HAS_BETA;
+	c3.flag = ConstraintPoint::Flag::HAS_R |
+		ConstraintPoint::Flag::HAS_A |
+		ConstraintPoint::Flag::HAS_ALPHA |
+		ConstraintPoint::Flag::HAS_B |
+		ConstraintPoint::Flag::HAS_BETA;
 	c3.r = 0.03f;
 	c3.a = 0.2f;
 	c3.alpha = 10.0f;
@@ -298,7 +303,7 @@ void init() {
 	c3.u = 0.8f;
 
 	ConstraintPoint c4; // constraint height
-	c4.flag = ConstraintPoint::ConstraintFlag::HAS_H;
+	c4.flag = ConstraintPoint::Flag::HAS_H;
 	c4.h = 0.0f;
 	c4.u = 1.0f;
 
@@ -316,19 +321,29 @@ void init() {
 		float u2 = constraintPoints[i + 1].u;
 		for (float u = u1; u < u2; u += 0.01f) {
 		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + 0.01f) - pointOnBezier(ControlPoints, u)) / 0.01f;
-			glm::vec3 normal = glm::vec3(tangent.z, 0.0f, -tangent.x);
+			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
 
 			// rectangles are generated in the direction of the normal and its opposite
+			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
+			}
+			float t = (u - u1) / (u2 - u1);
+			float interpolatedr = lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
+			float interpolateda = lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
+			float interpolatedAlpha = lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
+			float interpolatedb = lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
+			float interpolatedBeta = lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
 
-
+			glm::vec3 rect[4];
+			glm::vec3 p = pointOnBezier(ControlPoints, u);
+			//p += normal * 
 
 
 			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
 
-			float t = (u - u1) / (u2 - u1);
+			
 
-			float interpolatedHeight = lerp(constraintPoints[i].h, constraintPoints[i + 1].h, t);
+			
 
 			
 
