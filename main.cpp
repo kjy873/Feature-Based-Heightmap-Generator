@@ -87,6 +87,21 @@ glm::vec3* returnColorRand2() {
 	return color;
 }
 
+glm::vec3* returnColorRand4() {
+	glm::vec3 color[4];
+	for (int i = 0; i < 4; i++) color[i] = glm::vec3((float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255);
+	return color;
+}
+
+glm::vec3* setColor4(const float c1, const float c2, const float c3, const float c4) {
+	glm::vec3 color[4];
+	color[0] = glm::vec3(c1, c1, c1);
+	color[1] = glm::vec3(c2, c2, c2);
+	color[2] = glm::vec3(c3, c3, c3);
+	color[3] = glm::vec3(c4, c4, c4);
+	return color;
+}
+
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
 // two constraint points at least are attached to a curve, at extremities
@@ -166,12 +181,17 @@ struct Shape {
 	int vertices = 0;												// number of vertices
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
 	vector<ConstraintPoint> CP;										// constraint points
+	vector<int> index;												// index for rectangle
 
 	//2D shape
 	Shape(int vertexCount) : vertices(vertexCount) {
 		position.resize(vertices);
 		currentPosition.resize(vertices);
 		color.resize(vertices);
+		if (vertices == 4) {
+			index.resize(6);
+			index = vector<int>{ 0, 1, 3, 0, 3, 2 };
+		}
 	}
 };
 
@@ -184,6 +204,18 @@ void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const
 	dst.position[1] = glm::vec3(vertex2);
 
 	InitBufferLine(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
+}
+
+void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
+	dst.position[0] = glm::vec3(vertex1);
+	dst.position[1] = glm::vec3(vertex2);
+	dst.position[2] = glm::vec3(vertex3);
+	dst.position[3] = glm::vec3(vertex4);
+	for (int i = 0; i < 4; i++) {
+		dst.color[i] = glm::vec3(c[i]);
+	}
+	
+	InitBufferRectangle(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), nullptr, 0);
 }
 
 // normal vector of a, b
@@ -204,6 +236,7 @@ glm::mat4 view = glm::mat4(1.0f);
 
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
+vector<Shape> rectangles;
 
 
 void main(int argc, char** argv) {
@@ -282,11 +315,12 @@ void init() {
 
 	ConstraintPoint c2; // constraint left gradient
 	c2.flag = ConstraintPoint::Flag::HAS_R | 
-		ConstraintPoint::Flag::HAS_A |
-		ConstraintPoint::Flag::HAS_ALPHA;
+		ConstraintPoint::Flag::HAS_B |
+		ConstraintPoint::Flag::HAS_BETA;
 	c2.r = 0.05f;
-	c2.b = 0.2f;
-	c2.beta = 20.0f;
+	c2.b = 0.02f;
+	c2.beta = 25.0f;
+	c2.beta = glm::clamp(c2.beta / 90.0f, 0.0f, 1.0f);
 	c2.u = 0.5f;
 
 	ConstraintPoint c3; // constraint both gradient
@@ -296,10 +330,12 @@ void init() {
 		ConstraintPoint::Flag::HAS_B |
 		ConstraintPoint::Flag::HAS_BETA;
 	c3.r = 0.03f;
-	c3.a = 0.2f;
-	c3.alpha = 10.0f;
-	c3.b = 0.1f;
-	c3.beta = 25.0f;
+	c3.a = 0.02f;
+	c3.alpha = 30.0f;
+	c3.alpha = glm::clamp(c3.alpha / 90.0f, 0.0f, 1.0f);
+	c3.b = 0.01f;
+	c3.beta = 20.0f;
+	c3.beta = glm::clamp(c3.beta / 90.0f, 0.0f, 1.0f);
 	c3.u = 0.8f;
 
 	ConstraintPoint c4; // constraint height
@@ -319,33 +355,102 @@ void init() {
 	for (int i = 0; i < constraintPoints.size() - 1; i++) {
 		float u1 = constraintPoints[i].u;
 		float u2 = constraintPoints[i + 1].u;
+
+		// if this condition is satisfied, it means that an interpolated r value exists in the segment, so a rectangle is generated.
+		// next, the rectangle is generated based on whether both constraintPoint A and B have r, or only one of them does.
+		// then, the same branching logic is applied to a and b to modify the size of the rectangle.
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
+
 		for (float u = u1; u < u2; u += 0.01f) {
 		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + 0.01f) - pointOnBezier(ControlPoints, u)) / 0.01f;
 			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
-
-			// rectangles are generated in the direction of the normal and its opposite
-			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
-			}
+			std::cout << "Normal: (" << normal.x << ", " << normal.y << ", " << normal.z << ")\n";
 			float t = (u - u1) / (u2 - u1);
-			float interpolatedr = lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
-			float interpolateda = lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
-			float interpolatedAlpha = lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
-			float interpolatedb = lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
-			float interpolatedBeta = lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
+			Shape* rectA = new Shape(4);
+			Shape* rectB = new Shape(4);
 
-			glm::vec3 rect[4];
-			glm::vec3 p = pointOnBezier(ControlPoints, u);
-			//p += normal * 
+			float interpolatedr = 0.0f;
+			
+			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
+				if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R) {
+					interpolatedr = lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
+				}
+				else interpolatedr = hold(constraintPoints[i].r, t);
+			}
+			else interpolatedr = hold(constraintPoints[i + 1].r, t);
 
+			
+			setRectangle(*rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + 0.01f) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u),
+				pointOnBezier(ControlPoints, u + 0.01f),
+				setColor4(0.0f, 0.0f, 0.0f, 0.0f));
+
+			setRectangle(*rectB, pointOnBezier(ControlPoints, u),
+				pointOnBezier(ControlPoints, u + 0.01f),
+				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + 0.01f) - normal * interpolatedr,
+				setColor4(0.0f, 0.0f, 0.0f, 0.0f));
+			
+			
+			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) {
+				float interpolateda = 0.0f;
+				float interpolatedAlpha = 0.0f;
+				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) {
+					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A) {
+						interpolateda = lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
+						interpolatedAlpha = lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
+					}
+					else {
+						interpolateda = hold(constraintPoints[i].a, t);
+						interpolatedAlpha = hold(constraintPoints[i].alpha, t);
+					}
+				}
+				else {
+					interpolateda = hold(constraintPoints[i + 1].a, t);
+					interpolatedAlpha = hold(constraintPoints[i + 1].alpha, t);
+				}
+				cout << "interpolateda: " << interpolateda << endl;
+				setRectangle(*rectA, (*rectA).position[0] + normal * interpolateda,
+									 (*rectA).position[1] + normal * interpolateda,
+									 (*rectA).position[2],
+									 (*rectA).position[3],
+									 setColor4(0, 0, interpolatedAlpha, interpolatedAlpha));
+			}
+
+			
+			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) {
+				float interpolatedb = 0.0f;
+				float interpolatedBeta = 0.0f;
+				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) {
+					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B) {
+						interpolatedb = lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
+						interpolatedBeta = lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
+					}
+					else {
+						interpolatedb = hold(constraintPoints[i].b, t);
+						interpolatedBeta = hold(constraintPoints[i].beta, t);
+					}
+				}
+				else {
+					interpolatedb = hold(constraintPoints[i + 1].b, t);
+					interpolatedBeta = hold(constraintPoints[i + 1].beta, t);
+				}
+				cout << "interpolatedb: " << interpolatedb << endl;
+				setRectangle(*rectB, (*rectB).position[0],
+									 (*rectB).position[1],
+									 (*rectB).position[2] - normal * interpolatedb,
+									 (*rectB).position[3] - normal * interpolatedb,
+									 setColor4(interpolatedBeta, interpolatedBeta, 0, 0));
+			}
+			
+
+			rectangles.push_back(*rectA);
+			rectangles.push_back(*rectB);
+			delete(rectA);
+			delete(rectB);
 
 			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-
-
-			
-
-			
-
-			
 
 		}
 
@@ -370,6 +475,7 @@ inline void draw(const vector<Shape> dia) {
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
 		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 		else if (d.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
+		else if (d.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
 }
 inline void drawWireframe(const vector<Shape> dia) {
@@ -378,6 +484,7 @@ inline void drawWireframe(const vector<Shape> dia) {
 		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
 		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 		else if (d.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
+		else if (d.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
 	}
 }
 inline void draw(const Shape& dia) {
@@ -385,12 +492,14 @@ inline void draw(const Shape& dia) {
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
+	else if (dia.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 inline void drawWireframe(const Shape& dia) {
 	glBindVertexArray(dia.VAO);
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
+	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
 }
 
 GLvoid drawScene() {
@@ -400,6 +509,8 @@ GLvoid drawScene() {
 	for (const auto& c : FeatureCurves) {
 		draw(c);
 	}
+
+	draw(rectangles);
 
 	unsigned int viewLocation = glGetUniformLocation(shaderProgramID, "viewTransform");
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
