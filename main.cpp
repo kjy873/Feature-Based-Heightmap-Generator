@@ -16,10 +16,21 @@
 #include <sstream>
 #include <string.h>
 #include <string>
+#include <math.h>
 
-#define RESULUTION 1024
+#define RESOLUTION 1024
+
+#define SEED 0
+
+#define TERRAIN_SIZE 101
+
+float PI = 3.14159265358979323846f;
 
 using namespace std;
+
+static random_device random;
+static mt19937 gen(random());
+static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -32,6 +43,12 @@ float windowWidth = 800;
 float windowHeight = 600;
 const float defaultSize = 0.05;
 
+constexpr float SAMPLE_GAP = 0.05f;
+
+inline float perlinSmooth(float t) {
+	return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
 // one bezier curve by 4 control points
 // sampling by 0.01
 // this curve defines the directional flow of the terrain it represents
@@ -43,7 +60,7 @@ vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]) {
 
 	vector<glm::vec3> bezierPoints;
 
-	for (float t = 0; t < 1; t += 0.01f) {
+	for (float t = 0; t < 1; t += SAMPLE_GAP) {
 		P = (1 - t) * (1 - t) * (1 - t) * ControlPoints[0] +
 			3 * (1 - t) * (1 - t) * t * ControlPoints[1] +
 			3 * (1 - t) * t * t * ControlPoints[2] +
@@ -65,7 +82,80 @@ glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u) {
 }
 
 void normalize(glm::vec3& v) {
-	v = (v / static_cast<float>(RESULUTION)) * 2.0f - 1.0f;
+	v = (v / static_cast<float>(RESOLUTION)) * 2.0f - 1.0f;
+}
+
+// two constraint points at least are attached to a curve, at extremities
+// height, radius, gradient constraint range, gradient constraint angle, position on curve attached and noise parameters(A, R)
+// constraints can include any combination of the six elements except for u (position), which is always required.
+// since there are 64 possible combinations, an 8-bit flag is used to represent the presence or absence of each element
+// there is no separate constructor or factory function — values are directly assigned to the constraint elements at the time of creation
+// if certain combinations of flags are used frequently, helper functions can be created for convenience
+struct ConstraintPoint {
+	uint8_t flag;
+	float h, r, a, b, alpha, beta, u, A, R;
+	enum Flag {
+		HAS_H = 1 << 0,
+		HAS_R = 1 << 1,
+		HAS_A = 1 << 2,
+		HAS_B = 1 << 3,
+		HAS_ALPHA = 1 << 4,
+		HAS_BETA = 1 << 5,
+		HAS_AMPLITUDE = 1 << 6,
+		HAS_RESPONSE = 1 << 7
+	};
+};
+
+// linear interpolation
+float lerp(float a, float b, float t) {
+	return (1 - t) * a + t * b;
+}
+
+// hold interpolation
+float hold(float p, float t) {
+	return (1 - t) * p + t * p;
+}
+
+void Perlin(float noise[1024][1024]) {
+	glm::vec2 gradient[1025][1025];
+	for (int i = 0; i < 1025; i++) {
+		for (int j = 0; j < 1025; j++) {
+			float angle = distribution(gen);
+			gradient[i][j] = glm::vec2(glm::cos(angle), glm::sin(angle));
+		}
+	}
+
+	for (int y = 0; y < 1024; y++) {
+		for (int x = 0; x < 1024; x++) {
+			glm::vec2 input = glm::vec2(x, y);
+
+			int x1 = floor(input.x);
+			int y1 = floor(input.y);
+			int x2 = x1 + 1;
+			int y2 = y1 + 1;
+
+			glm::vec2 d11 = input - glm::vec2(x1, y1);
+			glm::vec2 d21 = input - glm::vec2(x2, y1);
+			glm::vec2 d12 = input - glm::vec2(x1, y2);
+			glm::vec2 d22 = input - glm::vec2(x2, y2);
+
+			float dot11 = glm::dot(gradient[y1][x1], d11);
+			float dot21 = glm::dot(gradient[y1][x2], d21);
+			float dot12 = glm::dot(gradient[y2][x1], d12);
+			float dot22 = glm::dot(gradient[y2][x2], d22);
+
+			float u = perlinSmooth(input.x - x1);
+			float v = perlinSmooth(input.y - y1);
+
+			float interpolated1 = lerp(dot11, dot21, u);
+			float interpolated2 = lerp(dot12, dot22, u);
+
+			float result = lerp(interpolated1, interpolated2, v);
+
+			noise[y][x] = result;
+
+		}
+	}
 }
 
 struct COLOR {
@@ -87,53 +177,34 @@ glm::vec3* returnColorRand2() {
 	return color;
 }
 
+glm::vec3* returnColorBK2() {
+	glm::vec3 color[2];
+	for (int i = 0; i < 2; i++) color[i] = glm::vec3(0, 0, 0);
+	return color;
+}
+
+glm::vec3* returnColorRD2() {
+	glm::vec3 color[2];
+	for (int i = 0; i < 2; i++) color[i] = glm::vec3(255, 0, 0);
+	return color;
+}
+
 glm::vec3* returnColorRand4() {
 	glm::vec3 color[4];
 	for (int i = 0; i < 4; i++) color[i] = glm::vec3((float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255);
 	return color;
 }
 
-glm::vec3* setColor4(const float c1, const float c2, const float c3, const float c4) {
+glm::vec3* setColor4(const glm::vec3 c1, const glm::vec3 c2, const glm::vec3 c3, const glm::vec3 c4) {
 	glm::vec3 color[4];
-	color[0] = glm::vec3(c1, c1, c1);
-	color[1] = glm::vec3(c2, c2, c2);
-	color[2] = glm::vec3(c3, c3, c3);
-	color[3] = glm::vec3(c4, c4, c4);
+	color[0] = glm::vec3(c1);
+	color[1] = glm::vec3(c2);
+	color[2] = glm::vec3(c3);
+	color[3] = glm::vec3(c4);
 	return color;
 }
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
-
-// two constraint points at least are attached to a curve, at extremities
-// height, radius, gradient constraint range, gradient constraint angle, position on curve attached and noise parameters(A, R)
-// constraints can include any combination of the six elements except for u (position), which is always required.
-// since there are 64 possible combinations, an 8-bit flag is used to represent the presence or absence of each element
-// there is no separate constructor or factory function — values are directly assigned to the constraint elements at the time of creation
-// if certain combinations of flags are used frequently, helper functions can be created for convenience
-struct ConstraintPoint {
-	uint8_t flag;
-	float h, r, a, b, alpha, beta, u, A, R;
-	enum Flag {
-		HAS_H = 1 << 0, 
-		HAS_R = 1 << 1,
-		HAS_A = 1 << 2,
-		HAS_B = 1 << 3,
-		HAS_ALPHA = 1 << 4,
-		HAS_BETA = 1 << 5,
-		HAS_AMPLITUDE = 1 << 6,
-		HAS_RESPONSE = 1 << 7
-	};
-};
-
-// linear interpolation
-float lerp(float a, float b, float t) {
-	return (1 - t) * a + t * b;
-}
-
-// hold interpolation
-float hold(float p, float t) {
-	return (1 - t) * p + t * p;
-}
 
 // mouse point to GL coordinate
 struct mouseLocationGL {
@@ -172,6 +243,10 @@ void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int posit
 	const int* index, const int indexSize, const glm::vec3* normals, const int normalSize);
 inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexName, GLuint& fragment, const char* fragmentName);
 
+inline float Cross2D(const glm::vec2& a, const glm::vec2& b) {
+	return a.x * b.y - a.y * b.x;
+}
+
 // shape struct
 struct Shape {
 	GLuint VAO{ NULL };												// VAO
@@ -182,6 +257,8 @@ struct Shape {
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
 	vector<ConstraintPoint> CP;										// constraint points
 	vector<int> index;												// index for rectangle
+	float u = 0.0f;
+	float r = 0.0f;
 
 	//2D shape
 	Shape(int vertexCount) : vertices(vertexCount) {
@@ -190,7 +267,7 @@ struct Shape {
 		color.resize(vertices);
 		if (vertices == 4) {
 			index.resize(6);
-			index = vector<int>{ 0, 1, 3, 0, 3, 2 };
+			index = vector<int>{ 0, 1, 2, 0, 2, 3 };
 		}
 	}
 };
@@ -227,6 +304,10 @@ GLint width, height;
 GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
+
+unsigned int viewLocation;
+unsigned int projectionLocation;
+unsigned int modelTransformLococation;
 vector <Shape> axes;
 // camera
 glm::vec3 camera[3];
@@ -238,6 +319,14 @@ vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;
 
+glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
+vector<Shape> GridLines;
+
+float DiffusionGrid[TERRAIN_SIZE-1][TERRAIN_SIZE-1];
+
+float noiseMap[1024][1024];
+
+glm::vec3 color000 = glm::vec3(0.0f, 0.0f, 0.0f);
 
 void main(int argc, char** argv) {
 	glutInit(&argc, argv);
@@ -270,6 +359,10 @@ void main(int argc, char** argv) {
 
 void init() {
 	glClearColor(backgroundColor.R, backgroundColor.G, backgroundColor.B, backgroundColor.A);
+
+	viewLocation = glGetUniformLocation(shaderProgramID, "viewTransform");
+	projectionLocation = glGetUniformLocation(shaderProgramID, "projectionTransform");
+	modelTransformLococation = glGetUniformLocation(shaderProgramID, "modelTransform");
 	
 	// axes
 	Shape* temp = new Shape(2);
@@ -287,12 +380,20 @@ void init() {
 	view = glm::lookAt(camera[0], camera[1], camera[2]);
 	CameraForward = camera[1] - camera[0];;
 
+	//Perlin(noiseMap);
+
+	for (int i = 0; i < 1024; i++) {
+		for (int j = 0; j < 1024; j++) {
+			
+		}
+	}
+
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	glm::vec3 ControlPoints[4] = { 
-		glm::vec3(-1.0f, 0.0f, 0.0f),
-		glm::vec3(-0.3333f, 0.0f, 1.0f),
-		glm::vec3(0.3333f, 0.0f, -1.0f),
-		glm::vec3(1.0f, 0.0f, 0.0f)
+		glm::vec3(0.3f, 0.2f, 0.3f),
+		glm::vec3(0.5f, 0.5f, 0.8f),
+		glm::vec3(0.7f, 0.1f, 0.2f),
+		glm::vec3(0.9f, 0.7f, 0.5f)
 	};
 
 	vector<glm::vec3> bezierPoints = bezier(ControlPoints);  // points for bezier curve
@@ -300,7 +401,7 @@ void init() {
 	
 	Shape* line = new Shape(2);
 	for (auto i = bezierPoints.begin(); i != bezierPoints.end() - 1; i++) {
-		setLine(*line, *i, *(i + 1), returnColorRand2());
+		setLine(*line, *i, *(i + 1), returnColorRD2());
 		bezierLines.push_back(*line);
 	}
 	delete(line);
@@ -317,10 +418,9 @@ void init() {
 	c2.flag = ConstraintPoint::Flag::HAS_R | 
 		ConstraintPoint::Flag::HAS_B |
 		ConstraintPoint::Flag::HAS_BETA;
-	c2.r = 0.05f;
-	c2.b = 0.02f;
-	c2.beta = 25.0f;
-	c2.beta = glm::clamp(c2.beta / 90.0f, 0.0f, 1.0f);
+	c2.r = 0.07f;
+	c2.b = 0.3f;
+	c2.beta = 20.0f;
 	c2.u = 0.5f;
 
 	ConstraintPoint c3; // constraint both gradient
@@ -329,13 +429,11 @@ void init() {
 		ConstraintPoint::Flag::HAS_ALPHA |
 		ConstraintPoint::Flag::HAS_B |
 		ConstraintPoint::Flag::HAS_BETA;
-	c3.r = 0.03f;
-	c3.a = 0.02f;
+	c3.r = 0.1f;
+	c3.a = 0.3f;
 	c3.alpha = 30.0f;
-	c3.alpha = glm::clamp(c3.alpha / 90.0f, 0.0f, 1.0f);
-	c3.b = 0.01f;
-	c3.beta = 20.0f;
-	c3.beta = glm::clamp(c3.beta / 90.0f, 0.0f, 1.0f);
+	c3.b = 0.3f;
+	c3.beta = 45.0f;
 	c3.u = 0.8f;
 
 	ConstraintPoint c4; // constraint height
@@ -348,10 +446,19 @@ void init() {
 	constraintPoints.push_back(c3);
 	constraintPoints.push_back(c4);
 
+	for (int i = 0; i < TERRAIN_SIZE; i++) {
+		for (int j = 0; j < TERRAIN_SIZE; j++) {
+			GridPoints[i][j] = glm::vec3((float)i / (float)TERRAIN_SIZE, 0.0f, (float)j / (float)TERRAIN_SIZE);
+		}
+	}
 
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	// rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
 	// since it is linearly approximated, the direction is perpendicular to each segment (u₂ - u₁)
+
+	// elevation is interpolated using cubic interpolation.
+	// since the four currently defined constraints do not allow elevation interpolation, it will be performed
+	// additionally, issues caused by curve intersections will also be addressed later
 	for (int i = 0; i < constraintPoints.size() - 1; i++) {
 		float u1 = constraintPoints[i].u;
 		float u2 = constraintPoints[i + 1].u;
@@ -361,10 +468,9 @@ void init() {
 		// then, the same branching logic is applied to a and b to modify the size of the rectangle.
 		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
 
-		for (float u = u1; u < u2; u += 0.01f) {
-		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + 0.01f) - pointOnBezier(ControlPoints, u)) / 0.01f;
+		for (float u = u1; u < u2; u += SAMPLE_GAP) {
+		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + SAMPLE_GAP) - pointOnBezier(ControlPoints, u)) / SAMPLE_GAP;
 			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
-			std::cout << "Normal: (" << normal.x << ", " << normal.y << ", " << normal.z << ")\n";
 			float t = (u - u1) / (u2 - u1);
 			Shape* rectA = new Shape(4);
 			Shape* rectB = new Shape(4);
@@ -381,16 +487,16 @@ void init() {
 
 			
 			setRectangle(*rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
-				pointOnBezier(ControlPoints, u + 0.01f) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + SAMPLE_GAP) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + SAMPLE_GAP),
 				pointOnBezier(ControlPoints, u),
-				pointOnBezier(ControlPoints, u + 0.01f),
-				setColor4(0.0f, 0.0f, 0.0f, 0.0f));
+				setColor4(color000, color000, color000, color000));
 
 			setRectangle(*rectB, pointOnBezier(ControlPoints, u),
-				pointOnBezier(ControlPoints, u + 0.01f),
+				pointOnBezier(ControlPoints, u + SAMPLE_GAP),
+				pointOnBezier(ControlPoints, u + SAMPLE_GAP) - normal * interpolatedr,
 				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
-				pointOnBezier(ControlPoints, u + 0.01f) - normal * interpolatedr,
-				setColor4(0.0f, 0.0f, 0.0f, 0.0f));
+				setColor4(color000, color000, color000, color000));
 			
 			
 			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) {
@@ -410,14 +516,18 @@ void init() {
 					interpolateda = hold(constraintPoints[i + 1].a, t);
 					interpolatedAlpha = hold(constraintPoints[i + 1].alpha, t);
 				}
-				cout << "interpolateda: " << interpolateda << endl;
+
+				glm::vec3 gradientVector = glm::vec3(normal.x, normal.z, glm::tan(glm::radians(interpolatedAlpha)));
+
 				setRectangle(*rectA, (*rectA).position[0] + normal * interpolateda,
 									 (*rectA).position[1] + normal * interpolateda,
 									 (*rectA).position[2],
 									 (*rectA).position[3],
-									 setColor4(0, 0, interpolatedAlpha, interpolatedAlpha));
-			}
+									 setColor4(color000, color000, gradientVector, gradientVector));
 
+				
+			}
+			
 			
 			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) {
 				float interpolatedb = 0.0f;
@@ -436,15 +546,18 @@ void init() {
 					interpolatedb = hold(constraintPoints[i + 1].b, t);
 					interpolatedBeta = hold(constraintPoints[i + 1].beta, t);
 				}
-				cout << "interpolatedb: " << interpolatedb << endl;
+				glm::vec3 gradientVector = glm::vec3(-normal.x, -normal.z, glm::tan(glm::radians(interpolatedBeta)));
 				setRectangle(*rectB, (*rectB).position[0],
 									 (*rectB).position[1],
 									 (*rectB).position[2] - normal * interpolatedb,
 									 (*rectB).position[3] - normal * interpolatedb,
-									 setColor4(interpolatedBeta, interpolatedBeta, 0, 0));
+									 setColor4(gradientVector, gradientVector, color000, color000));
 			}
 			
-
+			rectA->u = u1 + t;
+			rectB->u = u1 + t;
+			rectA->r = interpolatedr;
+			rectB->r = interpolatedr;
 			rectangles.push_back(*rectA);
 			rectangles.push_back(*rectB);
 			delete(rectA);
@@ -456,10 +569,62 @@ void init() {
 
 	}
 
-	
+	for (auto& r : rectangles) {
+		for (int i = 0; i < TERRAIN_SIZE; i++) {
+			for (int j = 0; j < TERRAIN_SIZE; j++) {
+				if (GridPoints[i][j].y != 0.0f) continue;
+				glm::vec2 p = glm::vec2(GridPoints[i][j].x, GridPoints[i][j].z);
+				glm::vec2 p0 = glm::vec2(r.position[0].x, r.position[0].z);
+				glm::vec2 p1 = glm::vec2(r.position[1].x, r.position[1].z);
+				glm::vec2 p2 = glm::vec2(r.position[2].x, r.position[2].z);
+				glm::vec2 p3 = glm::vec2(r.position[3].x, r.position[3].z);
+				
+				float cross1 = Cross2D(p1 - p0, p - p0);
+				float cross2 = Cross2D(p2 - p1, p - p1);
+				float cross3 = Cross2D(p3 - p2, p - p2);
+				float cross4 = Cross2D(p0 - p3, p - p3);
 
+				if ((cross1 > 0 && cross2 > 0 && cross3 > 0 && cross4 > 0) || (cross1 < 0 && cross2 < 0 && cross3 < 0 && cross4 < 0)) {
+					glm::vec2 DiffusionSource = glm::vec2(pointOnBezier(ControlPoints, r.u).x, pointOnBezier(ControlPoints, r.u).z);
+					float Distance = glm::length(p - DiffusionSource);
+					glm::vec3 Direction = glm::vec3(p.x - DiffusionSource.x, 0.0f, p.y - DiffusionSource.y);
+					float height = 0.0f;
+					if (Distance < r.r) {
+						continue;
+					}
+					for (int l = 0; l < 4; l++) {
+						if (r.color[l] != color000) {
+							height = glm::dot(Direction, r.color[l]);
+							break;
+						}
+					}
+					GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y - height;
+					
+				}
+			}
+		}
+	}
 
-
+	for (int i = 0; i < TERRAIN_SIZE-1; i++) {
+		for (int j = 0; j < TERRAIN_SIZE-1; j++) {
+			Shape* line = new Shape(2);
+			setLine(*line, GridPoints[i][j], GridPoints[i + 1][j], returnColorBK2());
+			GridLines.push_back(*line);
+			setLine(*line, GridPoints[i][j], GridPoints[i][j + 1], returnColorBK2());
+			GridLines.push_back(*line);
+		}
+	}
+	for (int i = 0; i < TERRAIN_SIZE-1; i++) {
+		Shape* line = new Shape(2);
+		setLine(*line, GridPoints[i][0], GridPoints[i + 1][0], returnColorBK2());
+		GridLines.push_back(*line);
+		setLine(*line, GridPoints[0][i], GridPoints[0][i + 1], returnColorBK2());
+		GridLines.push_back(*line);
+		setLine(*line, GridPoints[i][20], GridPoints[i + 1][20], returnColorBK2());
+		GridLines.push_back(*line);
+		setLine(*line, GridPoints[20][i], GridPoints[20][i + 1], returnColorBK2());
+		GridLines.push_back(*line);
+	}
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
 	glEnable(GL_DEPTH_TEST);
@@ -469,13 +634,19 @@ void idleScene() {
 	glutPostRedisplay();
 }
 
-inline void draw(const vector<Shape> dia) {
+inline void draw(const vector<Shape>& dia) {
+	GLuint currentVAO = -1;
 	for (const auto& d : dia) {
-		glBindVertexArray(d.VAO);
-		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
-		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-		else if (d.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-		else if (d.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		if (d.VAO != currentVAO) {
+			glBindVertexArray(d.VAO);
+			currentVAO = d.VAO;
+		}
+		glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(d.TSR));
+		switch (d.vertices) {
+		case 2: glDrawArrays(GL_LINES, 0, 2); break;
+		case 3: glDrawArrays(GL_TRIANGLES, 0, 3); break;
+		case 4: glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); break;
+		}
 	}
 }
 inline void drawWireframe(const vector<Shape> dia) {
@@ -505,24 +676,23 @@ inline void drawWireframe(const Shape& dia) {
 GLvoid drawScene() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	draw(axes);
-	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
+	
 	for (const auto& c : FeatureCurves) {
 		draw(c);
 	}
 
-	draw(rectangles);
+	draw(GridLines);
 
-	unsigned int viewLocation = glGetUniformLocation(shaderProgramID, "viewTransform");
+	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
+
+	
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 
 	glm::mat4 projection = glm::mat4(1.0f);
 	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 50.0f);
 	projection = glm::translate(projection, glm::vec3(0.0, 0.0, -2.0));
-	unsigned int projectionLocation = glGetUniformLocation(shaderProgramID, "projectionTransform");
+	
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
-
-	GLuint trans_mat = glGetUniformLocation(shaderProgramID, "modelTransform");
-	GLuint color = glGetUniformLocation(shaderProgramID, "vColor");
 
 	glutSwapBuffers();
 }
@@ -707,7 +877,7 @@ inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexNa
 }
 // init buffer
 void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
-	cout << "버퍼 초기화" << endl;
+	//cout << "버퍼 초기화" << endl;
 	GLuint VBO_position, VBO_color;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -731,7 +901,7 @@ void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize, co
 	glEnableVertexAttribArray(cAttribute);
 }
 void InitBufferTriangle(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
-	cout << "버퍼 초기화" << endl;
+	//cout << "버퍼 초기화" << endl;
 	GLuint VBO_position, VBO_color;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
