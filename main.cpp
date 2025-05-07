@@ -43,7 +43,7 @@ float windowWidth = 800;
 float windowHeight = 600;
 const float defaultSize = 0.05;
 
-constexpr float SAMPLE_GAP = 0.05f;
+constexpr float SAMPLE_INTERVAL = 0.01f;
 
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
@@ -60,7 +60,7 @@ vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]) {
 
 	vector<glm::vec3> bezierPoints;
 
-	for (float t = 0; t < 1; t += SAMPLE_GAP) {
+	for (float t = 0; t < 1; t += SAMPLE_INTERVAL) {
 		P = (1 - t) * (1 - t) * (1 - t) * ControlPoints[0] +
 			3 * (1 - t) * (1 - t) * t * ControlPoints[1] +
 			3 * (1 - t) * t * t * ControlPoints[2] +
@@ -195,7 +195,7 @@ glm::vec3* returnColorRand4() {
 	return color;
 }
 
-glm::vec3* setColor4(const glm::vec3 c1, const glm::vec3 c2, const glm::vec3 c3, const glm::vec3 c4) {
+glm::vec3* setColor4(const glm::vec3& c1, const glm::vec3& c2, const glm::vec3& c3, const glm::vec3& c4) {
 	glm::vec3 color[4];
 	color[0] = glm::vec3(c1);
 	color[1] = glm::vec3(c2);
@@ -256,7 +256,8 @@ struct Shape {
 	int vertices = 0;												// number of vertices
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
 	vector<ConstraintPoint> CP;										// constraint points
-	vector<int> index;												// index for rectangle
+	vector<int> index;		
+	vector<glm::vec3> normal;												// index for rectangle
 	float u = 0.0f;
 	float r = 0.0f;
 
@@ -265,6 +266,14 @@ struct Shape {
 		position.resize(vertices);
 		currentPosition.resize(vertices);
 		color.resize(vertices);
+		normal.resize(vertices);
+
+		for (int i = 0; i < vertices; i++) {
+			position[i] = glm::vec3(0.0f, 0.0f, 0.0f);
+			currentPosition[i] = glm::vec3(0.0f, 0.0f, 0.0f);
+			color[i] = glm::vec3(0.0f, 0.0f, 0.0f);
+		}
+
 		if (vertices == 4) {
 			index.resize(6);
 			index = vector<int>{ 0, 1, 2, 0, 2, 3 };
@@ -288,11 +297,38 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 	dst.position[1] = glm::vec3(vertex2);
 	dst.position[2] = glm::vec3(vertex3);
 	dst.position[3] = glm::vec3(vertex4);
+
+	glm::vec3 v1 = vertex1 - vertex2;
+	glm::vec3 v2 = vertex1 - vertex4;
+	glm::vec3 n = glm::cross(v1, v2);
+
+	dst.normal[0] = glm::cross(vertex3 - vertex1, vertex4 - vertex1);
+	dst.normal[1] = glm::cross(vertex1 - vertex2, vertex3 - vertex2);
+	dst.normal[2] = glm::cross(vertex2 - vertex3, vertex1 - vertex3);
+	dst.normal[3] = glm::cross(vertex1 - vertex4, vertex3 - vertex4);
+
+	for (int i = 0; i < 4; i++) {
+		if (glm::length(dst.normal[i]) < 1e-6f) {
+			dst.normal[0] = glm::vec3(0.0f, 1.0f, 0.0f);
+			dst.normal[1] = glm::vec3(0.0f, 1.0f, 0.0f);
+			dst.normal[2] = glm::vec3(0.0f, 1.0f, 0.0f);
+			dst.normal[3] = glm::vec3(0.0f, 1.0f, 0.0f);
+		}
+		else {
+			dst.normal[i] = glm::normalize(dst.normal[i]);
+		}
+	}
+
+	/*for (int i = 0; i < 4; i++) {
+		cout << "dst.normal[" << i << "]: " << dst.normal[i].x << ", " << dst.normal[i].y << ", " << dst.normal[i].z << endl;
+	}*/
+	
+
 	for (int i = 0; i < 4; i++) {
 		dst.color[i] = glm::vec3(c[i]);
 	}
 	
-	InitBufferRectangle(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), nullptr, 0);
+	InitBufferRectangle(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
 // normal vector of a, b
@@ -321,12 +357,13 @@ vector<Shape> rectangles;
 
 glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
 vector<Shape> GridLines;
+vector<Shape> GridRectangles;
+
+glm::vec3 LightSource = glm::vec3(0.0f, 5.0f, 0.0f);
 
 float DiffusionGrid[TERRAIN_SIZE-1][TERRAIN_SIZE-1];
 
 float noiseMap[1024][1024];
-
-glm::vec3 color000 = glm::vec3(0.0f, 0.0f, 0.0f);
 
 void main(int argc, char** argv) {
 	glutInit(&argc, argv);
@@ -364,6 +401,10 @@ void init() {
 	projectionLocation = glGetUniformLocation(shaderProgramID, "projectionTransform");
 	modelTransformLococation = glGetUniformLocation(shaderProgramID, "modelTransform");
 	
+	unsigned int lightSourceLocation = glGetUniformLocation(shaderProgramID, "lightPos");
+	//unsigned int lightColorLocation = glGetUniformLocation(shaderProgramID, "lightColor");
+	//glUniform3f(lightColorLocation, 1.0f, 1.0f, 1.0f);
+
 	// axes
 	Shape* temp = new Shape(2);
 	setLine(*temp, glm::vec3(-4.0, 0.0, 0.0), glm::vec3(4.0, 0.0, 0.0), returnColorRand2());
@@ -374,8 +415,8 @@ void init() {
 	axes.push_back(*temp);
 	delete(temp);
 
-	camera[0] = glm::vec3(-0.1, 0.2, 0.3);
-	camera[1] = glm::vec3(0.0, 0.0, 0.0);
+	camera[0] = glm::vec3(0.4, 0.2, 0.8);
+	camera[1] = glm::vec3(0.5, 0.0, 0.5);
 	camera[2] = glm::vec3(0.0f, 1.0f, 0.0f);
 	view = glm::lookAt(camera[0], camera[1], camera[2]);
 	CameraForward = camera[1] - camera[0];;
@@ -390,10 +431,10 @@ void init() {
 
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	glm::vec3 ControlPoints[4] = { 
-		glm::vec3(0.3f, 0.2f, 0.3f),
-		glm::vec3(0.5f, 0.5f, 0.8f),
-		glm::vec3(0.7f, 0.1f, 0.2f),
-		glm::vec3(0.9f, 0.7f, 0.5f)
+		glm::vec3(0.3f, 0.1f, 0.3f),
+		glm::vec3(0.5f, 0.3f, 0.8f),
+		glm::vec3(0.7f, 0.7f, 0.2f),
+		glm::vec3(0.9f, 0.4f, 0.5f)
 	};
 
 	vector<glm::vec3> bezierPoints = bezier(ControlPoints);  // points for bezier curve
@@ -433,7 +474,7 @@ void init() {
 	c3.a = 0.3f;
 	c3.alpha = 30.0f;
 	c3.b = 0.3f;
-	c3.beta = 45.0f;
+	c3.beta = 30.0f;
 	c3.u = 0.8f;
 
 	ConstraintPoint c4; // constraint height
@@ -466,14 +507,33 @@ void init() {
 		// if this condition is satisfied, it means that an interpolated r value exists in the segment, so a rectangle is generated.
 		// next, the rectangle is generated based on whether both constraintPoint A and B have r, or only one of them does.
 		// then, the same branching logic is applied to a and b to modify the size of the rectangle.
-		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
+		/*if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_BETA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_BETA)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_ALPHA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_ALPHA)) continue;*/
 
-		for (float u = u1; u < u2; u += SAMPLE_GAP) {
-		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + SAMPLE_GAP) - pointOnBezier(ControlPoints, u)) / SAMPLE_GAP;
+		for (float u = u1; u < u2; u += SAMPLE_INTERVAL) {
+		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - pointOnBezier(ControlPoints, u)) / SAMPLE_INTERVAL;
 			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
 			float t = (u - u1) / (u2 - u1);
-			Shape* rectA = new Shape(4);
-			Shape* rectB = new Shape(4);
+			Shape rectA(4);
+			Shape rectB(4);
+			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
+			
+
+			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * 0.0f,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * 0.0f,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u),
+				black);
+
+			setRectangle(rectB, pointOnBezier(ControlPoints, u),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * 0.0f,
+				pointOnBezier(ControlPoints, u) - normal * 0.0f,
+				black);
 
 			float interpolatedr = 0.0f;
 			
@@ -486,17 +546,17 @@ void init() {
 			else interpolatedr = hold(constraintPoints[i + 1].r, t);
 
 			
-			setRectangle(*rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
-				pointOnBezier(ControlPoints, u + SAMPLE_GAP) + normal * interpolatedr,
-				pointOnBezier(ControlPoints, u + SAMPLE_GAP),
+			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
 				pointOnBezier(ControlPoints, u),
-				setColor4(color000, color000, color000, color000));
+				black);
 
-			setRectangle(*rectB, pointOnBezier(ControlPoints, u),
-				pointOnBezier(ControlPoints, u + SAMPLE_GAP),
-				pointOnBezier(ControlPoints, u + SAMPLE_GAP) - normal * interpolatedr,
+			setRectangle(rectB, pointOnBezier(ControlPoints, u),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * interpolatedr,
 				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
-				setColor4(color000, color000, color000, color000));
+				black);
 			
 			
 			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) {
@@ -517,14 +577,21 @@ void init() {
 					interpolatedAlpha = hold(constraintPoints[i + 1].alpha, t);
 				}
 
-				glm::vec3 gradientVector = glm::vec3(normal.x, normal.z, glm::tan(glm::radians(interpolatedAlpha)));
+				interpolatedAlpha = glm::clamp(interpolatedAlpha, -30.0f, 30.0f);
+				float tan = glm::tan(glm::radians(interpolatedAlpha));
 
-				setRectangle(*rectA, (*rectA).position[0] + normal * interpolateda,
-									 (*rectA).position[1] + normal * interpolateda,
-									 (*rectA).position[2],
-									 (*rectA).position[3],
-									 setColor4(color000, color000, gradientVector, gradientVector));
+				glm::vec3 gradientVector = glm::vec3(normal.x, normal.z, tan);
+				gradientVector = glm::normalize(gradientVector);
 
+				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
+												glm::clamp(gradientVector.y, 0.0f, 1.0f),
+												glm::clamp(gradientVector.z, 0.0f, 1.0f));
+
+				setRectangle(rectA, (rectA).position[0] + normal * interpolateda,
+									 (rectA).position[1] + normal * interpolateda,
+									 (rectA).position[2],
+									 (rectA).position[3],
+									 setColor4(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor));
 				
 			}
 			
@@ -546,22 +613,34 @@ void init() {
 					interpolatedb = hold(constraintPoints[i + 1].b, t);
 					interpolatedBeta = hold(constraintPoints[i + 1].beta, t);
 				}
-				glm::vec3 gradientVector = glm::vec3(-normal.x, -normal.z, glm::tan(glm::radians(interpolatedBeta)));
-				setRectangle(*rectB, (*rectB).position[0],
-									 (*rectB).position[1],
-									 (*rectB).position[2] - normal * interpolatedb,
-									 (*rectB).position[3] - normal * interpolatedb,
-									 setColor4(gradientVector, gradientVector, color000, color000));
+
+				interpolatedBeta = glm::clamp(interpolatedBeta, -30.0f, 30.0f);
+
+				float tan = glm::tan(glm::radians(interpolatedBeta));
+				glm::vec3 gradientVector = glm::vec3(-normal.x, -normal.z, tan);
+
+				gradientVector = glm::normalize(gradientVector);
+
+				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
+												glm::clamp(gradientVector.y, 0.0f, 1.0f),
+												glm::clamp(gradientVector.z, 0.0f, 1.0f));
+
+				setRectangle(rectB, (rectB).position[0],
+									 (rectB).position[1],
+									 (rectB).position[2] - normal * interpolatedb,
+									 (rectB).position[3] - normal * interpolatedb,
+									 setColor4(clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f)));
 			}
 			
-			rectA->u = u1 + t;
-			rectB->u = u1 + t;
-			rectA->r = interpolatedr;
-			rectB->r = interpolatedr;
-			rectangles.push_back(*rectA);
-			rectangles.push_back(*rectB);
-			delete(rectA);
-			delete(rectB);
+			rectA.u = u1 + t;
+			rectB.u = u1 + t;
+			rectA.r = interpolatedr;
+			rectB.r = interpolatedr;
+			rectangles.push_back(rectA);
+			rectangles.push_back(rectB);
+
+
+
 
 			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
@@ -569,7 +648,7 @@ void init() {
 
 	}
 
-	for (auto& r : rectangles) {
+	for (const auto& r : rectangles) {
 		for (int i = 0; i < TERRAIN_SIZE; i++) {
 			for (int j = 0; j < TERRAIN_SIZE; j++) {
 				if (GridPoints[i][j].y != 0.0f) continue;
@@ -589,17 +668,14 @@ void init() {
 					float Distance = glm::length(p - DiffusionSource);
 					glm::vec3 Direction = glm::vec3(p.x - DiffusionSource.x, 0.0f, p.y - DiffusionSource.y);
 					float height = 0.0f;
-					if (Distance < r.r) {
-						continue;
-					}
+					if (Distance < r.r) continue;
 					for (int l = 0; l < 4; l++) {
-						if (r.color[l] != color000) {
+						if (r.color[l] != glm::vec3(0.0, 0.0, 0.0)) {
 							height = glm::dot(Direction, r.color[l]);
 							break;
 						}
 					}
 					GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y - height;
-					
 				}
 			}
 		}
@@ -625,6 +701,22 @@ void init() {
 		setLine(*line, GridPoints[20][i], GridPoints[20][i + 1], returnColorBK2());
 		GridLines.push_back(*line);
 	}
+
+	for (int i = 0; i < TERRAIN_SIZE - 1; i++) {
+		for (int j = 0; j < TERRAIN_SIZE - 1; j++) {
+			Shape* rect = new Shape(4);
+			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
+			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+			setRectangle(*rect,
+				GridPoints[i][j],
+				GridPoints[i][j + 1],
+				GridPoints[i + 1][j + 1],
+				GridPoints[i + 1][j],
+				gray);
+			GridRectangles.push_back(*rect);
+		}
+	}
+
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
 	glEnable(GL_DEPTH_TEST);
@@ -681,7 +773,10 @@ GLvoid drawScene() {
 		draw(c);
 	}
 
-	draw(GridLines);
+	//draw(rectangles);
+	//draw(GridLines);
+	draw(GridRectangles);
+
 
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
@@ -928,7 +1023,7 @@ void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int posit
 	const glm::vec3* color, const int colorSize,
 	const int* index, const int indexSize, const glm::vec3* normals, const int normalSize) {
 	//cout << "EBO 초기화" << endl;
-	GLuint VBO_position, VBO_color, NBO, EBO;
+	GLuint VBO_position, VBO_color, VBO_normal, EBO;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
@@ -936,22 +1031,39 @@ void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int posit
 	glBindBuffer(GL_ARRAY_BUFFER, VBO_position);
 	glBufferData(GL_ARRAY_BUFFER, 3 * positionSize * sizeof(float), position, GL_STATIC_DRAW);
 
-	glGenBuffers(1, &EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexSize * sizeof(int), index, GL_STATIC_DRAW);
-
 	GLint pAttribute = glGetAttribLocation(shaderProgramID, "vPos");
 	if (pAttribute < 0) cout << "pAttribute < 0" << endl;
 	glVertexAttribPointer(pAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glEnableVertexAttribArray(pAttribute);
 
+	while (pAttribute < 0);
+
 	glGenBuffers(1, &VBO_color);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
-
 	glBufferData(GL_ARRAY_BUFFER, 3 * colorSize * sizeof(float), color, GL_STATIC_DRAW);
+
 	GLint cAttribute = glGetAttribLocation(shaderProgramID, "vColor");
 	if (cAttribute < 0) cout << "cAttribute < 0" << endl;
 	glVertexAttribPointer(cAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glEnableVertexAttribArray(cAttribute);
+
+	glGenBuffers(1, &VBO_normal);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_normal);
+	glBufferData(GL_ARRAY_BUFFER, 3 * normalSize * sizeof(float), normals, GL_STATIC_DRAW);
+
+	GLint nAttribute = glGetAttribLocation(shaderProgramID, "vNormal");
+	if (nAttribute < 0) {
+		cout << "nAttribute < 0" << endl;
+		cout << normalSize << endl;
+		for (int i = 0; i < normalSize; i++) {
+			cout << normals[i].x << ", " << normals[i].y << ", " << normals[i].z << endl;
+		}
+	}
+	glVertexAttribPointer(nAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+	glEnableVertexAttribArray(nAttribute);
+
+	glGenBuffers(1, &EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexSize * sizeof(int), index, GL_STATIC_DRAW);
 
 }
