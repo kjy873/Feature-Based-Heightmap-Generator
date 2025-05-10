@@ -85,6 +85,10 @@ void normalize(glm::vec3& v) {
 	v = (v / static_cast<float>(RESOLUTION)) * 2.0f - 1.0f;
 }
 
+inline float Cross2D(const glm::vec2& a, const glm::vec2& b) {
+	return a.x * b.y - a.y * b.x;
+}
+
 // two constraint points at least are attached to a curve, at extremities
 // height, radius, gradient constraint range, gradient constraint angle, position on curve attached and noise parameters(A, R)
 // constraints can include any combination of the six elements except for u (position), which is always required.
@@ -105,6 +109,14 @@ struct ConstraintPoint {
 		HAS_RESPONSE = 1 << 7
 	};
 };
+
+bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c) {
+	float cross1 = Cross2D(b - a, p - a);
+	float cross2 = Cross2D(c - b, p - b);
+	float cross3 = Cross2D(a - c, p - c);
+	return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0) || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0);
+
+}
 
 // linear interpolation
 float lerp(float a, float b, float t) {
@@ -243,9 +255,7 @@ void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int posit
 	const int* index, const int indexSize, const glm::vec3* normals, const int normalSize);
 inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexName, GLuint& fragment, const char* fragmentName);
 
-inline float Cross2D(const glm::vec2& a, const glm::vec2& b) {
-	return a.x * b.y - a.y * b.x;
-}
+
 
 // shape struct
 struct Shape {
@@ -535,6 +545,8 @@ void init() {
 				pointOnBezier(ControlPoints, u) - normal * 0.0f,
 				black);
 
+			//cout << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
+
 			float interpolatedr = 0.0f;
 			
 			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
@@ -586,13 +598,15 @@ void init() {
 				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
 												glm::clamp(gradientVector.y, 0.0f, 1.0f),
 												glm::clamp(gradientVector.z, 0.0f, 1.0f));
-
+				//cout << "clampColor: " << clampColor.x << ", " << clampColor.y << ", " << clampColor.z << endl;
+				//cout << gradientVector.x << ", " << gradientVector.y << ", " << gradientVector.z << endl;
+				glm::vec3 colorA[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor };
 				setRectangle(rectA, (rectA).position[0] + normal * interpolateda,
 									 (rectA).position[1] + normal * interpolateda,
 									 (rectA).position[2],
 									 (rectA).position[3],
-									 setColor4(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor));
-				
+									 colorA);
+				//cout << "rectA.color[0]: " << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
 			}
 			
 			
@@ -624,12 +638,16 @@ void init() {
 				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
 												glm::clamp(gradientVector.y, 0.0f, 1.0f),
 												glm::clamp(gradientVector.z, 0.0f, 1.0f));
+				glm::vec3 colorB[4] = { clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
+
 
 				setRectangle(rectB, (rectB).position[0],
 									 (rectB).position[1],
 									 (rectB).position[2] - normal * interpolatedb,
 									 (rectB).position[3] - normal * interpolatedb,
-									 setColor4(clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f)));
+									 colorB);
+
+				//cout << "rectB.color[0]: " << rectB.color[0].x << ", " << rectB.color[0].y << ", " << rectB.color[0].z << endl;
 			}
 			
 			rectA.u = u1 + t;
@@ -658,12 +676,12 @@ void init() {
 				glm::vec2 p2 = glm::vec2(r.position[2].x, r.position[2].z);
 				glm::vec2 p3 = glm::vec2(r.position[3].x, r.position[3].z);
 				
-				float cross1 = Cross2D(p1 - p0, p - p0);
+				/*float cross1 = Cross2D(p1 - p0, p - p0);
 				float cross2 = Cross2D(p2 - p1, p - p1);
 				float cross3 = Cross2D(p3 - p2, p - p2);
-				float cross4 = Cross2D(p0 - p3, p - p3);
+				float cross4 = Cross2D(p0 - p3, p - p3);*/
 
-				if ((cross1 > 0 && cross2 > 0 && cross3 > 0 && cross4 > 0) || (cross1 < 0 && cross2 < 0 && cross3 < 0 && cross4 < 0)) {
+				if (isInTriangle(p, p0, p1, p2) || isInTriangle(p, p0, p2, p3)) {
 					glm::vec2 DiffusionSource = glm::vec2(pointOnBezier(ControlPoints, r.u).x, pointOnBezier(ControlPoints, r.u).z);
 					float Distance = glm::length(p - DiffusionSource);
 					glm::vec3 Direction = glm::vec3(p.x - DiffusionSource.x, 0.0f, p.y - DiffusionSource.y);
@@ -672,10 +690,14 @@ void init() {
 					for (int l = 0; l < 4; l++) {
 						if (r.color[l] != glm::vec3(0.0, 0.0, 0.0)) {
 							height = glm::dot(Direction, r.color[l]);
+							//cout << height << endl;
+							//cout << r.color[l].x << ", " << r.color[l].y << ", " << r.color[l].z << endl;
 							break;
 						}
 					}
 					GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y - height;
+					if (GridPoints[i][j].y == 0.0f) cout << "height is zero" << endl;
+					
 				}
 			}
 		}
