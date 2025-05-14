@@ -43,7 +43,7 @@ float windowWidth = 800;
 float windowHeight = 600;
 const float defaultSize = 0.05;
 
-constexpr float SAMPLE_INTERVAL = 0.01f;
+constexpr float SAMPLE_INTERVAL = 0.001f;
 
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
@@ -127,6 +127,10 @@ float lerp(float a, float b, float t) {
 float hold(float p, float t) {
 	return (1 - t) * p + t * p;
 }
+
+
+
+
 
 void Perlin(float noise[1024][1024]) {
 	glm::vec2 gradient[1025][1025];
@@ -328,10 +332,6 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 			dst.normal[i] = glm::normalize(dst.normal[i]);
 		}
 	}
-
-	/*for (int i = 0; i < 4; i++) {
-		cout << "dst.normal[" << i << "]: " << dst.normal[i].x << ", " << dst.normal[i].y << ", " << dst.normal[i].z << endl;
-	}*/
 	
 
 	for (int i = 0; i < 4; i++) {
@@ -374,6 +374,171 @@ glm::vec3 LightSource = glm::vec3(0.0f, 5.0f, 0.0f);
 float DiffusionGrid[TERRAIN_SIZE-1][TERRAIN_SIZE-1];
 
 float noiseMap[1024][1024];
+
+// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+// rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
+// since it is linearly approximated, the direction is perpendicular to each segment (u₂ - u₁)
+
+// elevation is interpolated using cubic interpolation.
+// since the four currently defined constraints do not allow elevation interpolation, it will be performed
+// additionally, issues caused by curve intersections will also be addressed later
+void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList) {
+	for (int i = 0; i < constraintPoints.size() - 1; i++) {
+		float u1 = constraintPoints[i].u;
+		float u2 = constraintPoints[i + 1].u;
+
+		// if this condition is satisfied, it means that an interpolated r value exists in the segment, so a rectangle is generated.
+		// next, the rectangle is generated based on whether both constraintPoint A and B have r, or only one of them does.
+		// then, the same branching logic is applied to a and b to modify the size of the rectangle.
+		/*if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_BETA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_BETA)) continue;
+		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_ALPHA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_ALPHA)) continue;*/
+
+		for (float u = u1; u < u2; u += SAMPLE_INTERVAL) {
+			glm::vec3 tangent = (pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - pointOnBezier(ControlPoints, u)) / SAMPLE_INTERVAL;
+			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
+			float t = (u - u1) / (u2 - u1);
+			Shape rectA(4);
+			Shape rectB(4);
+			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
+
+
+			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * 0.0f,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * 0.0f,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u),
+				black);
+
+			setRectangle(rectB, pointOnBezier(ControlPoints, u),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * 0.0f,
+				pointOnBezier(ControlPoints, u) - normal * 0.0f,
+				black);
+
+			//cout << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
+
+			float interpolatedr = 0.0f;
+
+			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
+				if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R) {
+					interpolatedr = lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
+				}
+				else interpolatedr = hold(constraintPoints[i].r, t);
+			}
+			else interpolatedr = hold(constraintPoints[i + 1].r, t);
+
+
+			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * interpolatedr,
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u),
+				black);
+
+			setRectangle(rectB, pointOnBezier(ControlPoints, u),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
+				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * interpolatedr,
+				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
+				black);
+
+
+			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) {
+				float interpolateda = 0.0f;
+				float interpolatedAlpha = 0.0f;
+				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) {
+					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A) {
+						interpolateda = lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
+						interpolatedAlpha = lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
+					}
+					else {
+						interpolateda = hold(constraintPoints[i].a, t);
+						interpolatedAlpha = hold(constraintPoints[i].alpha, t);
+					}
+				}
+				else {
+					interpolateda = hold(constraintPoints[i + 1].a, t);
+					interpolatedAlpha = hold(constraintPoints[i + 1].alpha, t);
+				}
+
+				interpolatedAlpha = glm::clamp(interpolatedAlpha, -30.0f, 30.0f);
+				float tan = glm::tan(glm::radians(interpolatedAlpha));
+
+				glm::vec3 gradientVector = glm::vec3(normal.x, normal.z, tan);
+				gradientVector = glm::normalize(gradientVector);
+
+				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
+					glm::clamp(gradientVector.y, 0.0f, 1.0f),
+					glm::clamp(gradientVector.z, 0.0f, 1.0f));
+				//cout << "clampColor: " << clampColor.x << ", " << clampColor.y << ", " << clampColor.z << endl;
+				//cout << gradientVector.x << ", " << gradientVector.y << ", " << gradientVector.z << endl;
+				glm::vec3 colorA[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor };
+				setRectangle(rectA, (rectA).position[0] + normal * interpolateda,
+					(rectA).position[1] + normal * interpolateda,
+					(rectA).position[2],
+					(rectA).position[3],
+					colorA);
+				//cout << "rectA.color[0]: " << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
+			}
+
+
+			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) {
+				float interpolatedb = 0.0f;
+				float interpolatedBeta = 0.0f;
+				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) {
+					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B) {
+						interpolatedb = lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
+						interpolatedBeta = lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
+					}
+					else {
+						interpolatedb = hold(constraintPoints[i].b, t);
+						interpolatedBeta = hold(constraintPoints[i].beta, t);
+					}
+				}
+				else {
+					interpolatedb = hold(constraintPoints[i + 1].b, t);
+					interpolatedBeta = hold(constraintPoints[i + 1].beta, t);
+				}
+
+				interpolatedBeta = glm::clamp(interpolatedBeta, -30.0f, 30.0f);
+
+				float tan = glm::tan(glm::radians(interpolatedBeta));
+				glm::vec3 gradientVector = glm::vec3(-normal.x, -normal.z, tan);
+
+				gradientVector = glm::normalize(gradientVector);
+
+				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
+					glm::clamp(gradientVector.y, 0.0f, 1.0f),
+					glm::clamp(gradientVector.z, 0.0f, 1.0f));
+				glm::vec3 colorB[4] = { clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
+
+
+				setRectangle(rectB, (rectB).position[0],
+					(rectB).position[1],
+					(rectB).position[2] - normal * interpolatedb,
+					(rectB).position[3] - normal * interpolatedb,
+					colorB);
+
+				//cout << "rectB.color[0]: " << rectB.color[0].x << ", " << rectB.color[0].y << ", " << rectB.color[0].z << endl;
+			}
+
+			rectA.u = u;
+			rectB.u = u;
+			rectA.r = interpolatedr;
+			rectB.r = interpolatedr;
+			RectList.push_back(rectA);
+			RectList.push_back(rectB);
+
+
+
+
+			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+
+		}
+
+	}
+}
 
 void main(int argc, char** argv) {
 	glutInit(&argc, argv);
@@ -503,173 +668,13 @@ void init() {
 		}
 	}
 
-	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-	// rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
-	// since it is linearly approximated, the direction is perpendicular to each segment (u₂ - u₁)
+	Rasterization_rect(ControlPoints, constraintPoints, rectangles);
 
-	// elevation is interpolated using cubic interpolation.
-	// since the four currently defined constraints do not allow elevation interpolation, it will be performed
-	// additionally, issues caused by curve intersections will also be addressed later
-	for (int i = 0; i < constraintPoints.size() - 1; i++) {
-		float u1 = constraintPoints[i].u;
-		float u2 = constraintPoints[i + 1].u;
-
-		// if this condition is satisfied, it means that an interpolated r value exists in the segment, so a rectangle is generated.
-		// next, the rectangle is generated based on whether both constraintPoint A and B have r, or only one of them does.
-		// then, the same branching logic is applied to a and b to modify the size of the rectangle.
-		/*if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
-		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R)) continue;
-		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) continue;
-		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) continue;
-		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_BETA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_BETA)) continue;
-		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_ALPHA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_ALPHA)) continue;*/
-
-		for (float u = u1; u < u2; u += SAMPLE_INTERVAL) {
-		    glm::vec3 tangent = (pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - pointOnBezier(ControlPoints, u)) / SAMPLE_INTERVAL;
-			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
-			float t = (u - u1) / (u2 - u1);
-			Shape rectA(4);
-			Shape rectB(4);
-			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
-			
-
-			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * 0.0f,
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * 0.0f,
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-				pointOnBezier(ControlPoints, u),
-				black);
-
-			setRectangle(rectB, pointOnBezier(ControlPoints, u),
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * 0.0f,
-				pointOnBezier(ControlPoints, u) - normal * 0.0f,
-				black);
-
-			//cout << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
-
-			float interpolatedr = 0.0f;
-			
-			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
-				if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R) {
-					interpolatedr = lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
-				}
-				else interpolatedr = hold(constraintPoints[i].r, t);
-			}
-			else interpolatedr = hold(constraintPoints[i + 1].r, t);
-
-			
-			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * interpolatedr,
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-				pointOnBezier(ControlPoints, u),
-				black);
-
-			setRectangle(rectB, pointOnBezier(ControlPoints, u),
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * interpolatedr,
-				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
-				black);
-			
-			
-			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) {
-				float interpolateda = 0.0f;
-				float interpolatedAlpha = 0.0f;
-				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) {
-					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A) {
-						interpolateda = lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
-						interpolatedAlpha = lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
-					}
-					else {
-						interpolateda = hold(constraintPoints[i].a, t);
-						interpolatedAlpha = hold(constraintPoints[i].alpha, t);
-					}
-				}
-				else {
-					interpolateda = hold(constraintPoints[i + 1].a, t);
-					interpolatedAlpha = hold(constraintPoints[i + 1].alpha, t);
-				}
-
-				interpolatedAlpha = glm::clamp(interpolatedAlpha, -30.0f, 30.0f);
-				float tan = glm::tan(glm::radians(interpolatedAlpha));
-
-				glm::vec3 gradientVector = glm::vec3(normal.x, normal.z, tan);
-				gradientVector = glm::normalize(gradientVector);
-
-				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
-												glm::clamp(gradientVector.y, 0.0f, 1.0f),
-												glm::clamp(gradientVector.z, 0.0f, 1.0f));
-				//cout << "clampColor: " << clampColor.x << ", " << clampColor.y << ", " << clampColor.z << endl;
-				//cout << gradientVector.x << ", " << gradientVector.y << ", " << gradientVector.z << endl;
-				glm::vec3 colorA[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor };
-				setRectangle(rectA, (rectA).position[0] + normal * interpolateda,
-									 (rectA).position[1] + normal * interpolateda,
-									 (rectA).position[2],
-									 (rectA).position[3],
-									 colorA);
-				//cout << "rectA.color[0]: " << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
-			}
-			
-			
-			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) {
-				float interpolatedb = 0.0f;
-				float interpolatedBeta = 0.0f;
-				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) {
-					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B) {
-						interpolatedb = lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
-						interpolatedBeta = lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
-					}
-					else {
-						interpolatedb = hold(constraintPoints[i].b, t);
-						interpolatedBeta = hold(constraintPoints[i].beta, t);
-					}
-				}
-				else {
-					interpolatedb = hold(constraintPoints[i + 1].b, t);
-					interpolatedBeta = hold(constraintPoints[i + 1].beta, t);
-				}
-
-				interpolatedBeta = glm::clamp(interpolatedBeta, -30.0f, 30.0f);
-
-				float tan = glm::tan(glm::radians(interpolatedBeta));
-				glm::vec3 gradientVector = glm::vec3(-normal.x, -normal.z, tan);
-
-				gradientVector = glm::normalize(gradientVector);
-
-				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
-												glm::clamp(gradientVector.y, 0.0f, 1.0f),
-												glm::clamp(gradientVector.z, 0.0f, 1.0f));
-				glm::vec3 colorB[4] = { clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
-
-
-				setRectangle(rectB, (rectB).position[0],
-									 (rectB).position[1],
-									 (rectB).position[2] - normal * interpolatedb,
-									 (rectB).position[3] - normal * interpolatedb,
-									 colorB);
-
-				//cout << "rectB.color[0]: " << rectB.color[0].x << ", " << rectB.color[0].y << ", " << rectB.color[0].z << endl;
-			}
-			
-			rectA.u = u1 + t;
-			rectB.u = u1 + t;
-			rectA.r = interpolatedr;
-			rectB.r = interpolatedr;
-			rectangles.push_back(rectA);
-			rectangles.push_back(rectB);
-
-
-
-
-			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-
-		}
-
-	}
 
 	for (const auto& r : rectangles) {
 		for (int i = 0; i < TERRAIN_SIZE; i++) {
 			for (int j = 0; j < TERRAIN_SIZE; j++) {
-				if (GridPoints[i][j].y != 0.0f) continue;
+				//if (GridPoints[i][j].y != 0.0f) continue;
 				glm::vec2 p = glm::vec2(GridPoints[i][j].x, GridPoints[i][j].z);
 				glm::vec2 p0 = glm::vec2(r.position[0].x, r.position[0].z);
 				glm::vec2 p1 = glm::vec2(r.position[1].x, r.position[1].z);
@@ -686,11 +691,14 @@ void init() {
 					float Distance = glm::length(p - DiffusionSource);
 					glm::vec3 Direction = glm::vec3(p.x - DiffusionSource.x, 0.0f, p.y - DiffusionSource.y);
 					float height = 0.0f;
-					if (Distance < r.r) continue;
+					if (Distance <= r.r) {
+						GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y;
+						continue;
+					}
 					for (int l = 0; l < 4; l++) {
 						if (r.color[l] != glm::vec3(0.0, 0.0, 0.0)) {
 							height = glm::dot(Direction, r.color[l]);
-							//cout << height << endl;
+							cout << height << endl;
 							//cout << r.color[l].x << ", " << r.color[l].y << ", " << r.color[l].z << endl;
 							break;
 						}
