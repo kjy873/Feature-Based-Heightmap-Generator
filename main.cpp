@@ -239,7 +239,9 @@ GLvoid Reshape(int w, int h);
 GLvoid Keyboard(unsigned char key, int x, int y);
 GLvoid KeyboardUp(unsigned char key, int x, int y);
 void mouse(int button, int state, int x, int y);
+void mouseWheel(int button, int dir, int x, int y);
 void init();
+void initSplineSurface();
 void motion(int x, int y);
 GLvoid CameraTimer(int value);
 GLchar* filetobuf(const char* filepath);
@@ -580,6 +582,7 @@ void main(int argc, char** argv) {
 	glUseProgram(shaderProgramID);
 
 	init();
+	initSplineSurface();
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(Reshape);
 	glutKeyboardFunc(Keyboard);
@@ -587,6 +590,7 @@ void main(int argc, char** argv) {
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
 	glutTimerFunc(10, CameraTimer, 0);
+	glutMouseWheelFunc(mouseWheel);
 
 	glutMainLoop();
 }
@@ -599,8 +603,6 @@ void init() {
 	modelTransformLococation = glGetUniformLocation(shaderProgramID, "modelTransform");
 	
 	unsigned int lightSourceLocation = glGetUniformLocation(shaderProgramID, "lightPos");
-	//unsigned int lightColorLocation = glGetUniformLocation(shaderProgramID, "lightColor");
-	//glUniform3f(lightColorLocation, 1.0f, 1.0f, 1.0f);
 
 	// axes
 	Shape* temp = new Shape(2);
@@ -618,49 +620,7 @@ void init() {
 	view = glm::lookAt(camera[0], camera[1], camera[2]);
 	CameraForward = camera[1] - camera[0];;
 
-	glm::vec3 controlPoints[4][4] = {
-	{ {0, 0, 0}, {1, 0, 0}, {2, 0, 0}, {3, 0, 0} },
-	{ {0, 0, 1}, {1, 0, 1}, {2, 0, 1}, {3, 0, 1} },
-	{ {0, 0, 2}, {1, 0, 2}, {2, 0, 2}, {3, 0, 2} },
-	{ {0, 0, 3}, {1, 0, 3}, {2, 0, 3}, {3, 0, 3} }
-	};
-
-	int u_degree = 3;
-	int v_degree = 3;
-
-	vector<float> KnotVectorU = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-	vector<float> KnotVectorV = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-
-	for (float u = 0.0f; u < 1.0f; u += SAMPLE_INTERVAL) {
-		for(float v = 0.0f; v < 1.0f; v += SAMPLE_INTERVAL) {
-			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
-			for (int i = 0; i < 4; i++) {
-				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
-				for (int j = 0; j < 4; j++) {
-					float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
-					CurrentPoint += controlPoints[i][j] * PointU * PointV;
-				}
-			}
-			SurfacePoints.push_back(CurrentPoint);
-		}
-	}
-
-	int SizeU = sqrt(SurfacePoints.size());
-	int SizeV = sqrt(SurfacePoints.size());
-
-	Shape* tempRect = new Shape(4);
-	for(int i = 0; i < SizeU - 1; i++) {
-		for (int j = 0; j < SizeV - 1; j++) {
-			int index = i * SizeV + j;
-			glm::vec3 p1 = SurfacePoints[index];
-			glm::vec3 p2 = SurfacePoints[index + 1];
-			glm::vec3 p3 = SurfacePoints[index + SizeV + 1];
-			glm::vec3 p4 = SurfacePoints[index + SizeV];
-			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setRectangle(*tempRect, p1, p2, p3, p4, gray);
-			rectangles.push_back(*tempRect);
-		}
-	}
+	
 
 	//// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	//glm::vec3 ControlPoints[4] = { 
@@ -810,6 +770,55 @@ void init() {
 	glEnable(GL_DEPTH_TEST);
 }
 
+void initSplineSurface() {
+	glm::vec3 controlPoints[4][4] = {
+	{ {0, 1, 0}, {1, 1, 0}, {2, 1, 0}, {3, 1, 0} },
+	{ {0, 0, 1}, {1, 0, 1}, {2, 0, 1}, {3, 0, 1} },
+	{ {0, 1, 2}, {1, 1, 2}, {2, 1, 2}, {3, 1, 2} },
+	{ {0, 0, 3}, {1, 0, 3}, {2, 0, 3}, {3, 0, 3} }
+	};
+
+	int ControlPointRows = 4;
+	int ControlPointCols = 4;
+
+	int u_degree = 3;
+	int v_degree = 3;
+
+	vector<float> KnotVectorU = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+	vector<float> KnotVectorV = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+
+	for (float u = 0.0f; u < 1.0f; u += SAMPLE_INTERVAL) {
+		for (float v = 0.0f; v < 1.0f; v += SAMPLE_INTERVAL) {
+			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
+			for (int i = 0; i < ControlPointRows; i++) {
+				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
+				for (int j = 0; j < ControlPointCols; j++) {
+					float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
+					CurrentPoint += controlPoints[i][j] * PointU * PointV;
+				}
+			}
+			SurfacePoints.push_back(CurrentPoint);
+		}
+	}
+
+	int SizeU = sqrt(SurfacePoints.size());
+	int SizeV = sqrt(SurfacePoints.size());
+
+	Shape* tempRect = new Shape(4);
+	for (int i = 0; i < SizeU - 1; i++) {
+		for (int j = 0; j < SizeV - 1; j++) {
+			int index = i * SizeV + j;
+			glm::vec3 p1 = SurfacePoints[index];
+			glm::vec3 p2 = SurfacePoints[index + 1];
+			glm::vec3 p3 = SurfacePoints[index + SizeV + 1];
+			glm::vec3 p4 = SurfacePoints[index + SizeV];
+			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+			setRectangle(*tempRect, p1, p2, p3, p4, gray);
+			rectangles.push_back(*tempRect);
+		}
+	}
+}
+
 void idleScene() {
 	glutPostRedisplay();
 }
@@ -935,6 +944,16 @@ void mouse(int button, int state, int x, int y) {
 	glutPostRedisplay();
 }
 
+void mouseWheel(int wheel, int direction, int x, int y) {
+	if (direction > 0) {
+		camera[0] += CameraForward * 0.1f;
+	}
+	else {
+		camera[0] -= CameraForward * 0.1f;
+	}
+	glutPostRedisplay();
+}
+
 void motion(int x, int y) {
 	mgl = transformMouseToGL(x, y);
 	
@@ -975,6 +994,8 @@ GLvoid CameraTimer(int value) {
 	if (MoveCameraRight) {
 		camera[0] += CameraRight * 0.01f;
 	}
+
+	glutPostRedisplay();
 
 	glutTimerFunc(10, CameraTimer, 0);
 }
