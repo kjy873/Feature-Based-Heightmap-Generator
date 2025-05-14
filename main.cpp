@@ -821,8 +821,12 @@ void initSplineSurface() {
 	vector<float> KnotVectorU = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	vector<float> KnotVectorV = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
-	for (float u = 0.0f; u < 1.0f; u += SAMPLE_INTERVAL) {
-		for (float v = 0.0f; v < 1.0f; v += SAMPLE_INTERVAL) {
+	int sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
+
+	for (int p = 0; p < sampleCount; p++) {
+		float u = p * SAMPLE_INTERVAL;
+		for (int q = 0; q < sampleCount; q++) {
+			float v = q * SAMPLE_INTERVAL;
 			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
 			for (int i = 0; i < ControlPointRows; i++) {
 				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
