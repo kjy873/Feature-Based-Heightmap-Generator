@@ -128,10 +128,6 @@ float hold(float p, float t) {
 	return (1 - t) * p + t * p;
 }
 
-
-
-
-
 void Perlin(float noise[1024][1024]) {
 	glm::vec2 gradient[1025][1025];
 	for (int i = 0; i < 1025; i++) {
@@ -369,6 +365,8 @@ glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
 vector<Shape> GridLines;
 vector<Shape> GridRectangles;
 
+vector<glm::vec3> SurfacePoints;
+
 glm::vec3 LightSource = glm::vec3(0.0f, 5.0f, 0.0f);
 
 float DiffusionGrid[TERRAIN_SIZE-1][TERRAIN_SIZE-1];
@@ -540,6 +538,31 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 	}
 }
 
+// function to generate b-spline surface
+float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
+
+	if (degree == 0) {
+		if (t >= KnotVector[index] && t < KnotVector[index + 1])return 1.0f;
+		else return 0.0f;
+	}
+
+	float left{0.0f};
+	float right{0.0f};
+
+	if (KnotVector[index + degree] != KnotVector[index]) {
+		left = (t - KnotVector[index]) / (KnotVector[index + degree] - KnotVector[index]) * BasisFunction(index, degree - 1, t, KnotVector);
+	}
+	if(KnotVector[index + degree + 1] != KnotVector[index + 1]) {
+		right = (KnotVector[index + degree + 1] - t) / (KnotVector[index + degree + 1] - KnotVector[index + 1]) * BasisFunction(index + 1, degree - 1, t, KnotVector);
+	}
+
+	if (t == KnotVector.back() && index == KnotVector.size() - degree - 2)
+		return 1.0f;
+
+	return left + right;
+
+}
+
 void main(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -596,156 +619,164 @@ void init() {
 	view = glm::lookAt(camera[0], camera[1], camera[2]);
 	CameraForward = camera[1] - camera[0];;
 
-	//Perlin(noiseMap);
-
-	for (int i = 0; i < 1024; i++) {
-		for (int j = 0; j < 1024; j++) {
-			
-		}
-	}
-
-	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-	glm::vec3 ControlPoints[4] = { 
-		glm::vec3(0.3f, 0.1f, 0.3f),
-		glm::vec3(0.5f, 0.3f, 0.8f),
-		glm::vec3(0.7f, 0.7f, 0.2f),
-		glm::vec3(0.9f, 0.4f, 0.5f)
+	glm::vec3 controlPoints[4][4] = {
+	{ {0,0,0}, {1,0,1}, {2,0,1}, {3,0,0} },
+	{ {0,1,1}, {1,1,2}, {2,1,2}, {3,1,1} },
+	{ {0,2,1}, {1,2,2}, {2,2,2}, {3,2,1} },
+	{ {0,3,0}, {1,3,1}, {2,3,1}, {3,3,0} }
 	};
 
-	vector<glm::vec3> bezierPoints = bezier(ControlPoints);  // points for bezier curve
-	vector<Shape> bezierLines; // lines for bezier curve
-	
-	Shape* line = new Shape(2);
-	for (auto i = bezierPoints.begin(); i != bezierPoints.end() - 1; i++) {
-		setLine(*line, *i, *(i + 1), returnColorRD2());
-		bezierLines.push_back(*line);
-	}
-	delete(line);
+	int u_degree = 3;
+	int v_degree = 3;
 
-	FeatureCurves.push_back(bezierLines);
-
-	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate constraint points ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-	ConstraintPoint c1; // constraint height
-	c1.flag = ConstraintPoint::Flag::HAS_H;
-	c1.h = 0.0f;
-	c1.u = 0.0f;
-
-	ConstraintPoint c2; // constraint left gradient
-	c2.flag = ConstraintPoint::Flag::HAS_R | 
-		ConstraintPoint::Flag::HAS_B |
-		ConstraintPoint::Flag::HAS_BETA;
-	c2.r = 0.07f;
-	c2.b = 0.3f;
-	c2.beta = 20.0f;
-	c2.u = 0.5f;
-
-	ConstraintPoint c3; // constraint both gradient
-	c3.flag = ConstraintPoint::Flag::HAS_R |
-		ConstraintPoint::Flag::HAS_A |
-		ConstraintPoint::Flag::HAS_ALPHA |
-		ConstraintPoint::Flag::HAS_B |
-		ConstraintPoint::Flag::HAS_BETA;
-	c3.r = 0.1f;
-	c3.a = 0.3f;
-	c3.alpha = 30.0f;
-	c3.b = 0.3f;
-	c3.beta = 30.0f;
-	c3.u = 0.8f;
-
-	ConstraintPoint c4; // constraint height
-	c4.flag = ConstraintPoint::Flag::HAS_H;
-	c4.h = 0.0f;
-	c4.u = 1.0f;
-
-	constraintPoints.push_back(c1);
-	constraintPoints.push_back(c2);
-	constraintPoints.push_back(c3);
-	constraintPoints.push_back(c4);
-
-	for (int i = 0; i < TERRAIN_SIZE; i++) {
-		for (int j = 0; j < TERRAIN_SIZE; j++) {
-			GridPoints[i][j] = glm::vec3((float)i / (float)TERRAIN_SIZE, 0.0f, (float)j / (float)TERRAIN_SIZE);
-		}
-	}
-
-	Rasterization_rect(ControlPoints, constraintPoints, rectangles);
+	vector<float> KnotVectorU = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+	vector<float> KnotVectorV = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
 
-	for (const auto& r : rectangles) {
-		for (int i = 0; i < TERRAIN_SIZE; i++) {
-			for (int j = 0; j < TERRAIN_SIZE; j++) {
-				//if (GridPoints[i][j].y != 0.0f) continue;
-				glm::vec2 p = glm::vec2(GridPoints[i][j].x, GridPoints[i][j].z);
-				glm::vec2 p0 = glm::vec2(r.position[0].x, r.position[0].z);
-				glm::vec2 p1 = glm::vec2(r.position[1].x, r.position[1].z);
-				glm::vec2 p2 = glm::vec2(r.position[2].x, r.position[2].z);
-				glm::vec2 p3 = glm::vec2(r.position[3].x, r.position[3].z);
-				
-				/*float cross1 = Cross2D(p1 - p0, p - p0);
-				float cross2 = Cross2D(p2 - p1, p - p1);
-				float cross3 = Cross2D(p3 - p2, p - p2);
-				float cross4 = Cross2D(p0 - p3, p - p3);*/
 
-				if (isInTriangle(p, p0, p1, p2) || isInTriangle(p, p0, p2, p3)) {
-					glm::vec2 DiffusionSource = glm::vec2(pointOnBezier(ControlPoints, r.u).x, pointOnBezier(ControlPoints, r.u).z);
-					float Distance = glm::length(p - DiffusionSource);
-					glm::vec3 Direction = glm::vec3(p.x - DiffusionSource.x, 0.0f, p.y - DiffusionSource.y);
-					float height = 0.0f;
-					if (Distance <= r.r) {
-						GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y;
-						continue;
-					}
-					for (int l = 0; l < 4; l++) {
-						if (r.color[l] != glm::vec3(0.0, 0.0, 0.0)) {
-							height = glm::dot(Direction, r.color[l]);
-							cout << height << endl;
-							//cout << r.color[l].x << ", " << r.color[l].y << ", " << r.color[l].z << endl;
-							break;
-						}
-					}
-					GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y - height;
-					if (GridPoints[i][j].y == 0.0f) cout << "height is zero" << endl;
-					
-				}
-			}
-		}
-	}
 
-	for (int i = 0; i < TERRAIN_SIZE-1; i++) {
-		for (int j = 0; j < TERRAIN_SIZE-1; j++) {
-			Shape* line = new Shape(2);
-			setLine(*line, GridPoints[i][j], GridPoints[i + 1][j], returnColorBK2());
-			GridLines.push_back(*line);
-			setLine(*line, GridPoints[i][j], GridPoints[i][j + 1], returnColorBK2());
-			GridLines.push_back(*line);
-		}
-	}
-	for (int i = 0; i < TERRAIN_SIZE-1; i++) {
-		Shape* line = new Shape(2);
-		setLine(*line, GridPoints[i][0], GridPoints[i + 1][0], returnColorBK2());
-		GridLines.push_back(*line);
-		setLine(*line, GridPoints[0][i], GridPoints[0][i + 1], returnColorBK2());
-		GridLines.push_back(*line);
-		setLine(*line, GridPoints[i][20], GridPoints[i + 1][20], returnColorBK2());
-		GridLines.push_back(*line);
-		setLine(*line, GridPoints[20][i], GridPoints[20][i + 1], returnColorBK2());
-		GridLines.push_back(*line);
-	}
+	//// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+	//glm::vec3 ControlPoints[4] = { 
+	//	glm::vec3(0.3f, 0.1f, 0.3f),
+	//	glm::vec3(0.5f, 0.3f, 0.8f),
+	//	glm::vec3(0.7f, 0.7f, 0.2f),
+	//	glm::vec3(0.9f, 0.4f, 0.5f)
+	//};
 
-	for (int i = 0; i < TERRAIN_SIZE - 1; i++) {
-		for (int j = 0; j < TERRAIN_SIZE - 1; j++) {
-			Shape* rect = new Shape(4);
-			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
-			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setRectangle(*rect,
-				GridPoints[i][j],
-				GridPoints[i][j + 1],
-				GridPoints[i + 1][j + 1],
-				GridPoints[i + 1][j],
-				gray);
-			GridRectangles.push_back(*rect);
-		}
-	}
+	//vector<glm::vec3> bezierPoints = bezier(ControlPoints);  // points for bezier curve
+	//vector<Shape> bezierLines; // lines for bezier curve
+	//
+	//Shape* line = new Shape(2);
+	//for (auto i = bezierPoints.begin(); i != bezierPoints.end() - 1; i++) {
+	//	setLine(*line, *i, *(i + 1), returnColorRD2());
+	//	bezierLines.push_back(*line);
+	//}
+	//delete(line);
+
+	//FeatureCurves.push_back(bezierLines);
+
+	//// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate constraint points ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+	//ConstraintPoint c1; // constraint height
+	//c1.flag = ConstraintPoint::Flag::HAS_H;
+	//c1.h = 0.0f;
+	//c1.u = 0.0f;
+
+	//ConstraintPoint c2; // constraint left gradient
+	//c2.flag = ConstraintPoint::Flag::HAS_R | 
+	//	ConstraintPoint::Flag::HAS_B |
+	//	ConstraintPoint::Flag::HAS_BETA;
+	//c2.r = 0.07f;
+	//c2.b = 0.3f;
+	//c2.beta = 20.0f;
+	//c2.u = 0.5f;
+
+	//ConstraintPoint c3; // constraint both gradient
+	//c3.flag = ConstraintPoint::Flag::HAS_R |
+	//	ConstraintPoint::Flag::HAS_A |
+	//	ConstraintPoint::Flag::HAS_ALPHA |
+	//	ConstraintPoint::Flag::HAS_B |
+	//	ConstraintPoint::Flag::HAS_BETA;
+	//c3.r = 0.1f;
+	//c3.a = 0.3f;
+	//c3.alpha = 30.0f;
+	//c3.b = 0.3f;
+	//c3.beta = 30.0f;
+	//c3.u = 0.8f;
+
+	//ConstraintPoint c4; // constraint height
+	//c4.flag = ConstraintPoint::Flag::HAS_H;
+	//c4.h = 0.0f;
+	//c4.u = 1.0f;
+
+	//constraintPoints.push_back(c1);
+	//constraintPoints.push_back(c2);
+	//constraintPoints.push_back(c3);
+	//constraintPoints.push_back(c4);
+
+	//for (int i = 0; i < TERRAIN_SIZE; i++) {
+	//	for (int j = 0; j < TERRAIN_SIZE; j++) {
+	//		GridPoints[i][j] = glm::vec3((float)i / (float)TERRAIN_SIZE, 0.0f, (float)j / (float)TERRAIN_SIZE);
+	//	}
+	//}
+
+	//Rasterization_rect(ControlPoints, constraintPoints, rectangles);
+
+
+	//for (const auto& r : rectangles) {
+	//	for (int i = 0; i < TERRAIN_SIZE; i++) {
+	//		for (int j = 0; j < TERRAIN_SIZE; j++) {
+	//			//if (GridPoints[i][j].y != 0.0f) continue;
+	//			glm::vec2 p = glm::vec2(GridPoints[i][j].x, GridPoints[i][j].z);
+	//			glm::vec2 p0 = glm::vec2(r.position[0].x, r.position[0].z);
+	//			glm::vec2 p1 = glm::vec2(r.position[1].x, r.position[1].z);
+	//			glm::vec2 p2 = glm::vec2(r.position[2].x, r.position[2].z);
+	//			glm::vec2 p3 = glm::vec2(r.position[3].x, r.position[3].z);
+	//			
+	//			/*float cross1 = Cross2D(p1 - p0, p - p0);
+	//			float cross2 = Cross2D(p2 - p1, p - p1);
+	//			float cross3 = Cross2D(p3 - p2, p - p2);
+	//			float cross4 = Cross2D(p0 - p3, p - p3);*/
+
+	//			if (isInTriangle(p, p0, p1, p2) || isInTriangle(p, p0, p2, p3)) {
+	//				glm::vec2 DiffusionSource = glm::vec2(pointOnBezier(ControlPoints, r.u).x, pointOnBezier(ControlPoints, r.u).z);
+	//				float Distance = glm::length(p - DiffusionSource);
+	//				glm::vec3 Direction = glm::vec3(p.x - DiffusionSource.x, 0.0f, p.y - DiffusionSource.y);
+	//				float height = 0.0f;
+	//				if (Distance <= r.r) {
+	//					GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y;
+	//					continue;
+	//				}
+	//				for (int l = 0; l < 4; l++) {
+	//					if (r.color[l] != glm::vec3(0.0, 0.0, 0.0)) {
+	//						height = glm::dot(Direction, r.color[l]);
+	//						cout << height << endl;
+	//						//cout << r.color[l].x << ", " << r.color[l].y << ", " << r.color[l].z << endl;
+	//						break;
+	//					}
+	//				}
+	//				GridPoints[i][j].y = pointOnBezier(ControlPoints, r.u).y - height;
+	//				if (GridPoints[i][j].y == 0.0f) cout << "height is zero" << endl;
+	//				
+	//			}
+	//		}
+	//	}
+	//}
+
+	//for (int i = 0; i < TERRAIN_SIZE-1; i++) {
+	//	for (int j = 0; j < TERRAIN_SIZE-1; j++) {
+	//		Shape* line = new Shape(2);
+	//		setLine(*line, GridPoints[i][j], GridPoints[i + 1][j], returnColorBK2());
+	//		GridLines.push_back(*line);
+	//		setLine(*line, GridPoints[i][j], GridPoints[i][j + 1], returnColorBK2());
+	//		GridLines.push_back(*line);
+	//	}
+	//}
+	//for (int i = 0; i < TERRAIN_SIZE-1; i++) {
+	//	Shape* line = new Shape(2);
+	//	setLine(*line, GridPoints[i][0], GridPoints[i + 1][0], returnColorBK2());
+	//	GridLines.push_back(*line);
+	//	setLine(*line, GridPoints[0][i], GridPoints[0][i + 1], returnColorBK2());
+	//	GridLines.push_back(*line);
+	//	setLine(*line, GridPoints[i][20], GridPoints[i + 1][20], returnColorBK2());
+	//	GridLines.push_back(*line);
+	//	setLine(*line, GridPoints[20][i], GridPoints[20][i + 1], returnColorBK2());
+	//	GridLines.push_back(*line);
+	//}
+
+	//for (int i = 0; i < TERRAIN_SIZE - 1; i++) {
+	//	for (int j = 0; j < TERRAIN_SIZE - 1; j++) {
+	//		Shape* rect = new Shape(4);
+	//		glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
+	//		glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+	//		setRectangle(*rect,
+	//			GridPoints[i][j],
+	//			GridPoints[i][j + 1],
+	//			GridPoints[i + 1][j + 1],
+	//			GridPoints[i + 1][j],
+	//			gray);
+	//		GridRectangles.push_back(*rect);
+	//	}
+	//}
 
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
@@ -799,13 +830,13 @@ GLvoid drawScene() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	draw(axes);
 	
-	for (const auto& c : FeatureCurves) {
+	/*for (const auto& c : FeatureCurves) {
 		draw(c);
-	}
+	}*/
 
 	//draw(rectangles);
 	//draw(GridLines);
-	draw(GridRectangles);
+	//draw(GridRectangles);
 
 
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
