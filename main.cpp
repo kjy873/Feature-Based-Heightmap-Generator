@@ -288,7 +288,13 @@ struct Shape {
 
 		if (vertices == 4) {
 			index.resize(6);
-			index = vector<int>{ 0, 1, 2, 0, 2, 3 };
+			index = vector<int>{ 0, 2, 1, 0, 3, 2 };
+		}
+
+		if (vertices == 8) {
+			color.resize(8);
+			index.resize(36);
+			index = vector<int>{0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6, 7, 5, 6, 7, 4, 5, 3, 6, 2, 3, 7, 6, 4, 3, 0, 4, 7, 3, 1, 6, 5, 1, 2, 6};
 		}
 	}
 };
@@ -339,6 +345,33 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 	InitBufferRectangle(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
+// 
+void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
+	
+	Shape temp(4);
+
+	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
+	glm::vec3 TopColor[4] = { c[4], c[5], c[1], c[0] };
+	glm::vec3 BackColor[4] = { c[6], c[7], c[5], c[4] };
+	glm::vec3 BottomColor[4] = { c[3], c[2], c[6], c[7] };
+	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
+	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
+
+	setRectangle(temp, vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
+	dst.push_back(temp);
+	setRectangle(temp, vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
+	dst.push_back(temp);
+	setRectangle(temp, vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
+	dst.push_back(temp);
+	setRectangle(temp, vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
+	dst.push_back(temp);
+	setRectangle(temp, vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
+	dst.push_back(temp);
+	setRectangle(temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
+	dst.push_back(temp);
+	
+}
+
 // normal vector of a, b
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
 	return glm::normalize(glm::cross(a, b));
@@ -361,7 +394,8 @@ glm::mat4 view = glm::mat4(1.0f);
 
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
-vector<Shape> rectangles;
+vector<Shape> rectangles;						// render surface rectangles
+vector<Shape> v_ControlPoints;				// render control points
 
 glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
 vector<Shape> GridLines;
@@ -772,10 +806,10 @@ void init() {
 
 void initSplineSurface() {
 	glm::vec3 controlPoints[4][4] = {
-	{ {0, 1, 0}, {1, 1, 0}, {2, 1, 0}, {3, 1, 0} },
+	{ {0, 0, 0}, {1, 1, 0}, {2, 1, 0}, {3, 1, 0} },
 	{ {0, 0, 1}, {1, 0, 1}, {2, 0, 1}, {3, 0, 1} },
-	{ {0, 1, 2}, {1, 1, 2}, {2, 1, 2}, {3, 1, 2} },
-	{ {0, 0, 3}, {1, 0, 3}, {2, 0, 3}, {3, 0, 3} }
+	{ {0, 1, 2}, {1, 1, 2}, {2, 2, 2}, {3, 1, 2} },
+	{ {0, 0, 3}, {1, 0, 3}, {2, 0, 3}, {3, 1, 3} }
 	};
 
 	int ControlPointRows = 4;
@@ -804,6 +838,8 @@ void initSplineSurface() {
 	int SizeU = sqrt(SurfacePoints.size());
 	int SizeV = sqrt(SurfacePoints.size());
 
+	
+
 	Shape* tempRect = new Shape(4);
 	for (int i = 0; i < SizeU - 1; i++) {
 		for (int j = 0; j < SizeV - 1; j++) {
@@ -817,6 +853,28 @@ void initSplineSurface() {
 			rectangles.push_back(*tempRect);
 		}
 	}
+	cout << rectangles.size() << endl;
+
+	float half = 0.01f;
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			glm::vec3 points[8] = { 
+				controlPoints[i][j] + glm::vec3(-half, half, +half),
+				controlPoints[i][j] + glm::vec3(+half, +half, +half),
+				controlPoints[i][j] + glm::vec3(+half, -half, +half),
+				controlPoints[i][j] + glm::vec3(-half, -half, +half),
+				controlPoints[i][j] + glm::vec3(-half, +half, -half),
+				controlPoints[i][j] + glm::vec3(+half, +half, -half),
+				controlPoints[i][j] + glm::vec3(+half, -half, -half),
+				controlPoints[i][j] + glm::vec3(-half, -half, -half) 
+			};
+
+			glm::vec3 gray[8] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f),
+				glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+			setHexahedron(v_ControlPoints, points, gray);
+		}
+	}
+
 }
 
 void idleScene() {
@@ -874,6 +932,7 @@ GLvoid drawScene() {
 	//draw(GridLines);
 	//draw(GridRectangles);
 
+	draw(v_ControlPoints);
 
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
