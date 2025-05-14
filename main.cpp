@@ -43,7 +43,7 @@ float windowWidth = 800;
 float windowHeight = 600;
 const float defaultSize = 0.05;
 
-constexpr float SAMPLE_INTERVAL = 0.001f;
+constexpr float SAMPLE_INTERVAL = 0.1f;
 
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
@@ -540,7 +540,6 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 
 // function to generate b-spline surface
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
-
 	if (degree == 0) {
 		if (t >= KnotVector[index] && t < KnotVector[index + 1])return 1.0f;
 		else return 0.0f;
@@ -620,10 +619,10 @@ void init() {
 	CameraForward = camera[1] - camera[0];;
 
 	glm::vec3 controlPoints[4][4] = {
-	{ {0,0,0}, {1,0,1}, {2,0,1}, {3,0,0} },
-	{ {0,1,1}, {1,1,2}, {2,1,2}, {3,1,1} },
-	{ {0,2,1}, {1,2,2}, {2,2,2}, {3,2,1} },
-	{ {0,3,0}, {1,3,1}, {2,3,1}, {3,3,0} }
+	{ {0, 0, 0}, {1, 0, 0}, {2, 0, 0}, {3, 0, 0} },
+	{ {0, 0, 1}, {1, 0, 1}, {2, 0, 1}, {3, 0, 1} },
+	{ {0, 0, 2}, {1, 0, 2}, {2, 0, 2}, {3, 0, 2} },
+	{ {0, 0, 3}, {1, 0, 3}, {2, 0, 3}, {3, 0, 3} }
 	};
 
 	int u_degree = 3;
@@ -632,8 +631,36 @@ void init() {
 	vector<float> KnotVectorU = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	vector<float> KnotVectorV = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
+	for (float u = 0.0f; u < 1.0f; u += SAMPLE_INTERVAL) {
+		for(float v = 0.0f; v < 1.0f; v += SAMPLE_INTERVAL) {
+			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
+			for (int i = 0; i < 4; i++) {
+				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
+				for (int j = 0; j < 4; j++) {
+					float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
+					CurrentPoint += controlPoints[i][j] * PointU * PointV;
+				}
+			}
+			SurfacePoints.push_back(CurrentPoint);
+		}
+	}
 
+	int SizeU = sqrt(SurfacePoints.size());
+	int SizeV = sqrt(SurfacePoints.size());
 
+	Shape* tempRect = new Shape(4);
+	for(int i = 0; i < SizeU - 1; i++) {
+		for (int j = 0; j < SizeV - 1; j++) {
+			int index = i * SizeV + j;
+			glm::vec3 p1 = SurfacePoints[index];
+			glm::vec3 p2 = SurfacePoints[index + 1];
+			glm::vec3 p3 = SurfacePoints[index + SizeV + 1];
+			glm::vec3 p4 = SurfacePoints[index + SizeV];
+			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+			setRectangle(*tempRect, p1, p2, p3, p4, gray);
+			rectangles.push_back(*tempRect);
+		}
+	}
 
 	//// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ Generate feature curve ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	//glm::vec3 ControlPoints[4] = { 
@@ -834,7 +861,7 @@ GLvoid drawScene() {
 		draw(c);
 	}*/
 
-	//draw(rectangles);
+	draw(rectangles);
 	//draw(GridLines);
 	//draw(GridRectangles);
 
