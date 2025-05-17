@@ -219,18 +219,18 @@ glm::vec3* setColor4(const glm::vec3& c1, const glm::vec3& c2, const glm::vec3& 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
 // mouse point to GL coordinate
-struct mouseLocationGL {
+struct mouseCoordGL {
 	float x;
 	float y;
 };
-mouseLocationGL transformMouseToGL(int x, int y) {
-	mouseLocationGL m;
+mouseCoordGL transformMouseToGL(int x, int y) {
+	mouseCoordGL m;
 	m.x = (2.0f * x) / windowWidth - 1.0f;
 	m.y = 1.0f - (2.0f * y) / windowHeight;
 	return m;
 }
-mouseLocationGL mgl;
-mouseLocationGL preMousePosition;
+mouseCoordGL mgl;
+mouseCoordGL preMousePosition;
 
 
 void idleScene();
@@ -377,6 +377,17 @@ glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
 	return glm::normalize(glm::cross(a, b));
 }
 
+glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view) {
+	glm::mat4 inverseProjection = glm::inverse(ProjectionMatrix);
+	glm::mat4 inverseView = glm::inverse(view);
+
+	glm::vec4 ray = glm::vec4(mgl.x, mgl.y, 1.0f, 1.0f);
+
+	ray = inverseView * inverseProjection * ray;
+
+	return glm::vec3(ray.x, ray.y, ray.z);
+}
+
 GLint width, height;
 GLuint shaderProgramID;
 GLuint vertexShader;
@@ -391,6 +402,8 @@ glm::vec3 camera[3];
 glm::vec3 CameraForward;
 glm::vec3 CameraRight;
 glm::mat4 view = glm::mat4(1.0f);
+
+glm::mat4 projection = glm::mat4(1.0f);
 
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
@@ -654,6 +667,12 @@ void init() {
 	view = glm::lookAt(camera[0], camera[1], camera[2]);
 	CameraForward = camera[1] - camera[0];
 
+
+	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 50.0f);
+	//projection = glm::translate(projection, glm::vec3(0.0, 0.0, -2.0));
+
+	
+
 	glEnable(GL_DEPTH_TEST);
 }
 
@@ -793,14 +812,10 @@ GLvoid drawScene() {
 
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
-	
-	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 
-	glm::mat4 projection = glm::mat4(1.0f);
-	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 50.0f);
-	projection = glm::translate(projection, glm::vec3(0.0, 0.0, -2.0));
-	
+	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
+	
 
 	glutSwapBuffers();
 }
@@ -822,6 +837,9 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 		break;
 	case 'd':
 		MoveCameraRight = true;
+		break;
+	case VK_ESCAPE:
+		glutLeaveMainLoop();
 		break;
 	default:
 		break;
@@ -858,6 +876,17 @@ void mouse(int button, int state, int x, int y) {
 		glutMotionFunc(motion);
 	}
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+		glm::vec3 point = RayfromMouse(mgl, projection, view);
+		glm::vec3 ray = camera[0] + point * 5.0f;
+
+		Shape* temp = new Shape(2);
+		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
+		setLine(*temp, camera[0], point, rayColor);
+		axes.push_back(*temp);
+		delete(temp);
+
+		cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;
+		glutPostRedisplay();
 		glutMotionFunc(NULL);
 	}
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
