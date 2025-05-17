@@ -380,12 +380,15 @@ glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
 glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view) {
 	glm::mat4 inverseProjection = glm::inverse(ProjectionMatrix);
 	glm::mat4 inverseView = glm::inverse(view);
+	
+	glm::vec4 clip_ray = glm::vec4(mgl.x, mgl.y, -1.0f, 1.0f);
 
-	glm::vec4 ray = glm::vec4(mgl.x, mgl.y, 1.0f, 1.0f);
+	glm::vec4 view_ray = inverseProjection * clip_ray;
+	view_ray = glm::vec4(view_ray.x, view_ray.y, -1.0f, 0.0f);
 
-	ray = inverseView * inverseProjection * ray;
+	glm::vec4 world_ray = inverseView* view_ray;
 
-	return glm::vec3(ray.x, ray.y, ray.z);
+	return glm::normalize(glm::vec3(world_ray));
 }
 
 GLint width, height;
@@ -809,9 +812,11 @@ GLvoid drawScene() {
 	//draw(GridRectangles);
 
 	draw(v_ControlPoints);
-
+	//CameraForward = glm::normalize(camera[1] - camera[0]);
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
+	float aspect = static_cast<float>(windowWidth) / windowHeight;
+	//projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 50.0f);
 
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
@@ -881,11 +886,19 @@ void mouse(int button, int state, int x, int y) {
 
 		Shape* temp = new Shape(2);
 		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
-		setLine(*temp, camera[0], point, rayColor);
+		
+		setLine(*temp, camera[0], ray, rayColor);
 		axes.push_back(*temp);
 		delete(temp);
+		//cout << point.x << ", " << point.y << ", " << point.z << endl;
+		//cout << camera[0].x << ", " << camera[0].y << ", " << camera[0].z << endl;
+		//cout << projection[0][0] << ", " << projection[1][1] << ", " << projection[2][2] << ", " << projection[3][3] << endl;
+		//cout << view[0][0] << ", " << view[1][1] << ", " << view[2][2] << ", " << view[3][3] << endl;
+		//cout << mgl.x << ", " << mgl.y << endl;
+		//cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;
 
-		cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;
+		//CheckRayObjectCollision();
+
 		glutPostRedisplay();
 		glutMotionFunc(NULL);
 	}
@@ -911,7 +924,6 @@ void mouseWheel(int wheel, int direction, int x, int y) {
 }
 
 void motion(int x, int y) {
-	cout << "mouse motion" << endl;
 	mgl = transformMouseToGL(x, y);
 	
 	float sensitivity = 100.0f;
