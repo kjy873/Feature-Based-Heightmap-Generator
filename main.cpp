@@ -241,7 +241,7 @@ GLvoid KeyboardUp(unsigned char key, int x, int y);
 void mouse(int button, int state, int x, int y);
 void mouseWheel(int button, int dir, int x, int y);
 void init();
-void initSplineSurface();
+void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols);
 void motion(int x, int y);
 GLvoid CameraTimer(int value);
 GLchar* filetobuf(const char* filepath);
@@ -408,10 +408,12 @@ glm::mat4 view = glm::mat4(1.0f);
 
 glm::mat4 projection = glm::mat4(1.0f);
 
+vector<vector<glm::vec3>> controlPoints;
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;						// render surface rectangles
 vector<Shape> v_ControlPoints;				// render control points
+Shape PickedControlPoint{ NULL };	// picked control point
 
 glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
 vector<Shape> GridLines;
@@ -614,6 +616,86 @@ float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
 
 }
 
+bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
+	glm::vec3& intersectionPoint, float& distance) {
+
+	glm::vec3 edge1 = v1 - v0;
+	glm::vec3 edge2 = v2 - v0;
+
+	glm::vec3 h = glm::cross(rayEnd - rayBegin, edge2);
+
+	float a = glm::dot(edge1, h);
+	if (a > -0.00001f && a < 0.00001f) return false;
+
+	float f = 1.0f / a;
+
+	glm::vec3 s = rayBegin - v0;
+
+	float u = f * glm::dot(s, h);
+	if (u < 0.0f || u > 1.0f) return false;
+
+	glm::vec3 q = glm::cross(s, edge1);
+	float v = f * glm::dot(rayEnd - rayBegin, q);
+	if (v < 0.0f || u + v > 1.0f) return false;
+	
+	float t = f * glm::dot(edge2, q);
+	if (t < 0.0f) return false;
+		
+	distance = t;
+	intersectionPoint = rayBegin + (rayEnd - rayBegin) * t;
+	return true;
+
+}
+
+inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3,
+	glm::vec3& intersectionPoint, float& distance) {
+
+	float t1{ 0.0f }, t2{ 0.0f };
+	glm::vec3 p1{0.0f, 0.0f, 0.0f}, p2{ 0.0f, 0.0f, 0.0f };
+
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p1, t1)) {
+		distance = t1;
+		intersectionPoint = p1;
+		return true;
+	}
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v2, v3, p2, t2)) {
+		distance = t2;
+		intersectionPoint = p2;
+		return true;
+	}
+	return false;
+}
+
+inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance) {
+	return intersertRayRectangle(rayBegin, rayEnd, rectangle.position[0], rectangle.position[1],
+		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
+}
+
+inline bool intersectRayHexahedron(const vector<Shape>& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
+	bool intersected = false;
+	float minDistance = FLT_MAX;
+
+	for (int i = 0; i < rectangles.size(); i++) {
+		float t;
+		glm::vec3 p;
+
+		if (intersectRayRectangleShape(rectangles[i], rayBegin, rayEnd, p, t)) {
+			if (t < minDistance) {
+				minDistance = t;
+				intersectionPoint = p;
+				distance = t;
+				intersectedIndex = i;
+				intersected = true;
+			}
+		}
+	}
+	return intersected;
+}
+
 void main(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -631,8 +713,25 @@ void main(int argc, char** argv) {
 	InitShader(shaderProgramID, vertexShader, "vertex.glsl", fragmentShader, "fragment.glsl");
 	glUseProgram(shaderProgramID);
 
+	cout << "num of control points(horizental): ";
+	int ControlPointRows{0};
+	cin >> ControlPointRows;
+	cout << "num of control points(vertical): ";
+	int ControlPointCols{ 0 };
+	cin >> ControlPointCols;
+	cout << "size of sample interval(float 0.0~1.0): ";
+	float sampleInterval{ 0.0f };
+	cin >> sampleInterval;
+
+	controlPoints.resize(ControlPointRows, vector<glm::vec3>(ControlPointCols));
+	for (int i = 0; i < ControlPointRows; i++) {
+		for (int j = 0; j < ControlPointCols; j++) {
+			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
+		}
+	}
+
 	init();
-	initSplineSurface();
+	initSplineSurface(controlPoints, ControlPointRows, ControlPointCols);
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(Reshape);
 	glutKeyboardFunc(Keyboard);
@@ -679,23 +778,38 @@ void init() {
 	glEnable(GL_DEPTH_TEST);
 }
 
-void initSplineSurface() {
-	glm::vec3 controlPoints[4][4] = {
-	{ {0, 0, 0}, {1, 1, 0}, {2, 1, 0}, {3, 1, 0} },
-	{ {0, 0, 1}, {1, 0, 1}, {2, 0, 1}, {3, 0, 1} },
-	{ {0, 1, 2}, {1, 1, 2}, {2, 2, 2}, {3, 1, 2} },
-	{ {0, 0, 3}, {1, 0, 3}, {2, 0, 3}, {3, 1, 3} }
-	};
+// n = number of control points
+vector<float> initKnotVector(int n, int degree) {
+	int length = n + degree + 1;
+	vector<float> KnotVector(length);
 
-	int ControlPointRows = 4;
-	int ControlPointCols = 4;
+	int segment = n - degree;
+
+	for (int i = 0; i < length; i++) {
+		if (i <= degree) {
+			KnotVector[i] = 0.0f;
+		}
+		else if (i >= n + 1) {
+			KnotVector[i] = 1.0f;
+		}
+		else {
+			KnotVector[i] = (float)(i - degree) / (float)segment;
+		}
+	}
+
+	return KnotVector;
+}
+
+void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
+	
+	int ControlPointRows = nRows;
+	int ControlPointCols = nCols;
 
 	int u_degree = 3;
 	int v_degree = 3;
-
-	vector<float> KnotVectorU = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-	vector<float> KnotVectorV = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-
+	
+	vector<float> KnotVectorU = initKnotVector(ControlPointRows, u_degree);
+	vector<float> KnotVectorV = initKnotVector(ControlPointCols, v_degree);
 	int sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
 
 	for (int p = 0; p < sampleCount; p++) {
@@ -717,8 +831,6 @@ void initSplineSurface() {
 	int SizeU = sqrt(SurfacePoints.size());
 	int SizeV = sqrt(SurfacePoints.size());
 
-	
-
 	Shape* tempRect = new Shape(4);
 	for (int i = 0; i < SizeU - 1; i++) {
 		for (int j = 0; j < SizeV - 1; j++) {
@@ -735,8 +847,8 @@ void initSplineSurface() {
 	cout << rectangles.size() << endl;
 
 	float half = 0.01f;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (int i = 0; i < nRows; i++) {
+		for (int j = 0; j < nCols; j++) {
 			glm::vec3 points[8] = { 
 				controlPoints[i][j] + glm::vec3(-half, half, +half),
 				controlPoints[i][j] + glm::vec3(+half, +half, +half),
@@ -846,6 +958,15 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 	case VK_ESCAPE:
 		glutLeaveMainLoop();
 		break;
+	case 'm':
+
+
+		break;
+	case VK_UP: 
+		/*if (PickedControlPoint != NULL) {
+			PickedControlPoint->position[0] += glm::vec3(0.0f, 0.1f, 0.0f);
+		}*/
+		break;
 	default:
 		break;
 	}
@@ -890,14 +1011,33 @@ void mouse(int button, int state, int x, int y) {
 		setLine(*temp, camera[0], ray, rayColor);
 		axes.push_back(*temp);
 		delete(temp);
-		//cout << point.x << ", " << point.y << ", " << point.z << endl;
-		//cout << camera[0].x << ", " << camera[0].y << ", " << camera[0].z << endl;
-		//cout << projection[0][0] << ", " << projection[1][1] << ", " << projection[2][2] << ", " << projection[3][3] << endl;
-		//cout << view[0][0] << ", " << view[1][1] << ", " << view[2][2] << ", " << view[3][3] << endl;
-		//cout << mgl.x << ", " << mgl.y << endl;
-		//cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;
 
-		//CheckRayObjectCollision();
+		glm::vec3 intersectionPoint;
+		float distance = 0.0f;
+		int intersectedIndex = -1;
+		if (intersectRayHexahedron(v_ControlPoints, camera[0], ray, intersectionPoint, distance, intersectedIndex)) PickedControlPoint = v_ControlPoints[intersectedIndex];
+		else PickedControlPoint = NULL;
+
+		cout << "Choose control point index to move(ROW)" << endl;
+		int row;
+		cin >> row;
+		cout << "Choose control point index to move(COL)" << endl;
+		int col;
+		cin >> col;
+		cout << "move(x)" << endl;
+		float x;
+		cin >> x;
+		cout << "move(y)" << endl;
+		float y;
+		cin >> y;
+		cout << "move(z)" << endl;
+		float z;
+		cin >> z;
+
+		glm::vec3 move = glm::vec3(x, y, z);
+		controlPoints[row][col] += move;
+
+		initSplineSurface(controlPoints, controlPoints.size(), controlPoints[0].size());
 
 		glutPostRedisplay();
 		glutMotionFunc(NULL);
