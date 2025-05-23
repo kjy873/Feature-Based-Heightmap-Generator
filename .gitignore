@@ -4,7 +4,6 @@ Release/
 *.pdb
 *.exe
 *.dll
-*.lib
 *.ilk
 *.idb
 
