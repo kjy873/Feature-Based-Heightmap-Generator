@@ -1,7 +1,5 @@
 ﻿#include "base.h"
 
-
-
 void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
 	for (int i = 0; i < 2; i++) {
 		dst.color[i] = glm::vec3(c[i]);
@@ -37,16 +35,16 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 			dst.normal[i] = glm::normalize(dst.normal[i]);
 		}
 	}
-	
+
 
 	for (int i = 0; i < 4; i++) {
 		dst.color[i] = glm::vec3(c[i]);
 	}
-	
+
 	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
-	
+
 	Shape temp(4);
 
 	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
@@ -68,7 +66,7 @@ void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::v
 	dst.push_back(temp);
 	setRectangle(temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
 	dst.push_back(temp);
-	
+
 }
 
 float PI = 3.14159265358979323846f;
@@ -84,8 +82,12 @@ bool MoveCameraRight = false;
 float CameraYaw = -90.0f;
 float CameraPitch = 0.0f;
 
-float windowWidth = 1920;
-float windowHeight = 1080;
+bool MouseRightButtonPressed = false;
+double LastMouseX = 0.0;
+double LastMouseY = 0.0;
+
+double windowWidth = 1920;
+double windowHeight = 1080;
 const float defaultSize = 0.05;
 
 constexpr float SAMPLE_INTERVAL = 0.1f;
@@ -154,6 +156,9 @@ int main() {
         return -1;
     }
 
+	// 콜백 함수 등록
+	glfwSetMouseButtonCallback(window, CallbackMouseButton);
+
     // OpenGL context를 현재 쓰레드로 지정
     glfwMakeContextCurrent(window);
 
@@ -183,7 +188,7 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         // 입력 처리 (예: ESC 키)
 		Keyboard(window);
-
+		if(MouseRightButtonPressed)MouseMoveRightButton(window);
         // 렌더링
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 배경색 설정
         glClear(GL_COLOR_BUFFER_BIT);         // 버퍼 초기화
@@ -622,12 +627,45 @@ GLvoid Keyboard(GLFWwindow* window) {
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-
+		MouseRightButtonPressed = true;
+		glfwGetCursorPos(window, &mgl.x, &mgl.y);
+		mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
+		preMousePosition = mgl;
+	}
+	if( button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+		MouseRightButtonPressed = false;
+		glfwGetCursorPos(window, &mgl.x, &mgl.y);
+		mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
+		preMousePosition = mgl;
 	}
 }
 
+void MouseMoveRightButton(GLFWwindow* window) {
+	glfwGetCursorPos(window, &mgl.x, &mgl.y);
+	mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
+
+	float sensitivity = 100.0f;
+	float dx = mgl.x - preMousePosition.x;
+	float dy = mgl.y - preMousePosition.y;
+
+	CameraYaw += dx * sensitivity;
+	CameraPitch -= dy * sensitivity;
+
+	if (CameraPitch > 89.0f) CameraPitch = 89.0f;
+	if (CameraPitch < -89.0f) CameraPitch = -89.0f;
+
+	CameraForward.x = cos(glm::radians(CameraYaw)) * cos(glm::radians(CameraPitch));
+	CameraForward.y = sin(glm::radians(CameraPitch));
+	CameraForward.z = sin(glm::radians(CameraYaw)) * cos(glm::radians(CameraPitch));
+	CameraForward = glm::normalize(CameraForward);
+
+	CameraRight = glm::normalize(glm::cross(CameraForward, camera[2]));
+
+	preMousePosition = mgl;
+}
+
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {
-	
+
 }
 
 // ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
@@ -794,3 +832,4 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 
 	}
 }
+

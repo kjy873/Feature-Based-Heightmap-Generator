@@ -133,10 +133,10 @@ glm::vec3* setColor4(const glm::vec3& c1, const glm::vec3& c2, const glm::vec3& 
 
 // mouse point to GL coordinate
 struct mouseCoordGL {
-	float x;
-	float y;
+	double x;
+	double y;
 };
-mouseCoordGL transformMouseToGL(int x, int y, float windowWidth, float windowHeight) {
+mouseCoordGL transformMouseToGL(double x, double y, double windowWidth, double windowHeight) {
 	mouseCoordGL m;
 	m.x = (2.0f * x) / windowWidth - 1.0f;
 	m.y = (2.0f * y) / windowHeight - 1.0f;
@@ -320,6 +320,8 @@ void InitBufferRectangle(GLuint& shaderProgramID, GLuint& VAO, const glm::vec3* 
 
 }
 
+
+
 void init();
 GLvoid drawScene();
 inline void draw(const vector<Shape>& dia);
@@ -353,3 +355,6 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 GLvoid Keyboard(GLFWwindow* window);
 
 void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList);
+
+void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods);
+void MouseMoveRightButton(GLFWwindow* window);
