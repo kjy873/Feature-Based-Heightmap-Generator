@@ -3,7 +3,6 @@ Release/
 *.obj
 *.pdb
 *.exe
-*.dll
 *.ilk
 *.idb
 
