@@ -1,32 +1,77 @@
-﻿#define _CRT_SECURE_NO_WARININGS
-#include <gl/glew.h>
-#include <gl/freeglut.h>
-#include <gl/freeglut_ext.h>
+﻿#include "base.h"
 
-#include <gl/glm/glm.hpp>
-#include <gl/glm/ext.hpp>
-#include <gl/glm/gtc/matrix_transform.hpp>
 
-#include <iostream>
-#include <fstream>
-#include <array>
-#include <vector>
-#include <random>
-#include <algorithm>
-#include <sstream>
-#include <string.h>
-#include <string>
-#include <math.h>
 
-#define RESOLUTION 1024
+void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
+	for (int i = 0; i < 2; i++) {
+		dst.color[i] = glm::vec3(c[i]);
+	}
+	dst.position[0] = glm::vec3(vertex1);
+	dst.position[1] = glm::vec3(vertex2);
 
-#define SEED 0
+	InitBufferLine(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
+}
+void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
+	dst.position[0] = glm::vec3(vertex1);
+	dst.position[1] = glm::vec3(vertex2);
+	dst.position[2] = glm::vec3(vertex3);
+	dst.position[3] = glm::vec3(vertex4);
 
-#define TERRAIN_SIZE 101
+	glm::vec3 v1 = vertex1 - vertex2;
+	glm::vec3 v2 = vertex1 - vertex4;
+	glm::vec3 n = glm::cross(v1, v2);
+
+	dst.normal[0] = glm::cross(vertex3 - vertex1, vertex4 - vertex1);
+	dst.normal[1] = glm::cross(vertex1 - vertex2, vertex3 - vertex2);
+	dst.normal[2] = glm::cross(vertex2 - vertex3, vertex1 - vertex3);
+	dst.normal[3] = glm::cross(vertex1 - vertex4, vertex3 - vertex4);
+
+	for (int i = 0; i < 4; i++) {
+		if (glm::length(dst.normal[i]) < 1e-6f) {
+			dst.normal[0] = glm::vec3(0.0f, 1.0f, 0.0f);
+			dst.normal[1] = glm::vec3(0.0f, 1.0f, 0.0f);
+			dst.normal[2] = glm::vec3(0.0f, 1.0f, 0.0f);
+			dst.normal[3] = glm::vec3(0.0f, 1.0f, 0.0f);
+		}
+		else {
+			dst.normal[i] = glm::normalize(dst.normal[i]);
+		}
+	}
+	
+
+	for (int i = 0; i < 4; i++) {
+		dst.color[i] = glm::vec3(c[i]);
+	}
+	
+	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
+}
+void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
+	
+	Shape temp(4);
+
+	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
+	glm::vec3 TopColor[4] = { c[4], c[5], c[1], c[0] };
+	glm::vec3 BackColor[4] = { c[6], c[7], c[5], c[4] };
+	glm::vec3 BottomColor[4] = { c[3], c[2], c[6], c[7] };
+	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
+	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
+
+	setRectangle(temp, vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
+	dst.push_back(temp);
+	setRectangle(temp, vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
+	dst.push_back(temp);
+	setRectangle(temp, vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
+	dst.push_back(temp);
+	setRectangle(temp, vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
+	dst.push_back(temp);
+	setRectangle(temp, vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
+	dst.push_back(temp);
+	setRectangle(temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
+	dst.push_back(temp);
+	
+}
 
 float PI = 3.14159265358979323846f;
-
-using namespace std;
 
 static random_device random;
 static mt19937 gen(random());
@@ -39,21 +84,351 @@ bool MoveCameraRight = false;
 float CameraYaw = -90.0f;
 float CameraPitch = 0.0f;
 
-float windowWidth = 800;
-float windowHeight = 600;
+float windowWidth = 1920;
+float windowHeight = 1080;
 const float defaultSize = 0.05;
 
 constexpr float SAMPLE_INTERVAL = 0.1f;
 
-inline float perlinSmooth(float t) {
-	return t * t * t * (t * (t * 6 - 15) + 10);
+COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
+
+mouseCoordGL mgl;
+mouseCoordGL preMousePosition;
+
+GLint width, height;
+
+unsigned int viewLocation;
+unsigned int projectionLocation;
+unsigned int modelTransformLococation;
+
+vector <Shape> axes;
+// camera
+glm::vec3 camera[3];
+glm::vec3 CameraForward;
+glm::vec3 CameraRight;
+glm::mat4 view = glm::mat4(1.0f);
+
+glm::mat4 projection = glm::mat4(1.0f);
+
+vector<vector<glm::vec3>> controlPoints;
+vector<vector<Shape>> FeatureCurves;
+vector<ConstraintPoint> constraintPoints;
+vector<Shape> rectangles;						// render surface rectangles
+vector<Shape> v_ControlPoints;				// render control points
+Shape PickedControlPoint{ NULL };	// picked control point
+
+glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
+vector<Shape> GridLines;
+vector<Shape> GridRectangles;
+
+vector<glm::vec3> SurfacePoints;
+
+glm::vec3 LightSource = glm::vec3(0.0f, 5.0f, 0.0f);
+
+float DiffusionGrid[TERRAIN_SIZE - 1][TERRAIN_SIZE - 1];
+
+float noiseMap[1024][1024];
+
+
+
+int main() {
+    // GLFW 초기화
+    if (!glfwInit()) {
+        std::cerr << "Failed to initialize GLFW\n";
+        return -1;
+    }
+
+    // OpenGL 버전 설정 (예: 3.3 core profile)
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // (MacOS의 경우 추가 필요)
+    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
+    // 윈도우 생성
+    GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "FBHG", nullptr, nullptr);
+    if (!window) {
+        std::cerr << "Failed to create GLFW window\n";
+        glfwTerminate();
+        return -1;
+    }
+
+    // OpenGL context를 현재 쓰레드로 지정
+    glfwMakeContextCurrent(window);
+
+    // GLEW 초기화
+    glewExperimental = GL_TRUE; // 최신 기능을 사용할 수 있도록 설정
+    if (glewInit() != GLEW_OK) {
+        std::cerr << "Failed to initialize GLEW\n";
+        return -1;
+    }
+
+    // 뷰포트 설정
+    glViewport(0, 0, 1920, 1080);
+
+	InitShader(shaderProgramID, vertexShader, "vertex.glsl", fragmentShader, "fragment.glsl");
+	glUseProgram(shaderProgramID);
+
+	init();
+	controlPoints.resize(4, vector<glm::vec3>(4));
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
+		}
+	}
+	initSplineSurface(controlPoints, 4, 4);
+
+    // 루프
+    while (!glfwWindowShouldClose(window)) {
+        // 입력 처리 (예: ESC 키)
+		Keyboard(window);
+
+        // 렌더링
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 배경색 설정
+        glClear(GL_COLOR_BUFFER_BIT);         // 버퍼 초기화
+		drawScene();
+
+
+        // 버퍼 교환
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    // 종료 처리
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return 0;
 }
 
-// one bezier curve by 4 control points
-// sampling by 0.01
-// this curve defines the directional flow of the terrain it represents
-// During curve creation, the elevation component is initially set to zero, 
-// and the actual terrain height is later diffused or interpolated based on the elevation constraints of the control points
+void init() {
+	glClearColor(backgroundColor.R, backgroundColor.G, backgroundColor.B, backgroundColor.A);
+
+	viewLocation = glGetUniformLocation(shaderProgramID, "viewTransform");
+	projectionLocation = glGetUniformLocation(shaderProgramID, "projectionTransform");
+	modelTransformLococation = glGetUniformLocation(shaderProgramID, "modelTransform");
+
+	unsigned int lightSourceLocation = glGetUniformLocation(shaderProgramID, "lightPos");
+
+	// axes
+	Shape* temp = new Shape(2);
+	setLine(*temp, glm::vec3(-4.0, 0.0, 0.0), glm::vec3(4.0, 0.0, 0.0), returnColorRand2());
+	axes.push_back(*temp);
+	setLine(*temp, glm::vec3(0.0, -4.0, 0.0), glm::vec3(0.0, 4.0, 0.0), returnColorRand2());
+	axes.push_back(*temp);
+	setLine(*temp, glm::vec3(0.0, 0.0, -4.0), glm::vec3(0.0, 0.0, 4.0), returnColorRand2());
+	axes.push_back(*temp);
+	delete(temp);
+
+	camera[0] = glm::vec3(0.4, 0.2, 0.8);
+	camera[1] = glm::vec3(0.5, 0.0, 0.5);
+	camera[2] = glm::vec3(0.0f, 1.0f, 0.0f);
+	view = glm::lookAt(camera[0], camera[1], camera[2]);
+	CameraForward = camera[1] - camera[0];
+	CameraRight = glm::normalize(glm::cross(CameraForward, camera[2]));
+
+
+	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 50.0f);
+
+	glEnable(GL_DEPTH_TEST);
+}
+
+GLvoid drawScene() {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	draw(axes);
+	draw(rectangles);
+
+	draw(v_ControlPoints);
+	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
+
+	float aspect = static_cast<float>(windowWidth) / windowHeight;
+
+	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
+}
+
+inline void draw(const vector<Shape>& dia) {
+	GLuint currentVAO = -1;
+	for (const auto& d : dia) {
+		if (d.VAO != currentVAO) {
+			glBindVertexArray(d.VAO);
+			currentVAO = d.VAO;
+		}
+		glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(d.TSR));
+		switch (d.vertices) {
+		case 2: glDrawArrays(GL_LINES, 0, 2); break;
+		case 3: glDrawArrays(GL_TRIANGLES, 0, 3); break;
+		case 4: glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); break;
+		}
+	}
+}
+inline void drawWireframe(const vector<Shape> dia) {
+	for (const auto& d : dia) {
+		glBindVertexArray(d.VAO);
+		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
+		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
+		else if (d.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
+		else if (d.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
+	}
+}
+inline void draw(const Shape& dia) {
+	glBindVertexArray(dia.VAO);
+	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
+	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
+	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
+	else if (dia.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+inline void drawWireframe(const Shape& dia) {
+	glBindVertexArray(dia.VAO);
+	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
+	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
+	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
+	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
+}
+// function to generate b-spline surface
+float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
+	if (degree == 0) {
+		if (t >= KnotVector[index] && t < KnotVector[index + 1])return 1.0f;
+		else return 0.0f;
+	}
+
+	float left{ 0.0f };
+	float right{ 0.0f };
+
+	if (KnotVector[index + degree] != KnotVector[index]) {
+		left = (t - KnotVector[index]) / (KnotVector[index + degree] - KnotVector[index]) * BasisFunction(index, degree - 1, t, KnotVector);
+	}
+	if (KnotVector[index + degree + 1] != KnotVector[index + 1]) {
+		right = (KnotVector[index + degree + 1] - t) / (KnotVector[index + degree + 1] - KnotVector[index + 1]) * BasisFunction(index + 1, degree - 1, t, KnotVector);
+	}
+
+	if (t == KnotVector.back() && index == KnotVector.size() - degree - 2)
+		return 1.0f;
+
+	return left + right;
+
+}
+
+bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
+	glm::vec3& intersectionPoint, float& distance) {
+
+	glm::vec3 edge1 = v1 - v0;
+	glm::vec3 edge2 = v2 - v0;
+
+	glm::vec3 h = glm::cross(rayEnd - rayBegin, edge2);
+
+	float a = glm::dot(edge1, h);
+	if (a > -0.00001f && a < 0.00001f) return false;
+
+	float f = 1.0f / a;
+
+	glm::vec3 s = rayBegin - v0;
+
+	float u = f * glm::dot(s, h);
+	if (u < 0.0f || u > 1.0f) return false;
+
+	glm::vec3 q = glm::cross(s, edge1);
+	float v = f * glm::dot(rayEnd - rayBegin, q);
+	if (v < 0.0f || u + v > 1.0f) return false;
+
+	float t = f * glm::dot(edge2, q);
+	if (t < 0.0f) return false;
+
+	distance = t;
+	intersectionPoint = rayBegin + (rayEnd - rayBegin) * t;
+	return true;
+
+}
+
+inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3,
+	glm::vec3& intersectionPoint, float& distance) {
+
+	float t1{ 0.0f }, t2{ 0.0f };
+	glm::vec3 p1{ 0.0f, 0.0f, 0.0f }, p2{ 0.0f, 0.0f, 0.0f };
+
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p1, t1)) {
+		distance = t1;
+		intersectionPoint = p1;
+		return true;
+	}
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v2, v3, p2, t2)) {
+		distance = t2;
+		intersectionPoint = p2;
+		return true;
+	}
+	return false;
+}
+
+inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance) {
+	return intersertRayRectangle(rayBegin, rayEnd, rectangle.position[0], rectangle.position[1],
+		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
+}
+
+inline bool intersectRayHexahedron(const vector<Shape>& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
+	bool intersected = false;
+	float minDistance = FLT_MAX;
+
+	for (int i = 0; i < Hexahedron.size(); i++) {
+		float t;
+		glm::vec3 p;
+
+		if (intersectRayRectangleShape(Hexahedron[i], rayBegin, rayEnd, p, t)) {
+			if (t < minDistance) {
+				minDistance = t;
+				intersectionPoint = p;
+				distance = t;
+				intersectedIndex = i;
+				intersected = true;
+			}
+		}
+	}
+	return intersected;
+}
+
+vector<float> initKnotVector(int n, int degree) {
+	int length = n + degree + 1;
+	vector<float> KnotVector(length);
+
+	int segment = n - degree;
+
+	for (int i = 0; i < length; i++) {
+		if (i <= degree) {
+			KnotVector[i] = 0.0f;
+		}
+		else if (i >= n + 1) {
+			KnotVector[i] = 1.0f;
+		}
+		else {
+			KnotVector[i] = (float)(i - degree) / (float)segment;
+		}
+	}
+
+	return KnotVector;
+}
+
+// normal vector of a, b
+glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
+	return glm::normalize(glm::cross(a, b));
+}
+
+glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view) {
+	glm::mat4 inverseProjection = glm::inverse(ProjectionMatrix);
+	glm::mat4 inverseView = glm::inverse(view);
+
+	glm::vec4 clip_ray = glm::vec4(mgl.x, mgl.y, -1.0f, 1.0f);
+
+	glm::vec4 view_ray = inverseProjection * clip_ray;
+	view_ray = glm::vec4(view_ray.x, view_ray.y, -1.0f, 0.0f);
+
+	glm::vec4 world_ray = inverseView * view_ray;
+
+	return glm::normalize(glm::vec3(world_ray));
+}
+
 vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]) {
 
 	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -89,45 +464,25 @@ inline float Cross2D(const glm::vec2& a, const glm::vec2& b) {
 	return a.x * b.y - a.y * b.x;
 }
 
-// two constraint points at least are attached to a curve, at extremities
-// height, radius, gradient constraint range, gradient constraint angle, position on curve attached and noise parameters(A, R)
-// constraints can include any combination of the six elements except for u (position), which is always required.
-// since there are 64 possible combinations, an 8-bit flag is used to represent the presence or absence of each element
-// there is no separate constructor or factory function — values are directly assigned to the constraint elements at the time of creation
-// if certain combinations of flags are used frequently, helper functions can be created for convenience
-struct ConstraintPoint {
-	uint8_t flag;
-	float h, r, a, b, alpha, beta, u, A, R;
-	enum Flag {
-		HAS_H = 1 << 0,
-		HAS_R = 1 << 1,
-		HAS_A = 1 << 2,
-		HAS_B = 1 << 3,
-		HAS_ALPHA = 1 << 4,
-		HAS_BETA = 1 << 5,
-		HAS_AMPLITUDE = 1 << 6,
-		HAS_RESPONSE = 1 << 7
-	};
-};
-
 bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c) {
 	float cross1 = Cross2D(b - a, p - a);
 	float cross2 = Cross2D(c - b, p - b);
 	float cross3 = Cross2D(a - c, p - c);
 	return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0) || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0);
-
 }
 
 // linear interpolation
 float lerp(float a, float b, float t) {
 	return (1 - t) * a + t * b;
 }
-
 // hold interpolation
 float hold(float p, float t) {
 	return (1 - t) * p + t * p;
 }
 
+inline float perlinSmooth(float t) {
+	return t * t * t * (t * (t * 6 - 15) + 10);
+}
 void Perlin(float noise[1024][1024]) {
 	glm::vec2 gradient[1025][1025];
 	for (int i = 0; i < 1025; i++) {
@@ -170,262 +525,110 @@ void Perlin(float noise[1024][1024]) {
 	}
 }
 
-struct COLOR {
-	GLclampf R = 1.0f;
-	GLclampf G = 1.0f;
-	GLclampf B = 1.0f;
-	GLclampf A = 0.0f;
-};
-GLvoid setColor(COLOR& c, GLclampf r, GLclampf g, GLclampf b, GLclampf a) {
-	c.R = r;
-	c.G = g;
-	c.B = b;
-	c.A = a;
-}
 
-glm::vec3* returnColorRand2() {
-	glm::vec3 color[2];
-	for (int i = 0; i < 2; i++) color[i] = glm::vec3((float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255);
-	return color;
-}
+void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
 
-glm::vec3* returnColorBK2() {
-	glm::vec3 color[2];
-	for (int i = 0; i < 2; i++) color[i] = glm::vec3(0, 0, 0);
-	return color;
-}
-
-glm::vec3* returnColorRD2() {
-	glm::vec3 color[2];
-	for (int i = 0; i < 2; i++) color[i] = glm::vec3(255, 0, 0);
-	return color;
-}
-
-glm::vec3* returnColorRand4() {
-	glm::vec3 color[4];
-	for (int i = 0; i < 4; i++) color[i] = glm::vec3((float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255, (float)(rand() % 256 + 1) / 255);
-	return color;
-}
-
-glm::vec3* setColor4(const glm::vec3& c1, const glm::vec3& c2, const glm::vec3& c3, const glm::vec3& c4) {
-	glm::vec3 color[4];
-	color[0] = glm::vec3(c1);
-	color[1] = glm::vec3(c2);
-	color[2] = glm::vec3(c3);
-	color[3] = glm::vec3(c4);
-	return color;
-}
-
-COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
-
-// mouse point to GL coordinate
-struct mouseCoordGL {
-	float x;
-	float y;
-};
-mouseCoordGL transformMouseToGL(int x, int y) {
-	mouseCoordGL m;
-	m.x = (2.0f * x) / windowWidth - 1.0f;
-	m.y = 1.0f - (2.0f * y) / windowHeight;
-	return m;
-}
-mouseCoordGL mgl;
-mouseCoordGL preMousePosition;
-
-
-void idleScene();
-GLvoid drawScene(GLvoid);
-GLvoid Reshape(int w, int h);
-GLvoid Keyboard(unsigned char key, int x, int y);
-GLvoid KeyboardUp(unsigned char key, int x, int y);
-void mouse(int button, int state, int x, int y);
-void mouseWheel(int button, int dir, int x, int y);
-void init();
-void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols);
-void motion(int x, int y);
-GLvoid CameraTimer(int value);
-GLchar* filetobuf(const char* filepath);
-void make_vertexShaders(GLuint& vertexShader, const char* vertexName);
-void make_fragmentShaders(GLuint& fragmentShader, const char* fragmentName);
-void make_shaderProgram(GLuint& shaderProgramID);
-void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize,
-	const glm::vec3* color, int colorSize);
-void InitBufferTriangle(GLuint& VAO, const glm::vec3* position, int positionSize,
-	const glm::vec3* color, int colorSize);
-void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int positionSize,
-	const glm::vec3* color, const int colorSize,
-	const int* index, const int indexSize, const glm::vec3* normals, const int normalSize);
-inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexName, GLuint& fragment, const char* fragmentName);
-
-
-
-// shape struct
-struct Shape {
-	GLuint VAO{ NULL };												// VAO
-	vector<glm::vec3> position;										// vertex positions
-	vector<glm::vec3> currentPosition;								// current vertex positions
-	vector<glm::vec3> color;										// vertex colors
-	int vertices = 0;												// number of vertices
-	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
-	vector<ConstraintPoint> CP;										// constraint points
-	vector<int> index;		
-	vector<glm::vec3> normal;												// index for rectangle
-	float u = 0.0f;
-	float r = 0.0f;
-
-	//2D shape
-	Shape(int vertexCount) : vertices(vertexCount) {
-		position.resize(vertices);
-		currentPosition.resize(vertices);
-		color.resize(vertices);
-		normal.resize(vertices);
-
-		for (int i = 0; i < vertices; i++) {
-			position[i] = glm::vec3(0.0f, 0.0f, 0.0f);
-			currentPosition[i] = glm::vec3(0.0f, 0.0f, 0.0f);
-			color[i] = glm::vec3(0.0f, 0.0f, 0.0f);
-		}
-
-		if (vertices == 4) {
-			index.resize(6);
-			index = vector<int>{ 0, 2, 1, 0, 3, 2 };
-		}
-
-		if (vertices == 8) {
-			color.resize(8);
-			index.resize(36);
-			index = vector<int>{0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6, 7, 5, 6, 7, 4, 5, 3, 6, 2, 3, 7, 6, 4, 3, 0, 4, 7, 3, 1, 6, 5, 1, 2, 6};
+	if (ControlPoints.size() != nRows) {
+		std::cerr << "❌ 행 개수가 맞지 않습니다." << std::endl;
+		return;
+	}
+	for (const auto& row : ControlPoints) {
+		if (row.size() != nCols) {
+			std::cerr << "❌ 열 개수가 맞지 않습니다." << std::endl;
+			return;
 		}
 	}
-};
+	int u_degree = 3;
+	int v_degree = 3;
 
-// shape: init line
-void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
-	for (int i = 0; i < 2; i++) {
-		dst.color[i] = glm::vec3(c[i]);
-	}
-	dst.position[0] = glm::vec3(vertex1);
-	dst.position[1] = glm::vec3(vertex2);
+	vector<float> KnotVectorU = initKnotVector(nRows, u_degree);
+	vector<float> KnotVectorV = initKnotVector(nCols, v_degree);
+	int sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
 
-	InitBufferLine(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
-}
-
-void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
-	dst.position[0] = glm::vec3(vertex1);
-	dst.position[1] = glm::vec3(vertex2);
-	dst.position[2] = glm::vec3(vertex3);
-	dst.position[3] = glm::vec3(vertex4);
-
-	glm::vec3 v1 = vertex1 - vertex2;
-	glm::vec3 v2 = vertex1 - vertex4;
-	glm::vec3 n = glm::cross(v1, v2);
-
-	dst.normal[0] = glm::cross(vertex3 - vertex1, vertex4 - vertex1);
-	dst.normal[1] = glm::cross(vertex1 - vertex2, vertex3 - vertex2);
-	dst.normal[2] = glm::cross(vertex2 - vertex3, vertex1 - vertex3);
-	dst.normal[3] = glm::cross(vertex1 - vertex4, vertex3 - vertex4);
-
-	for (int i = 0; i < 4; i++) {
-		if (glm::length(dst.normal[i]) < 1e-6f) {
-			dst.normal[0] = glm::vec3(0.0f, 1.0f, 0.0f);
-			dst.normal[1] = glm::vec3(0.0f, 1.0f, 0.0f);
-			dst.normal[2] = glm::vec3(0.0f, 1.0f, 0.0f);
-			dst.normal[3] = glm::vec3(0.0f, 1.0f, 0.0f);
-		}
-		else {
-			dst.normal[i] = glm::normalize(dst.normal[i]);
+	for (int p = 0; p < sampleCount; p++) {
+		float u = p * SAMPLE_INTERVAL;
+		for (int q = 0; q < sampleCount; q++) {
+			float v = q * SAMPLE_INTERVAL;
+			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
+			for (int i = 0; i < nRows; i++) {
+				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
+				for (int j = 0; j < nCols; j++) {
+					float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
+					CurrentPoint += ControlPoints[i][j] * PointU * PointV;
+				}
+			}
+			SurfacePoints.push_back(CurrentPoint);
 		}
 	}
-	
 
-	for (int i = 0; i < 4; i++) {
-		dst.color[i] = glm::vec3(c[i]);
+	int SizeU = sampleCount;
+	int SizeV = sampleCount;
+
+
+
+	Shape* tempRect = new Shape(4);
+	for (int i = 0; i < SizeU - 1; i++) {
+		for (int j = 0; j < SizeV - 1; j++) {
+			int index = i * SizeV + j;
+			glm::vec3 p1 = SurfacePoints[index];
+			glm::vec3 p2 = SurfacePoints[index + 1];
+			glm::vec3 p3 = SurfacePoints[index + SizeV + 1];
+			glm::vec3 p4 = SurfacePoints[index + SizeV];
+			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+			setRectangle(*tempRect, p1, p2, p3, p4, gray);
+			rectangles.push_back(*tempRect);
+		}
 	}
-	
-	InitBufferRectangle(dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
+	cout << rectangles.size() << endl;
+
+	float half = 0.01f;
+	for (int i = 0; i < nRows; i++) {
+		for (int j = 0; j < nCols; j++) {
+			glm::vec3 points[8] = {
+				ControlPoints[i][j] + glm::vec3(-half, half, +half),
+				ControlPoints[i][j] + glm::vec3(+half, +half, +half),
+				ControlPoints[i][j] + glm::vec3(+half, -half, +half),
+				ControlPoints[i][j] + glm::vec3(-half, -half, +half),
+				ControlPoints[i][j] + glm::vec3(-half, +half, -half),
+				ControlPoints[i][j] + glm::vec3(+half, +half, -half),
+				ControlPoints[i][j] + glm::vec3(+half, -half, -half),
+				ControlPoints[i][j] + glm::vec3(-half, -half, -half)
+			};
+
+			glm::vec3 gray[8] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f),
+				glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
+			setHexahedron(v_ControlPoints, points, gray);
+		}
+	}
+
 }
 
-// 
-void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
-	
-	Shape temp(4);
+GLvoid Keyboard(GLFWwindow* window) {
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		camera[0] += CameraForward * 0.01f;
 
-	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
-	glm::vec3 TopColor[4] = { c[4], c[5], c[1], c[0] };
-	glm::vec3 BackColor[4] = { c[6], c[7], c[5], c[4] };
-	glm::vec3 BottomColor[4] = { c[3], c[2], c[6], c[7] };
-	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
-	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		camera[0] -= CameraForward * 0.01f;
 
-	setRectangle(temp, vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
-	dst.push_back(temp);
-	setRectangle(temp, vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
-	dst.push_back(temp);
-	setRectangle(temp, vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
-	dst.push_back(temp);
-	setRectangle(temp, vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
-	dst.push_back(temp);
-	setRectangle(temp, vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
-	dst.push_back(temp);
-	setRectangle(temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
-	dst.push_back(temp);
-	
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		camera[0] -= CameraRight * 0.01f;
+
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		camera[0] += CameraRight * 0.01f;
+
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
 }
 
-// normal vector of a, b
-glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
-	return glm::normalize(glm::cross(a, b));
+void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+
+	}
 }
 
-glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view) {
-	glm::mat4 inverseProjection = glm::inverse(ProjectionMatrix);
-	glm::mat4 inverseView = glm::inverse(view);
+void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {
 	
-	glm::vec4 clip_ray = glm::vec4(mgl.x, mgl.y, -1.0f, 1.0f);
-
-	glm::vec4 view_ray = inverseProjection * clip_ray;
-	view_ray = glm::vec4(view_ray.x, view_ray.y, -1.0f, 0.0f);
-
-	glm::vec4 world_ray = inverseView* view_ray;
-
-	return glm::normalize(glm::vec3(world_ray));
 }
-
-GLint width, height;
-GLuint shaderProgramID;
-GLuint vertexShader;
-GLuint fragmentShader;
-
-unsigned int viewLocation;
-unsigned int projectionLocation;
-unsigned int modelTransformLococation;
-vector <Shape> axes;
-// camera
-glm::vec3 camera[3];
-glm::vec3 CameraForward;
-glm::vec3 CameraRight;
-glm::mat4 view = glm::mat4(1.0f);
-
-glm::mat4 projection = glm::mat4(1.0f);
-
-vector<vector<glm::vec3>> controlPoints;
-vector<vector<Shape>> FeatureCurves;
-vector<ConstraintPoint> constraintPoints;
-vector<Shape> rectangles;						// render surface rectangles
-vector<Shape> v_ControlPoints;				// render control points
-Shape PickedControlPoint{ NULL };	// picked control point
-
-glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
-vector<Shape> GridLines;
-vector<Shape> GridRectangles;
-
-vector<glm::vec3> SurfacePoints;
-
-glm::vec3 LightSource = glm::vec3(0.0f, 5.0f, 0.0f);
-
-float DiffusionGrid[TERRAIN_SIZE-1][TERRAIN_SIZE-1];
-
-float noiseMap[1024][1024];
 
 // ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 // rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
@@ -590,698 +793,4 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 		}
 
 	}
-}
-
-// function to generate b-spline surface
-float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
-	if (degree == 0) {
-		if (t >= KnotVector[index] && t < KnotVector[index + 1])return 1.0f;
-		else return 0.0f;
-	}
-
-	float left{0.0f};
-	float right{0.0f};
-
-	if (KnotVector[index + degree] != KnotVector[index]) {
-		left = (t - KnotVector[index]) / (KnotVector[index + degree] - KnotVector[index]) * BasisFunction(index, degree - 1, t, KnotVector);
-	}
-	if(KnotVector[index + degree + 1] != KnotVector[index + 1]) {
-		right = (KnotVector[index + degree + 1] - t) / (KnotVector[index + degree + 1] - KnotVector[index + 1]) * BasisFunction(index + 1, degree - 1, t, KnotVector);
-	}
-
-	if (t == KnotVector.back() && index == KnotVector.size() - degree - 2)
-		return 1.0f;
-
-	return left + right;
-
-}
-
-bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
-	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
-	glm::vec3& intersectionPoint, float& distance) {
-
-	glm::vec3 edge1 = v1 - v0;
-	glm::vec3 edge2 = v2 - v0;
-
-	glm::vec3 h = glm::cross(rayEnd - rayBegin, edge2);
-
-	float a = glm::dot(edge1, h);
-	if (a > -0.00001f && a < 0.00001f) return false;
-
-	float f = 1.0f / a;
-
-	glm::vec3 s = rayBegin - v0;
-
-	float u = f * glm::dot(s, h);
-	if (u < 0.0f || u > 1.0f) return false;
-
-	glm::vec3 q = glm::cross(s, edge1);
-	float v = f * glm::dot(rayEnd - rayBegin, q);
-	if (v < 0.0f || u + v > 1.0f) return false;
-	
-	float t = f * glm::dot(edge2, q);
-	if (t < 0.0f) return false;
-		
-	distance = t;
-	intersectionPoint = rayBegin + (rayEnd - rayBegin) * t;
-	return true;
-
-}
-
-inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
-	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3,
-	glm::vec3& intersectionPoint, float& distance) {
-
-	float t1{ 0.0f }, t2{ 0.0f };
-	glm::vec3 p1{0.0f, 0.0f, 0.0f}, p2{ 0.0f, 0.0f, 0.0f };
-
-	if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p1, t1)) {
-		distance = t1;
-		intersectionPoint = p1;
-		return true;
-	}
-	if (intersectRayTriangle(rayBegin, rayEnd, v0, v2, v3, p2, t2)) {
-		distance = t2;
-		intersectionPoint = p2;
-		return true;
-	}
-	return false;
-}
-
-inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
-	glm::vec3& intersectionPoint, float& distance) {
-	return intersertRayRectangle(rayBegin, rayEnd, rectangle.position[0], rectangle.position[1],
-		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
-}
-
-inline bool intersectRayHexahedron(const vector<Shape>& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
-	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
-	bool intersected = false;
-	float minDistance = FLT_MAX;
-
-	for (int i = 0; i < rectangles.size(); i++) {
-		float t;
-		glm::vec3 p;
-
-		if (intersectRayRectangleShape(rectangles[i], rayBegin, rayEnd, p, t)) {
-			if (t < minDistance) {
-				minDistance = t;
-				intersectionPoint = p;
-				distance = t;
-				intersectedIndex = i;
-				intersected = true;
-			}
-		}
-	}
-	return intersected;
-}
-
-void main(int argc, char** argv) {
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-	glutInitWindowPosition(100, 100);
-	glutInitWindowSize(windowWidth, windowHeight);
-	glutCreateWindow("Example1");
-
-	glewExperimental = GL_TRUE;
-	if (glewInit() != GLEW_OK) {
-		cerr << "unable to initialize GLEW" << endl;
-		exit(EXIT_FAILURE);
-	}
-	else cout << "GLEW initialized" << endl;
-
-	InitShader(shaderProgramID, vertexShader, "vertex.glsl", fragmentShader, "fragment.glsl");
-	glUseProgram(shaderProgramID);
-
-	cout << "num of control points(horizental): ";
-	int ControlPointRows{0};
-	cin >> ControlPointRows;
-	cout << "num of control points(vertical): ";
-	int ControlPointCols{ 0 };
-	cin >> ControlPointCols;
-	cout << "size of sample interval(float 0.0~1.0): ";
-	float sampleInterval{ 0.0f };
-	cin >> sampleInterval;
-
-	controlPoints.resize(ControlPointRows, vector<glm::vec3>(ControlPointCols));
-	for (int i = 0; i < ControlPointRows; i++) {
-		for (int j = 0; j < ControlPointCols; j++) {
-			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
-		}
-	}
-
-	init();
-	initSplineSurface(controlPoints, ControlPointRows, ControlPointCols);
-	glutDisplayFunc(drawScene);
-	glutReshapeFunc(Reshape);
-	glutKeyboardFunc(Keyboard);
-	glutKeyboardUpFunc(KeyboardUp);
-	glutMouseFunc(mouse);
-	glutMotionFunc(motion);
-	glutTimerFunc(10, CameraTimer, 0);
-	glutMouseWheelFunc(mouseWheel);
-
-	glutMainLoop();
-}
-
-void init() {
-	glClearColor(backgroundColor.R, backgroundColor.G, backgroundColor.B, backgroundColor.A);
-
-	viewLocation = glGetUniformLocation(shaderProgramID, "viewTransform");
-	projectionLocation = glGetUniformLocation(shaderProgramID, "projectionTransform");
-	modelTransformLococation = glGetUniformLocation(shaderProgramID, "modelTransform");
-	
-	unsigned int lightSourceLocation = glGetUniformLocation(shaderProgramID, "lightPos");
-
-	// axes
-	Shape* temp = new Shape(2);
-	setLine(*temp, glm::vec3(-4.0, 0.0, 0.0), glm::vec3(4.0, 0.0, 0.0), returnColorRand2());
-	axes.push_back(*temp);
-	setLine(*temp, glm::vec3(0.0, -4.0, 0.0), glm::vec3(0.0, 4.0, 0.0), returnColorRand2());
-	axes.push_back(*temp);
-	setLine(*temp, glm::vec3(0.0, 0.0, -4.0), glm::vec3(0.0, 0.0, 4.0), returnColorRand2());
-	axes.push_back(*temp);
-	delete(temp);
-
-	camera[0] = glm::vec3(0.4, 0.2, 0.8);
-	camera[1] = glm::vec3(0.5, 0.0, 0.5);
-	camera[2] = glm::vec3(0.0f, 1.0f, 0.0f);
-	view = glm::lookAt(camera[0], camera[1], camera[2]);
-	CameraForward = camera[1] - camera[0];
-
-
-	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 50.0f);
-	//projection = glm::translate(projection, glm::vec3(0.0, 0.0, -2.0));
-
-	
-
-	glEnable(GL_DEPTH_TEST);
-}
-
-// n = number of control points
-vector<float> initKnotVector(int n, int degree) {
-	int length = n + degree + 1;
-	vector<float> KnotVector(length);
-
-	int segment = n - degree;
-
-	for (int i = 0; i < length; i++) {
-		if (i <= degree) {
-			KnotVector[i] = 0.0f;
-		}
-		else if (i >= n + 1) {
-			KnotVector[i] = 1.0f;
-		}
-		else {
-			KnotVector[i] = (float)(i - degree) / (float)segment;
-		}
-	}
-
-	return KnotVector;
-}
-
-void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
-	
-	int ControlPointRows = nRows;
-	int ControlPointCols = nCols;
-
-	int u_degree = 3;
-	int v_degree = 3;
-	
-	vector<float> KnotVectorU = initKnotVector(ControlPointRows, u_degree);
-	vector<float> KnotVectorV = initKnotVector(ControlPointCols, v_degree);
-	int sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
-
-	for (int p = 0; p < sampleCount; p++) {
-		float u = p * SAMPLE_INTERVAL;
-		for (int q = 0; q < sampleCount; q++) {
-			float v = q * SAMPLE_INTERVAL;
-			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
-			for (int i = 0; i < ControlPointRows; i++) {
-				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
-				for (int j = 0; j < ControlPointCols; j++) {
-					float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
-					CurrentPoint += controlPoints[i][j] * PointU * PointV;
-				}
-			}
-			SurfacePoints.push_back(CurrentPoint);
-		}
-	}
-
-	int SizeU = sqrt(SurfacePoints.size());
-	int SizeV = sqrt(SurfacePoints.size());
-
-	Shape* tempRect = new Shape(4);
-	for (int i = 0; i < SizeU - 1; i++) {
-		for (int j = 0; j < SizeV - 1; j++) {
-			int index = i * SizeV + j;
-			glm::vec3 p1 = SurfacePoints[index];
-			glm::vec3 p2 = SurfacePoints[index + 1];
-			glm::vec3 p3 = SurfacePoints[index + SizeV + 1];
-			glm::vec3 p4 = SurfacePoints[index + SizeV];
-			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setRectangle(*tempRect, p1, p2, p3, p4, gray);
-			rectangles.push_back(*tempRect);
-		}
-	}
-	cout << rectangles.size() << endl;
-
-	float half = 0.01f;
-	for (int i = 0; i < nRows; i++) {
-		for (int j = 0; j < nCols; j++) {
-			glm::vec3 points[8] = { 
-				controlPoints[i][j] + glm::vec3(-half, half, +half),
-				controlPoints[i][j] + glm::vec3(+half, +half, +half),
-				controlPoints[i][j] + glm::vec3(+half, -half, +half),
-				controlPoints[i][j] + glm::vec3(-half, -half, +half),
-				controlPoints[i][j] + glm::vec3(-half, +half, -half),
-				controlPoints[i][j] + glm::vec3(+half, +half, -half),
-				controlPoints[i][j] + glm::vec3(+half, -half, -half),
-				controlPoints[i][j] + glm::vec3(-half, -half, -half) 
-			};
-
-			glm::vec3 gray[8] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f),
-				glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setHexahedron(v_ControlPoints, points, gray);
-		}
-	}
-
-}
-
-void idleScene() {
-	glutPostRedisplay();
-}
-
-inline void draw(const vector<Shape>& dia) {
-	GLuint currentVAO = -1;
-	for (const auto& d : dia) {
-		if (d.VAO != currentVAO) {
-			glBindVertexArray(d.VAO);
-			currentVAO = d.VAO;
-		}
-		glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(d.TSR));
-		switch (d.vertices) {
-		case 2: glDrawArrays(GL_LINES, 0, 2); break;
-		case 3: glDrawArrays(GL_TRIANGLES, 0, 3); break;
-		case 4: glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); break;
-		}
-	}
-}
-inline void drawWireframe(const vector<Shape> dia) {
-	for (const auto& d : dia) {
-		glBindVertexArray(d.VAO);
-		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
-		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-		else if (d.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
-		else if (d.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
-	}
-}
-inline void draw(const Shape& dia) {
-	glBindVertexArray(dia.VAO);
-	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
-	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-	else if (dia.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-}
-inline void drawWireframe(const Shape& dia) {
-	glBindVertexArray(dia.VAO);
-	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
-	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
-	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
-}
-
-GLvoid drawScene() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	draw(axes);
-	
-	/*for (const auto& c : FeatureCurves) {
-		draw(c);
-	}*/
-
-	draw(rectangles);
-	//draw(GridLines);
-	//draw(GridRectangles);
-
-	draw(v_ControlPoints);
-	//CameraForward = glm::normalize(camera[1] - camera[0]);
-	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
-
-	float aspect = static_cast<float>(windowWidth) / windowHeight;
-	//projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 50.0f);
-
-	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
-	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
-	
-
-	glutSwapBuffers();
-}
-
-GLvoid Reshape(int w, int h) {
-	glViewport(0, 0, w, h);
-}
-
-GLvoid Keyboard(unsigned char key, int x, int y) {
-	switch (key) {
-	case 'w':
-		MoveCameraForward = true;
-		break;
-	case 's':
-		MoveCameraBackward = true;
-		break;
-	case 'a':
-		MoveCameraLeft = true;
-		break;
-	case 'd':
-		MoveCameraRight = true;
-		break;
-	case VK_ESCAPE:
-		glutLeaveMainLoop();
-		break;
-	case 'm':
-
-
-		break;
-	case VK_UP: 
-		/*if (PickedControlPoint != NULL) {
-			PickedControlPoint->position[0] += glm::vec3(0.0f, 0.1f, 0.0f);
-		}*/
-		break;
-	default:
-		break;
-	}
-	glutPostRedisplay();
-}
-
-GLvoid KeyboardUp(unsigned char key, int x, int y) {
-	switch (key) {
-	case 'w':
-		MoveCameraForward = false;
-		break;
-	case 's':
-		MoveCameraBackward = false;
-		break;
-	case 'a':
-		MoveCameraLeft = false;
-		break;
-	case 'd':
-		MoveCameraRight = false;
-		break;
-	default:
-		break;
-	}
-	glutPostRedisplay();
-}
-
-//void pickObject();
-
-void mouse(int button, int state, int x, int y) {
-	mgl = transformMouseToGL(x, y);
-	
-	if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
-		glutMotionFunc(motion);
-	}
-	else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		glm::vec3 point = RayfromMouse(mgl, projection, view);
-		glm::vec3 ray = camera[0] + point * 5.0f;
-
-		Shape* temp = new Shape(2);
-		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
-		
-		setLine(*temp, camera[0], ray, rayColor);
-		axes.push_back(*temp);
-		delete(temp);
-
-		glm::vec3 intersectionPoint;
-		float distance = 0.0f;
-		int intersectedIndex = -1;
-		if (intersectRayHexahedron(v_ControlPoints, camera[0], ray, intersectionPoint, distance, intersectedIndex)) PickedControlPoint = v_ControlPoints[intersectedIndex];
-		else PickedControlPoint = NULL;
-
-		cout << "Choose control point index to move(ROW)" << endl;
-		int row;
-		cin >> row;
-		cout << "Choose control point index to move(COL)" << endl;
-		int col;
-		cin >> col;
-		cout << "move(x)" << endl;
-		float x;
-		cin >> x;
-		cout << "move(y)" << endl;
-		float y;
-		cin >> y;
-		cout << "move(z)" << endl;
-		float z;
-		cin >> z;
-
-		glm::vec3 move = glm::vec3(x, y, z);
-		controlPoints[row][col] += move;
-
-		initSplineSurface(controlPoints, controlPoints.size(), controlPoints[0].size());
-
-		glutPostRedisplay();
-		glutMotionFunc(NULL);
-	}
-	else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
-		glutMotionFunc(NULL);
-	}
-	else if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP) {
-		glutMotionFunc(NULL);
-	}
-
-	preMousePosition = mgl;
-	glutPostRedisplay();
-}
-
-void mouseWheel(int wheel, int direction, int x, int y) {
-	if (direction > 0) {
-		camera[0] += CameraForward * 0.1f;
-	}
-	else {
-		camera[0] -= CameraForward * 0.1f;
-	}
-	glutPostRedisplay();
-}
-
-void motion(int x, int y) {
-	mgl = transformMouseToGL(x, y);
-	
-	float sensitivity = 100.0f;
-	float dx = mgl.x - preMousePosition.x;
-	float dy = mgl.y - preMousePosition.y;
-
-	CameraYaw += dx * sensitivity;
-	CameraPitch += dy * sensitivity;
-
-	if (CameraPitch > 89.0f) CameraPitch = 89.0f;
-	if (CameraPitch < -89.0f) CameraPitch = -89.0f;
-
-	CameraForward.x = cos(glm::radians(CameraYaw)) * cos(glm::radians(CameraPitch));
-	CameraForward.y = sin(glm::radians(CameraPitch));
-	CameraForward.z = sin(glm::radians(CameraYaw)) * cos(glm::radians(CameraPitch));
-	CameraForward = glm::normalize(CameraForward);
-
-	CameraRight = glm::normalize(glm::cross(CameraForward, camera[2]));
-
-	preMousePosition = mgl;
-	glutPostRedisplay();
-}
-
-GLvoid CameraTimer(int value) {
-	if (MoveCameraForward) {
-		camera[0] += CameraForward * 0.01f;
-	}
-
-	if (MoveCameraBackward) {
-		camera[0] -= CameraForward * 0.01f;
-	}
-
-	if (MoveCameraLeft) {
-		camera[0] -= CameraRight * 0.01f;
-	}
-
-	if (MoveCameraRight) {
-		camera[0] += CameraRight * 0.01f;
-	}
-
-	glutPostRedisplay();
-
-	glutTimerFunc(10, CameraTimer, 0);
-}
-
-// init shader
-GLchar* filetobuf(const char* filepath)
-{
-	std::ifstream file(filepath);
-	if (!file.is_open()) {
-		std::cerr << "Failed to open file: " << filepath << std::endl;
-		return nullptr;
-	}
-
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	file.close();
-
-	std::string contents = buffer.str();
-	char* source = new char[contents.size() + 1];
-	strcpy_s(source, contents.size() + 1, contents.c_str());
-	return source;
-}
-void make_vertexShaders(GLuint& vertexShader, const char* vertexName) {
-	GLchar* vertexSource;
-
-	vertexSource = filetobuf(vertexName);
-
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexSource, NULL);
-	glCompileShader(vertexShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &result);
-	if (!result) {
-		glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-		cerr << "ERROR: vertex shader error\n" << errorLog << endl;
-		return;
-	}
-}
-void make_fragmentShaders(GLuint& fragmentShader, const char* fragmentName) {
-	GLchar* fragmentSource;
-
-	fragmentSource = filetobuf(fragmentName);
-
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
-	glCompileShader(fragmentShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result);
-	if (!result) {
-		glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-		cerr << "ERROR: fragment shader error\n" << errorLog << endl;
-		return;
-	}
-}
-void make_shaderProgram(GLuint& shaderProgramID) {
-	shaderProgramID = glCreateProgram();
-
-	glAttachShader(shaderProgramID, vertexShader);
-	glAttachShader(shaderProgramID, fragmentShader);
-
-	glLinkProgram(shaderProgramID);
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
-	if (!result) {
-		glGetProgramInfoLog(shaderProgramID, 512, NULL, errorLog);
-		cerr << "ERROR: shader program 연결 실패\n" << errorLog << endl;
-		return;
-	}
-}
-inline GLvoid InitShader(GLuint& programID, GLuint& vertex, const char* vertexName, GLuint& fragment, const char* fragmentName) {
-	make_vertexShaders(vertexShader, vertexName);
-	make_fragmentShaders(fragmentShader, fragmentName);
-	make_shaderProgram(shaderProgramID);
-}
-// init buffer
-void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
-	//cout << "버퍼 초기화" << endl;
-	GLuint VBO_position, VBO_color;
-	glGenVertexArrays(1, &VAO);
-	glBindVertexArray(VAO);
-
-	glGenBuffers(1, &VBO_position);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_position);
-
-	glBufferData(GL_ARRAY_BUFFER, 3 * positionSize * sizeof(float), position, GL_STATIC_DRAW);
-	GLint pAttribute = glGetAttribLocation(shaderProgramID, "vPos");
-	if (pAttribute < 0) cout << "pAttribute < 0" << endl;
-	glVertexAttribPointer(pAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(pAttribute);
-
-	glGenBuffers(1, &VBO_color);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
-
-	glBufferData(GL_ARRAY_BUFFER, 3 * colorSize * sizeof(float), color, GL_STATIC_DRAW);
-	GLint cAttribute = glGetAttribLocation(shaderProgramID, "vColor");
-	if (cAttribute < 0) cout << "cAttribute < 0" << endl;
-	glVertexAttribPointer(cAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(cAttribute);
-}
-void InitBufferTriangle(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
-	//cout << "버퍼 초기화" << endl;
-	GLuint VBO_position, VBO_color;
-	glGenVertexArrays(1, &VAO);
-	glBindVertexArray(VAO);
-
-	glGenBuffers(1, &VBO_position);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_position);
-
-	glBufferData(GL_ARRAY_BUFFER, 3 * positionSize * sizeof(float), position, GL_STATIC_DRAW);
-	GLint pAttribute = glGetAttribLocation(shaderProgramID, "vPos");
-	if (pAttribute < 0) cout << "pAttribute < 0" << endl;
-	glVertexAttribPointer(pAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(pAttribute);
-
-	glGenBuffers(1, &VBO_color);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
-
-	glBufferData(GL_ARRAY_BUFFER, 3 * colorSize * sizeof(float), color, GL_STATIC_DRAW);
-	GLint cAttribute = glGetAttribLocation(shaderProgramID, "vColor");
-	if (cAttribute < 0) cout << "cAttribute < 0" << endl;
-	glVertexAttribPointer(cAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(cAttribute);
-}
-void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int positionSize,
-	const glm::vec3* color, const int colorSize,
-	const int* index, const int indexSize, const glm::vec3* normals, const int normalSize) {
-	//cout << "EBO 초기화" << endl;
-	GLuint VBO_position, VBO_color, VBO_normal, EBO;
-	glGenVertexArrays(1, &VAO);
-	glBindVertexArray(VAO);
-
-	glGenBuffers(1, &VBO_position);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_position);
-	glBufferData(GL_ARRAY_BUFFER, 3 * positionSize * sizeof(float), position, GL_STATIC_DRAW);
-
-	GLint pAttribute = glGetAttribLocation(shaderProgramID, "vPos");
-	if (pAttribute < 0) cout << "pAttribute < 0" << endl;
-	glVertexAttribPointer(pAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(pAttribute);
-
-	while (pAttribute < 0);
-
-	glGenBuffers(1, &VBO_color);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
-	glBufferData(GL_ARRAY_BUFFER, 3 * colorSize * sizeof(float), color, GL_STATIC_DRAW);
-
-	GLint cAttribute = glGetAttribLocation(shaderProgramID, "vColor");
-	if (cAttribute < 0) cout << "cAttribute < 0" << endl;
-	glVertexAttribPointer(cAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(cAttribute);
-
-	glGenBuffers(1, &VBO_normal);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_normal);
-	glBufferData(GL_ARRAY_BUFFER, 3 * normalSize * sizeof(float), normals, GL_STATIC_DRAW);
-
-	GLint nAttribute = glGetAttribLocation(shaderProgramID, "vNormal");
-	if (nAttribute < 0) {
-		cout << "nAttribute < 0" << endl;
-		cout << normalSize << endl;
-		for (int i = 0; i < normalSize; i++) {
-			cout << normals[i].x << ", " << normals[i].y << ", " << normals[i].z << endl;
-		}
-	}
-	glVertexAttribPointer(nAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(nAttribute);
-
-	glGenBuffers(1, &EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexSize * sizeof(int), index, GL_STATIC_DRAW);
-
 }
