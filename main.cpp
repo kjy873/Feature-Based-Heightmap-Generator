@@ -175,6 +175,15 @@ int main() {
 	InitShader(shaderProgramID, vertexShader, "vertex.glsl", fragmentShader, "fragment.glsl");
 	glUseProgram(shaderProgramID);
 
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	(void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
+
 	init();
 	controlPoints.resize(4, vector<glm::vec3>(4));
 	for (int i = 0; i < 4; i++) {
@@ -192,13 +201,30 @@ int main() {
         // 렌더링
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 배경색 설정
         glClear(GL_COLOR_BUFFER_BIT);         // 버퍼 초기화
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
 		drawScene();
+
+		ImGui::Begin("ImGUI window for FBHG");
+		ImGui::Text("Hello");
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 
 
         // 버퍼 교환
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
     // 종료 처리
     glfwDestroyWindow(window);
