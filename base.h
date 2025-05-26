@@ -38,6 +38,11 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
+enum class ToolType {
+	none,
+	confirm
+};
+
 // Constraint point
 struct ConstraintPoint {
 	uint8_t flag;
@@ -362,3 +367,8 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods);
 void MouseMoveRightButton(GLFWwindow* window);
+
+
+void DrawPanel();
+
+void UpdateToolInteraction();

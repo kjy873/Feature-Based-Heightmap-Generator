@@ -131,6 +131,7 @@ float DiffusionGrid[TERRAIN_SIZE - 1][TERRAIN_SIZE - 1];
 
 float noiseMap[1024][1024];
 
+ToolType CurrentTool = ToolType::none;
 
 
 int main() {
@@ -208,9 +209,7 @@ int main() {
 
 		drawScene();
 
-		ImGui::Begin("ImGUI window for FBHG");
-		ImGui::Text("Hello");
-		ImGui::End();
+		DrawPanel();
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -859,3 +858,62 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 	}
 }
 
+
+
+void DrawPanel() {
+
+	ImGuiIO& io = ImGui::GetIO();
+	float panel_width = 250.0f;
+	float button_height = 40.0f;
+
+	// 패널 위치
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - panel_width, 0), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(panel_width, io.DisplaySize.y), ImGuiCond_Always);
+
+	ImGui::Begin("Right Panel", nullptr,
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove);
+
+	// 스크롤 가능한 툴
+	ImGui::BeginChild("ScrollableRegion", ImVec2(0, -button_height - 20), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
+	ImGui::Text("modify constraint points");
+	ImGui::Separator();
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
+	ImGui::Button("Tool A", ImVec2(-FLT_MIN, 30));
+	ImGui::Button("Tool B", ImVec2(-FLT_MIN, 30));
+
+	ImGui::Text("modify noise");
+	ImGui::Separator();
+	ImGui::Button("Noise A", ImVec2(-FLT_MIN, 30));
+	ImGui::Button("Noise B", ImVec2(-FLT_MIN, 30));
+
+	ImGui::Text("그 외 기능들");
+	ImGui::Separator();
+	ImGui::Button("Etc A", ImVec2(-FLT_MIN, 30));
+	ImGui::Button("Etc B", ImVec2(-FLT_MIN, 30));
+
+	ImGui::EndChild();
+
+	// 하단 confirm, reset 버튼
+	ImGui::Separator();
+	if (ImGui::Button("confirm", ImVec2((panel_width - 30) * 0.5f, button_height)))
+	{
+
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
+	{
+
+	}
+
+	ImGui::End();
+}
+
+void UpdateToolInteraction() {
+	/*switch (currentTool) {
+	case ToolType::confirm:
+		initSplineSurface(v_ControlPoints, nRows, nCols);
+	}*/
+}
