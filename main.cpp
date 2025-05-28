@@ -15,7 +15,7 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 	dst.position[2] = glm::vec3(vertex3);
 	dst.position[3] = glm::vec3(vertex4);
 
-	glm::vec3 v1 = vertex1 - vertex2;
+	/*glm::vec3 v1 = vertex1 - vertex2;
 	glm::vec3 v2 = vertex1 - vertex4;
 	glm::vec3 n = glm::cross(v1, v2);
 
@@ -34,6 +34,10 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 		else {
 			dst.normal[i] = glm::normalize(dst.normal[i]);
 		}
+	}*/
+	glm::vec3 normal = glm::normalize(glm::cross(vertex2 - vertex1, vertex4 - vertex1));
+	for (int i = 0; i < 4; i++) {
+		dst.normal[i] = normal;
 	}
 
 	for (int i = 0; i < 4; i++) {
@@ -136,8 +140,10 @@ bool MouseRightButtonPressed = false;
 double LastMouseX = 0.0;
 double LastMouseY = 0.0;
 
-double windowWidth = 1920;
-double windowHeight = 1080;
+bool ControlPointRender = true;
+
+double windowWidth = 800;
+double windowHeight = 600;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
@@ -167,6 +173,7 @@ glm::mat4 projection = glm::mat4(1.0f);
 vector<vector<glm::vec3>> controlPoints;
 vector<vector<glm::vec3>> controlPoints_modifier;
 vector<vector<glm::vec3>> controlPoints_initial;
+vector<Shape> ControlLines;
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;						// render surface rectangles
@@ -188,6 +195,8 @@ float noiseMap[1024][1024];
 ToolType CurrentTool = ToolType::none;
 
 glm::mat4 PickedObjectModelTransform = glm::mat4(1.0f);
+
+glm::vec3 PickedObjectPos = glm::vec3(0.0f, 0.0f, 0.0f);
 
 
 int main() {
@@ -267,20 +276,26 @@ int main() {
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		ImGuizmo::BeginFrame();
 
-		
 
 		// imguizmo set, call
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
 		ImGuizmo::SetRect(0, 0, FrameBufferWidth, FrameBufferHeight);
-		if(PickedControlPoint)
-		ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
-			ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(PickedObjectModelTransform));
+		if (PickedControlPoint)
+		{
+			ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
+				ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(PickedObjectModelTransform));
 
-		//ImGuizmo::DecomposeMatrixToComponents() 변환을 값으로 바꿈
+			//ImGuizmo::DecomposeMatrixToComponents() 변환을 값으로 바꿈
 
 
+			PickedControlPoint->TSR = PickedObjectModelTransform; // ImGuizmo가 사용 중이면 PickedControlPoint의 변환을 업데이트
+			glm::vec3 newPosition = glm::vec3(PickedObjectModelTransform[3]);
+			controlPoints_modifier[PickedControlPoint->linkedRows][PickedControlPoint->linkedCols] = newPosition;
+			PickedObjectPos = newPosition;
+		}
 
 		DrawPanel();
 
@@ -339,9 +354,15 @@ void init() {
 GLvoid drawScene() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	draw(axes);
+	
 	draw(rectangles);
 
-	draw(v_ControlPoints);
+	if (ControlPointRender) {
+		glDisable(GL_DEPTH_TEST);
+		draw(v_ControlPoints);
+		draw(ControlLines);
+		glEnable(GL_DEPTH_TEST);
+	}
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
 	float aspect = static_cast<float>(windowWidth) / windowHeight;
@@ -686,13 +707,29 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		}
 	}
 
-	/*for (int i = 0; i < SurfacePoints.size()-1; i++) {
-		Shape temp(2);
-		glm::vec3 white[2] = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
-		setLine(temp, SurfacePoints[i], SurfacePoints[i + 1], white);
-		axes.push_back(temp);
+	int stepU = (int)(1.0f / SAMPLE_INTERVAL) / (nRows - 1);  // u방향 제어점 간 샘플 수
+	int stepV = (int)(1.0f / SAMPLE_INTERVAL) / (nCols - 1);  // v방향 제어점 간 샘플 수
 
-	}*/
+	ControlLines.clear();
+	for (int i = 0; i < ControlPoints.size(); ++i) {
+		for (int j = 0; j < ControlPoints[i].size(); ++j) {
+			if (j + 1 < ControlPoints[i].size()) {
+				// → 방향 연결 (같은 행, 다음 열)
+				Shape lineH(2);
+				glm::vec3 white[2] = { glm::vec3(1.0f), glm::vec3(1.0f) };
+				setLine(lineH, ControlPoints[i][j], ControlPoints[i][j + 1], white);
+				ControlLines.push_back(lineH);
+			}
+			if (i + 1 < ControlPoints.size()) {
+				// ↓ 방향 연결 (같은 열, 다음 행)
+				Shape lineV(2);
+				glm::vec3 white[2] = { glm::vec3(1.0f), glm::vec3(1.0f) };
+				setLine(lineV, ControlPoints[i][j], ControlPoints[i + 1][j], white);
+				ControlLines.push_back(lineV);
+			}
+		}
+	}
+	
 
 	int SizeU = sampleCount;
 	int SizeV = sampleCount;
@@ -747,16 +784,15 @@ GLvoid Keyboard(GLFWwindow* window) {
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
+	cout << "마우스 버튼" << endl;
 	bool GizmoActive = false;
-	if(ImGuizmo::IsOver()) {
+	if(ImGuizmo::IsOver() && PickedControlPoint) {
 		GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
+		cout << "is over true" << endl;
 	}
-	if (ImGuizmo::IsUsing()) {
-		GizmoActive = true;
-		PickedControlPoint->TSR = PickedObjectModelTransform; // ImGuizmo가 사용 중이면 PickedControlPoint의 변환을 업데이트
-		glm::vec3 newPosition = glm::vec3(PickedObjectModelTransform[3]);
-		controlPoints_modifier[PickedControlPoint->linkedRows][PickedControlPoint->linkedCols] = newPosition;
-
+	if (ImGuizmo::IsUsing() && PickedControlPoint) {
+		GizmoActive = true; // ImGuizmo가 사용 중이면 마우스 이벤트를 무시
+		cout << "is using true" << endl;
 	}
 	if (GizmoActive) return;
 
@@ -764,18 +800,19 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
 		glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
 		mgl = transformMouseToGL(mgl.x+0.5, mgl.y+0.5, FrameBufferWidth, FrameBufferHeight);
+		cout << "발사" << endl;
 		glm::vec3 point = RayfromMouse(mgl, projection, view);
 		glm::vec3 ray = camera[0] + point * 500.0f;
 
 		/*cout << "cameraForward: " << CameraForward.x << ", " << CameraForward.y << ", " << CameraForward.z << endl;
 		cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;*/
 
-		/*Shape* temp = new Shape(2);
+		Shape* temp = new Shape(2);
 		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
 
 		setLine(*temp, camera[0], ray, rayColor);
 		axes.push_back(*temp);
-		delete(temp);*/
+		delete(temp);
 
 		glm::vec3 intersectionPoint;
 		float distance = 0.0f;
@@ -1010,7 +1047,7 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 void DrawPanel() {
 
 	ImGuiIO& io = ImGui::GetIO();
-	float panel_width = 250.0f;
+	float panel_width = 300.0f;
 	float button_height = 40.0f;
 
 	// 패널 위치
@@ -1031,14 +1068,22 @@ void DrawPanel() {
 	ImGui::Button("Tool A", ImVec2(-FLT_MIN, 30));
 	ImGui::Button("Tool B", ImVec2(-FLT_MIN, 30));
 
+	// 선택된 제어점의 좌표 표시
+	if (PickedControlPoint) {
+		glm::vec3 pos = controlPoints_modifier[PickedControlPoint->linkedRows][PickedControlPoint->linkedCols];
+		ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
+	}
+
 	ImGui::Text("modify noise");
 	ImGui::Separator();
 	ImGui::Button("Noise A", ImVec2(-FLT_MIN, 30));
 	ImGui::Button("Noise B", ImVec2(-FLT_MIN, 30));
 
-	ImGui::Text("그 외 기능들");
+	ImGui::Text("Rendering");
 	ImGui::Separator();
-	ImGui::Button("Etc A", ImVec2(-FLT_MIN, 30));
+	if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
+		ControlPointRender = !ControlPointRender;
+	}
 	ImGui::Button("Etc B", ImVec2(-FLT_MIN, 30));
 
 	ImGui::EndChild();
