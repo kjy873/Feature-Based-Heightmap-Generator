@@ -95,9 +95,22 @@ struct Shape {
 		}
 
 		if (vertices == 8) {
+			position.resize(8);
 			color.resize(8);
+			normal.resize(8);
 			index.resize(36);
-			index = vector<int>{ 0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6, 7, 5, 6, 7, 4, 5, 3, 6, 2, 3, 7, 6, 4, 3, 0, 4, 7, 3, 1, 6, 5, 1, 2, 6 };
+			index = vector<int>{// front
+								0, 1, 2,  2, 3, 0,
+								// right
+								1, 5, 6,  6, 2, 1,
+								// back
+								5, 4, 7,  7, 6, 5,
+								// left
+								4, 0, 3,  3, 7, 4,
+								// top
+								4, 5, 1,  1, 0, 4,
+								// bottom
+								3, 2, 6,  6, 7, 3 };
 		}
 	}
 };
@@ -349,7 +362,7 @@ inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& ra
 	glm::vec3& intersectionPoint, float& distance);
 inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance);
-inline bool intersectRayHexahedron(const vector<Shape>& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex);
 vector<float> initKnotVector(int n, int degree);
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b);

@@ -36,7 +36,6 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 		}
 	}
 
-
 	for (int i = 0; i < 4; i++) {
 		dst.color[i] = glm::vec3(c[i]);
 	}
@@ -66,7 +65,58 @@ void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::v
 	dst.push_back(temp);
 	setRectangle(temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
 	dst.push_back(temp);
+}
+void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::vec3& c) {
+	
+	glm::vec3 vertices[8] = {
+	   center + glm::vec3(-half,  half,  half), // 0 front-top-left
+	   center + glm::vec3(half,  half,  half), // 1 front-top-right
+	   center + glm::vec3(half, -half,  half), // 2 front-bottom-right
+	   center + glm::vec3(-half, -half,  half), // 3 front-bottom-left
+	   center + glm::vec3(-half,  half, -half), // 4 back-top-left
+	   center + glm::vec3(half,  half, -half), // 5 back-top-right
+	   center + glm::vec3(half, -half, -half), // 6 back-bottom-right
+	   center + glm::vec3(-half, -half, -half)  // 7 back-bottom-left
+	};
 
+	for (int i = 0; i < 8; ++i) {
+		dst.position[i] = vertices[i];
+		dst.color[i] = c;
+	}
+
+	vector<glm::vec3> normalSum(8, glm::vec3(0.0f));
+	vector<int> normalCount(8, 0);
+	for (int i = 0; i < 36; i += 3) {
+		int i0 = dst.index[i];
+		int i1 = dst.index[i + 1];
+		int i2 = dst.index[i + 2];
+
+		glm::vec3& p0 = dst.position[i0];
+		glm::vec3& p1 = dst.position[i1];
+		glm::vec3& p2 = dst.position[i2];
+
+		glm::vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+
+		normalSum[i0] += faceNormal;
+		normalSum[i1] += faceNormal;
+		normalSum[i2] += faceNormal;
+
+		normalCount[i0]++;
+		normalCount[i1]++;
+		normalCount[i2]++;
+	}
+
+	// 3. 평균 노멀 계산
+	for (int i = 0; i < 8; ++i) {
+		if (normalCount[i] > 0)
+			dst.normal[i] = glm::normalize(normalSum[i] / (float)normalCount[i]);
+		else
+			dst.normal[i] = glm::vec3(0.0f, 0.0f, 1.0f); // fallback
+	}
+
+	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
+						dst.color.data(), dst.color.size(), 
+						dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
 float PI = 3.14159265358979323846f;
@@ -312,6 +362,7 @@ inline void draw(const vector<Shape>& dia) {
 		case 2: glDrawArrays(GL_LINES, 0, 2); break;
 		case 3: glDrawArrays(GL_TRIANGLES, 0, 3); break;
 		case 4: glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); break;
+		case 8: glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0); break;
 		}
 	}
 }
@@ -420,12 +471,12 @@ inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& 
 		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
 }
 
-inline bool intersectRayHexahedron(const vector<Shape>& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
 	bool intersected = false;
 	float minDistance = FLT_MAX;
 
-	for (int i = 0; i < Hexahedron.size(); i++) {
+	/*for (int i = 0; i < Hexahedron.size(); i++) {
 		float t;
 		glm::vec3 p;
 
@@ -438,7 +489,26 @@ inline bool intersectRayHexahedron(const vector<Shape>& Hexahedron, const glm::v
 				intersected = true;
 			}
 		}
+	}*/
+	for (int i = 0; i < Hexahedron.index.size(); i += 3) {
+		glm::vec3 v0 = Hexahedron.position[Hexahedron.index[i]];
+		glm::vec3 v1 = Hexahedron.position[Hexahedron.index[i + 1]];
+		glm::vec3 v2 = Hexahedron.position[Hexahedron.index[i + 2]];
+
+		glm::vec3 p;
+		float t;
+
+		if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p, t)) {
+			if (t < minDistance) {
+				minDistance = t;
+				intersectionPoint = p;
+				distance = t;
+				intersectedIndex = i / 3;
+				intersected = true;
+			}
+		}
 	}
+
 	return intersected;
 }
 
@@ -637,7 +707,12 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 	float half = 0.02f;
 	for (int i = 0; i < nRows; i++) {
 		for (int j = 0; j < nCols; j++) {
-			glm::vec3 points[8] = {
+			Shape cube(8);
+			setHexahedron(cube, ControlPoints[i][j], half, glm::vec3(1.0f, 0.0f, 1.0f));
+			cube.linkedPosition = &controlPoints[i][j];
+			v_ControlPoints.push_back(cube);
+
+			/*glm::vec3 points[8] = {
 				ControlPoints[i][j] + glm::vec3(-half, half, +half),
 				ControlPoints[i][j] + glm::vec3(+half, +half, +half),
 				ControlPoints[i][j] + glm::vec3(+half, -half, +half),
@@ -650,7 +725,7 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 
 			glm::vec3 gray[8] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f),
 				glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setHexahedron(v_ControlPoints, points, gray);
+			setHexahedron(v_ControlPoints, points, gray);*/
 		}
 	}
 
@@ -696,11 +771,20 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		glm::vec3 intersectionPoint;
 		float distance = 0.0f;
 		int intersectedIndex = -1;
-		if (intersectRayHexahedron(v_ControlPoints, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
-			//PickedObjectModelTransform = glm::translate(glm::mat4(1.0f))
-			PickedControlPoint = &v_ControlPoints[intersectedIndex];
+
+		PickedControlPoint = NULL;
+		for (auto& c : v_ControlPoints) {
+			if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
+				PickedObjectModelTransform = glm::translate(glm::mat4(1.0f), *c.linkedPosition);
+				PickedControlPoint = &c;
+				break;
+			}
 		}
-		else PickedControlPoint = NULL;
+		//if (intersectRayHexahedron(v_ControlPoints, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
+		//	//PickedObjectModelTransform = glm::translate(glm::mat4(1.0f))
+		//	PickedControlPoint = &v_ControlPoints[intersectedIndex];
+		//}
+		
 
 	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
