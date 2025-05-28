@@ -127,7 +127,7 @@ int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
 
-constexpr float SAMPLE_INTERVAL = 0.05f;
+float SAMPLE_INTERVAL = 0.05f;
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
@@ -1023,14 +1023,14 @@ void DrawPanel() {
 		int addedCols = controlPoints_modifier[0].size();
 
 		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
-		for(int i = 0; i < controlPoints_modifier.size(); i++) {
+		for (int i = 0; i < controlPoints_modifier.size(); i++) {
 			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
 				temp[i][j] = controlPoints_modifier[i][j];
 			}
 		}
 		controlPoints_modifier = temp;
 	}
-	if(ImGui::Button("Cols + 1", ImVec2(-FLT_MIN, 30))) {
+	if (ImGui::Button("Cols + 1", ImVec2(-FLT_MIN, 30))) {
 		int addedRows = controlPoints_modifier.size();
 		int addedCols = controlPoints_modifier[0].size() + 1;
 
@@ -1059,7 +1059,14 @@ void DrawPanel() {
 	if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
 		ControlPointRender = !ControlPointRender;
 	}
-	ImGui::Button("Etc B", ImVec2(-FLT_MIN, 30));
+	if(ImGui::Button("increase definition", ImVec2(-FLT_MIN, 30))){
+		SAMPLE_INTERVAL -= 0.01f;
+		if (SAMPLE_INTERVAL < 0.01f) SAMPLE_INTERVAL = 0.01f;
+	}
+	if(ImGui::Button("decrease definition", ImVec2(-FLT_MIN, 30))){
+		SAMPLE_INTERVAL += 0.01f;
+		if (SAMPLE_INTERVAL > 0.1f) SAMPLE_INTERVAL = 0.1f;
+	}
 
 	ImGui::EndChild();
 
