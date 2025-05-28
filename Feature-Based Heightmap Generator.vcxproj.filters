@@ -19,6 +19,12 @@
     <Filter Include="헤더 파일\imgui">
       <UniqueIdentifier>{1ebd6eaa-2cbc-4f2e-8bc1-e0fd537c9687}</UniqueIdentifier>
     </Filter>
+    <Filter Include="헤더 파일\imguizmo">
+      <UniqueIdentifier>{e9cb1d58-06e3-42c1-8bea-6c7edf0cbd19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\imguizmo">
+      <UniqueIdentifier>{242fc96e-0e76-4507-b218-f9623976e880}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="vertex.glsl">
@@ -53,6 +59,21 @@
     <ClCompile Include="include\imgui\imgui_widgets.cpp">
       <Filter>소스 파일\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="include\imguizmo\GraphEditor.cpp">
+      <Filter>소스 파일\imguizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imguizmo\ImCurveEdit.cpp">
+      <Filter>소스 파일\imguizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imguizmo\ImGradient.cpp">
+      <Filter>소스 파일\imguizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imguizmo\ImGuizmo.cpp">
+      <Filter>소스 파일\imguizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imguizmo\ImSequencer.cpp">
+      <Filter>소스 파일\imguizmo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h">
@@ -84,6 +105,24 @@
     </ClInclude>
     <ClInclude Include="include\imgui\imstb_truetype.h">
       <Filter>헤더 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imguizmo\GraphEditor.h">
+      <Filter>헤더 파일\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imguizmo\ImCurveEdit.h">
+      <Filter>헤더 파일\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imguizmo\ImGradient.h">
+      <Filter>헤더 파일\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imguizmo\ImGuizmo.h">
+      <Filter>헤더 파일\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imguizmo\ImSequencer.h">
+      <Filter>헤더 파일\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imguizmo\ImZoomSlider.h">
+      <Filter>헤더 파일\imguizmo</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

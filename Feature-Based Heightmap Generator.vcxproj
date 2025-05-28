@@ -77,6 +77,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -91,6 +92,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -105,7 +107,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>GLEW_STATIC;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -123,7 +125,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\include;;$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL;$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -138,6 +140,11 @@
     <None Include="vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="include\imguizmo\GraphEditor.cpp" />
+    <ClCompile Include="include\imguizmo\ImCurveEdit.cpp" />
+    <ClCompile Include="include\imguizmo\ImGradient.cpp" />
+    <ClCompile Include="include\imguizmo\ImGuizmo.cpp" />
+    <ClCompile Include="include\imguizmo\ImSequencer.cpp" />
     <ClCompile Include="include\imgui\imgui.cpp" />
     <ClCompile Include="include\imgui\imgui_demo.cpp" />
     <ClCompile Include="include\imgui\imgui_draw.cpp" />
@@ -149,6 +156,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h" />
+    <ClInclude Include="include\imguizmo\GraphEditor.h" />
+    <ClInclude Include="include\imguizmo\ImCurveEdit.h" />
+    <ClInclude Include="include\imguizmo\ImGradient.h" />
+    <ClInclude Include="include\imguizmo\ImGuizmo.h" />
+    <ClInclude Include="include\imguizmo\ImSequencer.h" />
+    <ClInclude Include="include\imguizmo\ImZoomSlider.h" />
     <ClInclude Include="include\imgui\imconfig.h" />
     <ClInclude Include="include\imgui\imgui.h" />
     <ClInclude Include="include\imgui\imgui_impl_glfw.h" />

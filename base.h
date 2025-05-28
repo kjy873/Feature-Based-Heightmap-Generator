@@ -6,6 +6,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#include "ImGuizmo.h"
+
 #include <glew.h>
 
 #include <glm.hpp>
@@ -372,3 +374,5 @@ void MouseMoveRightButton(GLFWwindow* window);
 void DrawPanel();
 
 void UpdateToolInteraction();
+
+vector<vector<glm::vec3>> MakeInitialControlPoints4x4();

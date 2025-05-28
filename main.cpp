@@ -113,11 +113,13 @@ glm::mat4 view = glm::mat4(1.0f);
 glm::mat4 projection = glm::mat4(1.0f);
 
 vector<vector<glm::vec3>> controlPoints;
+vector<vector<glm::vec3>> controlPoints_modifier;
+vector<vector<glm::vec3>> controlPoints_initial;
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;						// render surface rectangles
 vector<Shape> v_ControlPoints;				// render control points
-Shape PickedControlPoint{ NULL };	// picked control point
+Shape* PickedControlPoint{ NULL };	// picked control point
 
 glm::vec3 GridPoints[TERRAIN_SIZE][TERRAIN_SIZE];
 vector<Shape> GridLines;
@@ -132,6 +134,8 @@ float DiffusionGrid[TERRAIN_SIZE - 1][TERRAIN_SIZE - 1];
 float noiseMap[1024][1024];
 
 ToolType CurrentTool = ToolType::none;
+
+glm::mat4 PickedObjectModelTransform = glm::mat4(1.0f);
 
 
 int main() {
@@ -203,11 +207,25 @@ int main() {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 배경색 설정
         glClear(GL_COLOR_BUFFER_BIT);         // 버퍼 초기화
 
+		drawScene();
+
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		drawScene();
+		
+
+		// imguizmo set, call
+		ImGuizmo::SetOrthographic(false);
+		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+		ImGuizmo::SetRect(0, 0, windowWidth, windowHeight);
+		if(PickedControlPoint)
+		ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
+			ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(PickedObjectModelTransform));
+
+		//ImGuizmo::DecomposeMatrixToComponents() 변환을 값으로 바꿈
+
+
 
 		DrawPanel();
 
@@ -595,7 +613,7 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 	int SizeV = sampleCount;
 
 
-
+	rectangles.clear();
 	Shape* tempRect = new Shape(4);
 	for (int i = 0; i < SizeU - 1; i++) {
 		for (int j = 0; j < SizeV - 1; j++) {
@@ -900,12 +918,13 @@ void DrawPanel() {
 	ImGui::Separator();
 	if (ImGui::Button("confirm", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
-
+		initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
-
+		cout << "reset surface" << endl;
+		initSplineSurface(MakeInitialControlPoints4x4(), 4, 4);
 	}
 
 	ImGui::End();
@@ -916,4 +935,16 @@ void UpdateToolInteraction() {
 	case ToolType::confirm:
 		initSplineSurface(v_ControlPoints, nRows, nCols);
 	}*/
+}
+
+vector<vector<glm::vec3>> MakeInitialControlPoints4x4() {
+	vector<vector<glm::vec3>> points(4, vector<glm::vec3>(4));
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
+		}
+	}
+
+	return points;
 }

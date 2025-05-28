@@ -1,3 +1,5 @@
+#define IMGUI_DEFINE_MATH_OPERATORS
+
 // dear imgui, v1.92.0 WIP
 // (headers)
 
