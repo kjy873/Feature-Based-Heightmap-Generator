@@ -70,6 +70,7 @@ struct Shape {
 	int vertices = 0;												// number of vertices
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
 	vector<ConstraintPoint> CP;										// constraint points
+	glm::vec3* linkedPosition = nullptr;
 	vector<int> index;
 	vector<glm::vec3> normal;												// index for rectangle
 	float u = 0.0f;
@@ -150,7 +151,7 @@ struct mouseCoordGL {
 mouseCoordGL transformMouseToGL(double x, double y, double windowWidth, double windowHeight) {
 	mouseCoordGL m;
 	m.x = (2.0f * x) / windowWidth - 1.0f;
-	m.y = (2.0f * y) / windowHeight - 1.0f;
+	m.y = 1.0f - (2.0f * y) / windowHeight;
 	return m;
 }
 

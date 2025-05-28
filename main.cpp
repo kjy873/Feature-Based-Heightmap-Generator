@@ -88,6 +88,8 @@ double LastMouseY = 0.0;
 
 double windowWidth = 1920;
 double windowHeight = 1080;
+int FrameBufferWidth;
+int FrameBufferHeight;
 const float defaultSize = 0.05;
 
 constexpr float SAMPLE_INTERVAL = 0.1f;
@@ -175,10 +177,12 @@ int main() {
     }
 
     // 뷰포트 설정
-    glViewport(0, 0, 1920, 1080);
+    glViewport(0, 0, windowWidth, windowHeight);
 
 	InitShader(shaderProgramID, vertexShader, "vertex.glsl", fragmentShader, "fragment.glsl");
 	glUseProgram(shaderProgramID);
+
+	glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -196,6 +200,7 @@ int main() {
 			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
 		}
 	}
+	controlPoints_modifier = controlPoints;
 	initSplineSurface(controlPoints, 4, 4);
 
     // 루프
@@ -218,7 +223,7 @@ int main() {
 		// imguizmo set, call
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-		ImGuizmo::SetRect(0, 0, windowWidth, windowHeight);
+		ImGuizmo::SetRect(0, 0, FrameBufferWidth, FrameBufferHeight);
 		if(PickedControlPoint)
 		ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
 			ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(PickedObjectModelTransform));
@@ -629,7 +634,7 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 	}
 	cout << rectangles.size() << endl;
 
-	float half = 0.01f;
+	float half = 0.02f;
 	for (int i = 0; i < nRows; i++) {
 		for (int j = 0; j < nCols; j++) {
 			glm::vec3 points[8] = {
@@ -669,6 +674,35 @@ GLvoid Keyboard(GLFWwindow* window) {
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
+
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		glfwGetCursorPos(window, &mgl.x, &mgl.y);
+		glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
+		mgl = transformMouseToGL(mgl.x+0.5, mgl.y+0.5, FrameBufferWidth, FrameBufferHeight);
+		glm::vec3 point = RayfromMouse(mgl, projection, view);
+		glm::vec3 ray = camera[0] + point * 5.0f;
+
+		/*cout << "cameraForward: " << CameraForward.x << ", " << CameraForward.y << ", " << CameraForward.z << endl;
+		cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;*/
+
+		Shape* temp = new Shape(2);
+		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
+
+		setLine(*temp, camera[0], ray, rayColor);
+		axes.push_back(*temp);
+		delete(temp);
+
+		glm::vec3 intersectionPoint;
+		float distance = 0.0f;
+		int intersectedIndex = -1;
+		if (intersectRayHexahedron(v_ControlPoints, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
+			//PickedObjectModelTransform = glm::translate(glm::mat4(1.0f))
+			PickedControlPoint = &v_ControlPoints[intersectedIndex];
+		}
+		else PickedControlPoint = NULL;
+
+	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 		MouseRightButtonPressed = true;
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
@@ -692,7 +726,7 @@ void MouseMoveRightButton(GLFWwindow* window) {
 	float dy = mgl.y - preMousePosition.y;
 
 	CameraYaw += dx * sensitivity;
-	CameraPitch -= dy * sensitivity;
+	CameraPitch += dy * sensitivity;
 
 	if (CameraPitch > 89.0f) CameraPitch = 89.0f;
 	if (CameraPitch < -89.0f) CameraPitch = -89.0f;
