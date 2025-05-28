@@ -179,6 +179,8 @@ glm::vec3 PickedObjectPos = glm::vec3(0.0f, 0.0f, 0.0f);
 
 
 int main() {
+
+	cout << "main" << endl;
     // GLFW 초기화
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
@@ -224,6 +226,7 @@ int main() {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+	//io.Fonts->AddFontFromFileTTF("fonts/NotoSansKR-Regular.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesKorean());
 	(void)io;
 	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
