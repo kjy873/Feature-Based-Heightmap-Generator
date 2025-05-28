@@ -70,7 +70,12 @@ struct Shape {
 	int vertices = 0;												// number of vertices
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
 	vector<ConstraintPoint> CP;										// constraint points
+
+	// 시각화된 제어점(hexahedron)에만 사용되는 변수들
 	glm::vec3* linkedPosition = nullptr;
+	int linkedRows = 0;											
+	int linkedCols = 0;					
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 	vector<int> index;
 	vector<glm::vec3> normal;												// index for rectangle
 	float u = 0.0f;
@@ -376,7 +381,7 @@ vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]);
 glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u);
 void normalize(glm::vec3& v);
 inline float Cross2D(const glm::vec2& a, const glm::vec2& b);
-void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols);
+void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols);
 GLvoid Keyboard(GLFWwindow* window);
 
 void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList);

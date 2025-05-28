@@ -142,7 +142,7 @@ int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
 
-constexpr float SAMPLE_INTERVAL = 0.1f;
+constexpr float SAMPLE_INTERVAL = 0.01f;
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
@@ -491,9 +491,9 @@ inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& ray
 		}
 	}*/
 	for (int i = 0; i < Hexahedron.index.size(); i += 3) {
-		glm::vec3 v0 = Hexahedron.position[Hexahedron.index[i]];
-		glm::vec3 v1 = Hexahedron.position[Hexahedron.index[i + 1]];
-		glm::vec3 v2 = Hexahedron.position[Hexahedron.index[i + 2]];
+		glm::vec3 v0 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i]], 1.0f));
+		glm::vec3 v1 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 1]], 1.0f));
+		glm::vec3 v2 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 2]], 1.0f));
 
 		glm::vec3 p;
 		float t;
@@ -649,7 +649,9 @@ void Perlin(float noise[1024][1024]) {
 }
 
 
-void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
+void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
+
+	SurfacePoints.clear();
 
 	if (ControlPoints.size() != nRows) {
 		std::cerr << "❌ 행 개수가 맞지 않습니다." << std::endl;
@@ -684,6 +686,14 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 		}
 	}
 
+	/*for (int i = 0; i < SurfacePoints.size()-1; i++) {
+		Shape temp(2);
+		glm::vec3 white[2] = { glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f) };
+		setLine(temp, SurfacePoints[i], SurfacePoints[i + 1], white);
+		axes.push_back(temp);
+
+	}*/
+
 	int SizeU = sampleCount;
 	int SizeV = sampleCount;
 
@@ -708,24 +718,12 @@ void initSplineSurface(const vector<vector<glm::vec3>>& ControlPoints, const int
 	for (int i = 0; i < nRows; i++) {
 		for (int j = 0; j < nCols; j++) {
 			Shape cube(8);
-			setHexahedron(cube, ControlPoints[i][j], half, glm::vec3(1.0f, 0.0f, 1.0f));
-			cube.linkedPosition = &controlPoints[i][j];
+			setHexahedron(cube, glm::vec3(0.0f, 0.0f, 0.0f), half, glm::vec3(1.0f, 0.0f, 1.0f));
+			cube.linkedPosition = &ControlPoints[i][j];
+			cube.linkedRows = i;
+			cube.linkedCols = j;
+			cube.TSR = glm::translate(glm::mat4(1.0f), ControlPoints[i][j]);
 			v_ControlPoints.push_back(cube);
-
-			/*glm::vec3 points[8] = {
-				ControlPoints[i][j] + glm::vec3(-half, half, +half),
-				ControlPoints[i][j] + glm::vec3(+half, +half, +half),
-				ControlPoints[i][j] + glm::vec3(+half, -half, +half),
-				ControlPoints[i][j] + glm::vec3(-half, -half, +half),
-				ControlPoints[i][j] + glm::vec3(-half, +half, -half),
-				ControlPoints[i][j] + glm::vec3(+half, +half, -half),
-				ControlPoints[i][j] + glm::vec3(+half, -half, -half),
-				ControlPoints[i][j] + glm::vec3(-half, -half, -half)
-			};
-
-			glm::vec3 gray[8] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f),
-				glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setHexahedron(v_ControlPoints, points, gray);*/
 		}
 	}
 
@@ -749,33 +747,46 @@ GLvoid Keyboard(GLFWwindow* window) {
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
+	bool GizmoActive = false;
+	if(ImGuizmo::IsOver()) {
+		GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
+	}
+	if (ImGuizmo::IsUsing()) {
+		GizmoActive = true;
+		PickedControlPoint->TSR = PickedObjectModelTransform; // ImGuizmo가 사용 중이면 PickedControlPoint의 변환을 업데이트
+		glm::vec3 newPosition = glm::vec3(PickedObjectModelTransform[3]);
+		controlPoints_modifier[PickedControlPoint->linkedRows][PickedControlPoint->linkedCols] = newPosition;
 
+	}
+	if (GizmoActive) return;
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
 		glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
 		mgl = transformMouseToGL(mgl.x+0.5, mgl.y+0.5, FrameBufferWidth, FrameBufferHeight);
 		glm::vec3 point = RayfromMouse(mgl, projection, view);
-		glm::vec3 ray = camera[0] + point * 5.0f;
+		glm::vec3 ray = camera[0] + point * 500.0f;
 
 		/*cout << "cameraForward: " << CameraForward.x << ", " << CameraForward.y << ", " << CameraForward.z << endl;
 		cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;*/
 
-		Shape* temp = new Shape(2);
+		/*Shape* temp = new Shape(2);
 		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
 
 		setLine(*temp, camera[0], ray, rayColor);
 		axes.push_back(*temp);
-		delete(temp);
+		delete(temp);*/
 
 		glm::vec3 intersectionPoint;
 		float distance = 0.0f;
 		int intersectedIndex = -1;
 
 		PickedControlPoint = NULL;
+		PickedObjectModelTransform = glm::mat4(1.0f);
 		for (auto& c : v_ControlPoints) {
 			if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
-				PickedObjectModelTransform = glm::translate(glm::mat4(1.0f), *c.linkedPosition);
+				
+				PickedObjectModelTransform = c.TSR;//glm::translate(c.TSR, *c.linkedPosition);//glm::translate(glm::mat4(1.0f), *c.linkedPosition);
 				PickedControlPoint = &c;
 				break;
 			}
@@ -1036,13 +1047,16 @@ void DrawPanel() {
 	ImGui::Separator();
 	if (ImGui::Button("confirm", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
+		rectangles.clear();
+		v_ControlPoints.clear();
 		initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
 		cout << "reset surface" << endl;
-		initSplineSurface(MakeInitialControlPoints4x4(), 4, 4);
+		vector<vector<glm::vec3>> temp = MakeInitialControlPoints4x4();
+		initSplineSurface(temp, 4, 4);
 	}
 
 	ImGui::End();
