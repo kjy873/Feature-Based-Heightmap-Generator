@@ -394,4 +394,4 @@ void DrawPanel();
 
 void UpdateToolInteraction();
 
-vector<vector<glm::vec3>> MakeInitialControlPoints4x4();
+vector<vector<glm::vec3>> MakeInitialControlPoints(const int& Rows, const int& Cols);

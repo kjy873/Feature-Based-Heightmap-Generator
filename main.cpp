@@ -15,26 +15,6 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 	dst.position[2] = glm::vec3(vertex3);
 	dst.position[3] = glm::vec3(vertex4);
 
-	/*glm::vec3 v1 = vertex1 - vertex2;
-	glm::vec3 v2 = vertex1 - vertex4;
-	glm::vec3 n = glm::cross(v1, v2);
-
-	dst.normal[0] = glm::cross(vertex3 - vertex1, vertex4 - vertex1);
-	dst.normal[1] = glm::cross(vertex1 - vertex2, vertex3 - vertex2);
-	dst.normal[2] = glm::cross(vertex2 - vertex3, vertex1 - vertex3);
-	dst.normal[3] = glm::cross(vertex1 - vertex4, vertex3 - vertex4);
-
-	for (int i = 0; i < 4; i++) {
-		if (glm::length(dst.normal[i]) < 1e-6f) {
-			dst.normal[0] = glm::vec3(0.0f, 1.0f, 0.0f);
-			dst.normal[1] = glm::vec3(0.0f, 1.0f, 0.0f);
-			dst.normal[2] = glm::vec3(0.0f, 1.0f, 0.0f);
-			dst.normal[3] = glm::vec3(0.0f, 1.0f, 0.0f);
-		}
-		else {
-			dst.normal[i] = glm::normalize(dst.normal[i]);
-		}
-	}*/
 	glm::vec3 normal = glm::normalize(glm::cross(vertex2 - vertex1, vertex4 - vertex1));
 	for (int i = 0; i < 4; i++) {
 		dst.normal[i] = normal;
@@ -73,14 +53,14 @@ void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::v
 void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::vec3& c) {
 	
 	glm::vec3 vertices[8] = {
-	   center + glm::vec3(-half,  half,  half), // 0 front-top-left
-	   center + glm::vec3(half,  half,  half), // 1 front-top-right
-	   center + glm::vec3(half, -half,  half), // 2 front-bottom-right
-	   center + glm::vec3(-half, -half,  half), // 3 front-bottom-left
-	   center + glm::vec3(-half,  half, -half), // 4 back-top-left
-	   center + glm::vec3(half,  half, -half), // 5 back-top-right
-	   center + glm::vec3(half, -half, -half), // 6 back-bottom-right
-	   center + glm::vec3(-half, -half, -half)  // 7 back-bottom-left
+	   center + glm::vec3(-half,  half,  half),
+	   center + glm::vec3(half,  half,  half),
+	   center + glm::vec3(half, -half,  half),
+	   center + glm::vec3(-half, -half,  half),
+	   center + glm::vec3(-half,  half, -half),
+	   center + glm::vec3(half,  half, -half),
+	   center + glm::vec3(half, -half, -half),
+	   center + glm::vec3(-half, -half, -half)
 	};
 
 	for (int i = 0; i < 8; ++i) {
@@ -110,12 +90,11 @@ void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::ve
 		normalCount[i2]++;
 	}
 
-	// 3. 평균 노멀 계산
 	for (int i = 0; i < 8; ++i) {
 		if (normalCount[i] > 0)
 			dst.normal[i] = glm::normalize(normalSum[i] / (float)normalCount[i]);
 		else
-			dst.normal[i] = glm::vec3(0.0f, 0.0f, 1.0f); // fallback
+			dst.normal[i] = glm::vec3(0.0f, 0.0f, 1.0f);
 	}
 
 	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
@@ -142,13 +121,13 @@ double LastMouseY = 0.0;
 
 bool ControlPointRender = true;
 
-double windowWidth = 800;
-double windowHeight = 600;
+double windowWidth = 1280;
+double windowHeight = 720;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
 
-constexpr float SAMPLE_INTERVAL = 0.01f;
+constexpr float SAMPLE_INTERVAL = 0.05f;
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
@@ -206,7 +185,6 @@ int main() {
         return -1;
     }
 
-    // OpenGL 버전 설정 (예: 3.3 core profile)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -268,8 +246,8 @@ int main() {
 		Keyboard(window);
 		if(MouseRightButtonPressed)MouseMoveRightButton(window);
         // 렌더링
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 배경색 설정
-        glClear(GL_COLOR_BUFFER_BIT);         // 버퍼 초기화
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
 		drawScene();
 
@@ -497,20 +475,6 @@ inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& ray
 	bool intersected = false;
 	float minDistance = FLT_MAX;
 
-	/*for (int i = 0; i < Hexahedron.size(); i++) {
-		float t;
-		glm::vec3 p;
-
-		if (intersectRayRectangleShape(Hexahedron[i], rayBegin, rayEnd, p, t)) {
-			if (t < minDistance) {
-				minDistance = t;
-				intersectionPoint = p;
-				distance = t;
-				intersectedIndex = i;
-				intersected = true;
-			}
-		}
-	}*/
 	for (int i = 0; i < Hexahedron.index.size(); i += 3) {
 		glm::vec3 v0 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i]], 1.0f));
 		glm::vec3 v1 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 1]], 1.0f));
@@ -675,12 +639,12 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	SurfacePoints.clear();
 
 	if (ControlPoints.size() != nRows) {
-		std::cerr << "❌ 행 개수가 맞지 않습니다." << std::endl;
+		std::cerr << "행 개수 다름" << std::endl;
 		return;
 	}
 	for (const auto& row : ControlPoints) {
 		if (row.size() != nCols) {
-			std::cerr << "❌ 열 개수가 맞지 않습니다." << std::endl;
+			std::cerr << "열 개수 다름" << std::endl;
 			return;
 		}
 	}
@@ -707,21 +671,19 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		}
 	}
 
-	int stepU = (int)(1.0f / SAMPLE_INTERVAL) / (nRows - 1);  // u방향 제어점 간 샘플 수
-	int stepV = (int)(1.0f / SAMPLE_INTERVAL) / (nCols - 1);  // v방향 제어점 간 샘플 수
+	int stepU = (int)(1.0f / SAMPLE_INTERVAL) / (nRows - 1); 
+	int stepV = (int)(1.0f / SAMPLE_INTERVAL) / (nCols - 1);
 
 	ControlLines.clear();
 	for (int i = 0; i < ControlPoints.size(); ++i) {
 		for (int j = 0; j < ControlPoints[i].size(); ++j) {
 			if (j + 1 < ControlPoints[i].size()) {
-				// → 방향 연결 (같은 행, 다음 열)
 				Shape lineH(2);
 				glm::vec3 white[2] = { glm::vec3(1.0f), glm::vec3(1.0f) };
 				setLine(lineH, ControlPoints[i][j], ControlPoints[i][j + 1], white);
 				ControlLines.push_back(lineH);
 			}
 			if (i + 1 < ControlPoints.size()) {
-				// ↓ 방향 연결 (같은 열, 다음 행)
 				Shape lineV(2);
 				glm::vec3 white[2] = { glm::vec3(1.0f), glm::vec3(1.0f) };
 				setLine(lineV, ControlPoints[i][j], ControlPoints[i + 1][j], white);
@@ -784,15 +746,14 @@ GLvoid Keyboard(GLFWwindow* window) {
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
-	cout << "마우스 버튼" << endl;
 	bool GizmoActive = false;
 	if(ImGuizmo::IsOver() && PickedControlPoint) {
 		GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
-		cout << "is over true" << endl;
+		//cout << "is over true" << endl;
 	}
 	if (ImGuizmo::IsUsing() && PickedControlPoint) {
 		GizmoActive = true; // ImGuizmo가 사용 중이면 마우스 이벤트를 무시
-		cout << "is using true" << endl;
+		//cout << "is using true" << endl;
 	}
 	if (GizmoActive) return;
 
@@ -800,19 +761,15 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
 		glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
 		mgl = transformMouseToGL(mgl.x+0.5, mgl.y+0.5, FrameBufferWidth, FrameBufferHeight);
-		cout << "발사" << endl;
 		glm::vec3 point = RayfromMouse(mgl, projection, view);
 		glm::vec3 ray = camera[0] + point * 500.0f;
 
-		/*cout << "cameraForward: " << CameraForward.x << ", " << CameraForward.y << ", " << CameraForward.z << endl;
-		cout << "ray: " << ray.x << ", " << ray.y << ", " << ray.z << endl;*/
-
-		Shape* temp = new Shape(2);
+		/*Shape* temp = new Shape(2);
 		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
 
 		setLine(*temp, camera[0], ray, rayColor);
 		axes.push_back(*temp);
-		delete(temp);
+		delete(temp);*/
 
 		glm::vec3 intersectionPoint;
 		float distance = 0.0f;
@@ -823,15 +780,11 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		for (auto& c : v_ControlPoints) {
 			if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
 				
-				PickedObjectModelTransform = c.TSR;//glm::translate(c.TSR, *c.linkedPosition);//glm::translate(glm::mat4(1.0f), *c.linkedPosition);
+				PickedObjectModelTransform = c.TSR;
 				PickedControlPoint = &c;
 				break;
 			}
 		}
-		//if (intersectRayHexahedron(v_ControlPoints, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
-		//	//PickedObjectModelTransform = glm::translate(glm::mat4(1.0f))
-		//	PickedControlPoint = &v_ControlPoints[intersectedIndex];
-		//}
 		
 
 	}
@@ -1065,8 +1018,30 @@ void DrawPanel() {
 	ImGui::Text("modify constraint points");
 	ImGui::Separator();
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
-	ImGui::Button("Tool A", ImVec2(-FLT_MIN, 30));
-	ImGui::Button("Tool B", ImVec2(-FLT_MIN, 30));
+	if (ImGui::Button("Rows + 1", ImVec2(-FLT_MIN, 30))) {
+		int addedRows = controlPoints_modifier.size() + 1;
+		int addedCols = controlPoints_modifier[0].size();
+
+		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
+		for(int i = 0; i < controlPoints_modifier.size(); i++) {
+			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+				temp[i][j] = controlPoints_modifier[i][j];
+			}
+		}
+		controlPoints_modifier = temp;
+	}
+	if(ImGui::Button("Cols + 1", ImVec2(-FLT_MIN, 30))) {
+		int addedRows = controlPoints_modifier.size();
+		int addedCols = controlPoints_modifier[0].size() + 1;
+
+		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
+		for (int i = 0; i < controlPoints_modifier.size(); i++) {
+			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+				temp[i][j] = controlPoints_modifier[i][j];
+			}
+		}
+		controlPoints_modifier = temp;
+	}
 
 	// 선택된 제어점의 좌표 표시
 	if (PickedControlPoint) {
@@ -1100,8 +1075,8 @@ void DrawPanel() {
 	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
 		cout << "reset surface" << endl;
-		vector<vector<glm::vec3>> temp = MakeInitialControlPoints4x4();
-		initSplineSurface(temp, 4, 4);
+		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(controlPoints_modifier.size(), controlPoints_modifier[0].size());
+		initSplineSurface(temp, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 
 	ImGui::End();
@@ -1114,12 +1089,12 @@ void UpdateToolInteraction() {
 	}*/
 }
 
-vector<vector<glm::vec3>> MakeInitialControlPoints4x4() {
-	vector<vector<glm::vec3>> points(4, vector<glm::vec3>(4));
+vector<vector<glm::vec3>> MakeInitialControlPoints(const int& Rows, const int& Cols) {
+	vector<vector<glm::vec3>> points(Rows, vector<glm::vec3>(Cols));
 
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
+	for (int i = 0; i < Rows; i++) {
+		for (int j = 0; j < Cols; j++) {
+			points[i][j] = glm::vec3(j, 0.0f, i);
 		}
 	}
 
