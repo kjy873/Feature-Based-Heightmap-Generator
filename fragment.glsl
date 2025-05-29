@@ -9,7 +9,7 @@ in vec4 fragPos;
 
 void main(){
 
-	float ambientLight = 0.3;
+	float ambientLight = 0.5;
 	vec3 ambient = ambientLight * lightColor;
 
 	vec3 normalVector = normalize(normal);

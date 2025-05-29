@@ -102,8 +102,19 @@ void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::ve
 						dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
-void setSurface(Shape& dst, const vector<glm::vec3>& vertices, const glm::vec3* c) {
-	// 인덱스는 일단 여기서 설정
+void setSurface(Shape& dst, const vector<glm::vec3>& vertices, const vector<int>& indices, const vector<glm::vec3>& normals, const glm::vec3& c) {
+	dst.position = vertices;
+	dst.index = indices;
+	dst.normal = normals;
+	dst.color.resize(vertices.size());
+
+	for(int i = 0; i < vertices.size(); i++) {
+		dst.color[i] = c;
+	}
+
+	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
+						dst.color.data(), dst.color.size(), 
+		dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
 float PI = 3.14159265358979323846f;
@@ -125,8 +136,8 @@ double LastMouseY = 0.0;
 
 bool ControlPointRender = true;
 
-double windowWidth = 1280;
-double windowHeight = 720;
+double windowWidth = 1920;
+double windowHeight = 1080;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
@@ -171,7 +182,7 @@ vector<Shape> GridRectangles;
 
 vector<glm::vec3> SurfacePoints;
 
-glm::vec3 LightSource = glm::vec3(0.0f, 5.0f, 0.0f);
+glm::vec3 LightSource = glm::vec3(5.0f, 5.0f, 5.0f);
 
 float DiffusionGrid[TERRAIN_SIZE - 1][TERRAIN_SIZE - 1];
 
@@ -182,6 +193,8 @@ ToolType CurrentTool = ToolType::none;
 glm::mat4 PickedObjectModelTransform = glm::mat4(1.0f);
 
 glm::vec3 PickedObjectPos = glm::vec3(0.0f, 0.0f, 0.0f);
+
+Shape Surface(0);
 
 
 int main() {
@@ -343,7 +356,9 @@ GLvoid drawScene() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	draw(axes);
 	
-	draw(rectangles);
+	//draw(rectangles);
+
+	draw(Surface);
 
 	if (ControlPointRender) {
 		glDisable(GL_DEPTH_TEST);
@@ -389,7 +404,7 @@ inline void draw(const Shape& dia) {
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-	else if (dia.vertices == 4) glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	else if (dia.position.size() > 4) glDrawElements(GL_TRIANGLES, dia.index.size(), GL_UNSIGNED_INT, 0);
 }
 inline void drawWireframe(const Shape& dia) {
 	glBindVertexArray(dia.VAO);
@@ -398,6 +413,12 @@ inline void drawWireframe(const Shape& dia) {
 	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
 	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
 }
+
+//inline void DrawSurface(const Shape& surface) {
+//	glBindVertexArray(surface.VAO);
+//	glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(surface.TSR));
+//	glDrawElements(GL_TRIANGLES, surface.index.size(), GL_UNSIGNED_INT, 0);
+//}
 // function to generate b-spline surface
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
 	if (degree == 0) {
@@ -707,8 +728,51 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	int SizeU = sampleCount;
 	int SizeV = sampleCount;
 
+	vector<int> SurfaceIndices;
+	for(int i = 0; i < SizeU - 1; i++) {
+		for (int j = 0; j < SizeV - 1; j++) {
+			// 사각형 정점 인덱스 중복 저장을 방지하기 위해 EBO 사용
+			int index = i * SizeV + j;
+			SurfaceIndices.push_back(index);
+			SurfaceIndices.push_back(index + SizeV);
+			SurfaceIndices.push_back(index + SizeV + 1);
+			SurfaceIndices.push_back(index + SizeV + 1);
+			SurfaceIndices.push_back(index + 1);
+			SurfaceIndices.push_back(index);
+		}
+	}
+	// 이전 방식에서는 같은 위치의 정점이라도 별개로 취급했으므로 각 면마다 노멀을 계산했음, 하지만 정점을 재사용하면 다른 노멀 계산이 필요함
+	// face normal -> vertex normal
+	/*1.모든 정점에 매핑 가능한 float3(vec3) 배열을 만든다
+	2. 원래 가지고 있던 모든 정점의 배열과 각 삼각형을 정의하는 인덱스를 활용해서 노멀 계산
+		(인덱스를 3씩 늘리면서 한 번 반복 index, index + 1, index + 2로 이루어진 노멀 계산)
+	3. 그리고 그렇게 계산한 노멀을 각 계산의 반복(각 삼각형의 반복)마다 해당 3개 점에 대응하는 1.에서 만든 배열의 인덱스에 누산 +=
+	4. 정점배열[n]에 대응하는 노멀배열[n]이 만들어진다, 정규화 필요*/
 
-	rectangles.clear();
+	vector<glm::vec3> SurfaceNormals(SurfacePoints.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+	for (int i = 0; i < SurfaceIndices.size(); i += 3) {
+		glm::vec3 p0 = SurfacePoints[SurfaceIndices[i]];
+		glm::vec3 p1 = SurfacePoints[SurfaceIndices[i + 1]];
+		glm::vec3 p2 = SurfacePoints[SurfaceIndices[i + 2]];
+
+		glm::vec3 normal = normalize(cross(glm::vec3(p1-p0), glm::vec3(p2-p0)));
+		// 삼각형의 면적에 따른 normal에 가중치를 부여할 수 있음
+		//glm::vec3 face = cross(p1 - p0, p2 - p0);
+		//float area = length(face) * 0.5f;
+		//glm::vec3 normal = normalize(face) * area;  == face(면)노멀 x 면적
+		SurfaceNormals[SurfaceIndices[i]] += normal;
+		SurfaceNormals[SurfaceIndices[i + 1]] += normal;
+		SurfaceNormals[SurfaceIndices[i + 2]] += normal;
+	}
+
+	for(auto& normal : SurfaceNormals) {
+		if (glm::dot(normal, normal) > 0.0f) normal = glm::normalize(normal);
+	}
+
+	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
+	setSurface(Surface, SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
+
+	/*rectangles.clear();
 	Shape* tempRect = new Shape(4);
 	for (int i = 0; i < SizeU - 1; i++) {
 		for (int j = 0; j < SizeV - 1; j++) {
@@ -722,7 +786,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 			rectangles.push_back(*tempRect);
 		}
 	}
-	cout << rectangles.size() << endl;
+	cout << rectangles.size() << endl;*/
 
 	float half = 0.02f;
 	for (int i = 0; i < nRows; i++) {
@@ -735,6 +799,13 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 			cube.TSR = glm::translate(glm::mat4(1.0f), ControlPoints[i][j]);
 			v_ControlPoints.push_back(cube);
 		}
+	}
+
+	for (int i = 0; i < SurfacePoints.size(); i++) {
+		cout << "SurfacePoints[" << i << "]: " << SurfacePoints[i].x << ", " << SurfacePoints[i].y << ", " << SurfacePoints[i].z << endl;
+	}
+	for(int i = 0; i < SurfaceNormals.size(); i++) {
+		cout << "SurfaceNormals[" << i << "]: " << SurfaceNormals[i].x << ", " << SurfaceNormals[i].y << ", " << SurfaceNormals[i].z << endl;
 	}
 
 }
@@ -1123,6 +1194,7 @@ void DrawPanel() {
 	{
 		cout << "reset surface" << endl;
 		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(controlPoints_modifier.size(), controlPoints_modifier[0].size());
+		controlPoints_modifier = temp;
 		initSplineSurface(temp, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 
