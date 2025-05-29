@@ -383,6 +383,7 @@ void normalize(glm::vec3& v);
 inline float Cross2D(const glm::vec2& a, const glm::vec2& b);
 void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols);
 GLvoid Keyboard(GLFWwindow* window);
+void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset);
 
 void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList);
 

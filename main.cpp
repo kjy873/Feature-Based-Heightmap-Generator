@@ -102,6 +102,10 @@ void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::ve
 						dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
+void setSurface(Shape& dst, const vector<glm::vec3>& vertices, const glm::vec3* c) {
+	// 인덱스는 일단 여기서 설정
+}
+
 float PI = 3.14159265358979323846f;
 
 static random_device random;
@@ -126,6 +130,8 @@ double windowHeight = 720;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
+
+float CameraSpeed = 0.01f;
 
 float SAMPLE_INTERVAL = 0.05f;
 
@@ -243,6 +249,7 @@ int main() {
 	controlPoints_modifier = controlPoints;
 	initSplineSurface(controlPoints, 4, 4);
 
+	glfwSetScrollCallback(window, CallbackMouseWheel);
     // 루프
     while (!glfwWindowShouldClose(window)) {
         // 입력 처리 (예: ESC 키)
@@ -694,6 +701,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 			}
 		}
 	}
+	// 현재 랜더링되는 사각형들은 서로 정점을 공유함, 이 중복되는 정점
 	
 
 	int SizeU = sampleCount;
@@ -733,16 +741,16 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 GLvoid Keyboard(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		camera[0] += CameraForward * 0.01f;
+		camera[0] += CameraForward * CameraSpeed;
 
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		camera[0] -= CameraForward * 0.01f;
+		camera[0] -= CameraForward * CameraSpeed;
 
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		camera[0] -= CameraRight * 0.01f;
+		camera[0] -= CameraRight * CameraSpeed;
 
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		camera[0] += CameraRight * 0.01f;
+		camera[0] += CameraRight * CameraSpeed;
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
@@ -833,6 +841,13 @@ void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {
 
 }
 
+void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset) {
+	if (MouseRightButtonPressed) {
+		if (yoffset > 0 && CameraSpeed < 10.0f) CameraSpeed += 0.01f;
+		else if (yoffset < 0 && CameraSpeed > 0.01f) CameraSpeed -= 0.01f;
+
+	}
+}	
 // ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 // rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
 // since it is linearly approximated, the direction is perpendicular to each segment (u₂ - u₁)
@@ -1046,11 +1061,33 @@ void DrawPanel() {
 		controlPoints_modifier = temp;
 	}
 
-	// 선택된 제어점의 좌표 표시
+	// 선택된 제어점의 좌표 표시(left click으로 선택했을때만
 	if (PickedControlPoint) {
 		glm::vec3 pos = controlPoints_modifier[PickedControlPoint->linkedRows][PickedControlPoint->linkedCols];
 		ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
 	}
+
+	int inputRows = controlPoints_modifier.size();
+	int inputCols = controlPoints_modifier[0].size();
+	if (ImGui::InputInt("Rows", &inputRows, 1, 100)){
+		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
+		for (int i = 0; i < controlPoints_modifier.size(); i++) {
+			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+				temp[i][j] = controlPoints_modifier[i][j];
+			}
+		}
+		controlPoints_modifier = temp;
+	}
+	if (ImGui::InputInt("Cols", &inputCols, 1, 100)) {
+		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
+		for (int i = 0; i < controlPoints_modifier.size(); i++) {
+			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+				temp[i][j] = controlPoints_modifier[i][j];
+			}
+		}
+		controlPoints_modifier = temp;
+	}
+
 
 	ImGui::Text("modify noise");
 	ImGui::Separator();
