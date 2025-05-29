@@ -1142,18 +1142,36 @@ void DrawPanel() {
 	int inputCols = controlPoints_modifier[0].size();
 	if (ImGui::InputInt("Rows", &inputRows, 1, 100)){
 		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
-		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-				temp[i][j] = controlPoints_modifier[i][j];
+		if (inputRows < controlPoints_modifier.size()) {
+			for (int i = 0; i < inputRows; i++) {
+				for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+					temp[i][j] = controlPoints_modifier[i][j];
+				}
+			}
+		}
+		else {
+			for (int i = 0; i < controlPoints_modifier.size(); i++) {
+				for (int j = 0; j < controlPoints_modifier[0].size(); j++){
+					temp[i][j] = controlPoints_modifier[i][j];
+				}
 			}
 		}
 		controlPoints_modifier = temp;
 	}
 	if (ImGui::InputInt("Cols", &inputCols, 1, 100)) {
 		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
-		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-				temp[i][j] = controlPoints_modifier[i][j];
+		if (inputCols < controlPoints_modifier[0].size()) {
+			for (int i = 0; i < controlPoints_modifier.size(); i++) {
+				for (int j = 0; j < inputCols; j++) {
+					temp[i][j] = controlPoints_modifier[i][j];
+				}
+			}
+		}
+		else {
+			for (int i = 0; i < controlPoints_modifier.size(); i++) {
+				for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+					temp[i][j] = controlPoints_modifier[i][j];
+				}
 			}
 		}
 		controlPoints_modifier = temp;
