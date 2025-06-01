@@ -26,6 +26,7 @@
 #include <string.h>
 #include <string>
 #include <math.h>
+#include <chrono>
 
 using namespace std;
 using namespace glm;

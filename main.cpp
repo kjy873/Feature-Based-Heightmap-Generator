@@ -136,13 +136,15 @@ double LastMouseY = 0.0;
 
 bool ControlPointRender = true;
 
-double windowWidth = 1920;
-double windowHeight = 1080;
+double windowWidth = 1280;
+double windowHeight = 720;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
 
 float CameraSpeed = 0.01f;
+
+bool DragMode = false;
 
 float SAMPLE_INTERVAL = 0.05f;
 
@@ -347,7 +349,7 @@ void init() {
 	CameraRight = glm::normalize(glm::cross(CameraForward, camera[2]));
 
 
-	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 50.0f);
+	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 500.0f);
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -667,6 +669,8 @@ void Perlin(float noise[1024][1024]) {
 
 void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
 
+	auto start = chrono::high_resolution_clock::now();
+
 	SurfacePoints.clear();
 
 	if (ControlPoints.size() != nRows) {
@@ -801,13 +805,20 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		}
 	}
 
-	for (int i = 0; i < SurfacePoints.size(); i++) {
-		cout << "SurfacePoints[" << i << "]: " << SurfacePoints[i].x << ", " << SurfacePoints[i].y << ", " << SurfacePoints[i].z << endl;
-	}
-	for(int i = 0; i < SurfaceNormals.size(); i++) {
-		cout << "SurfaceNormals[" << i << "]: " << SurfaceNormals[i].x << ", " << SurfaceNormals[i].y << ", " << SurfaceNormals[i].z << endl;
-	}
+	auto end = chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> duration = end - start;
 
+	std::cout << "생성 시간: " << duration.count() << " ms\n";
+
+	//for (int i = 0; i < SurfacePoints.size(); i++) {
+	//	cout << "SurfacePoints[" << i << "]: " << SurfacePoints[i].x << ", " << SurfacePoints[i].y << ", " << SurfacePoints[i].z << endl;
+	//}
+	//for(int i = 0; i < SurfaceNormals.size(); i++) {
+	//	cout << "SurfaceNormals[" << i << "]: " << SurfaceNormals[i].x << ", " << SurfaceNormals[i].y << ", " << SurfaceNormals[i].z << endl;
+	//}
+
+	cout << sampleCount * sampleCount << endl;
+	cout << SAMPLE_INTERVAL << endl;
 }
 
 GLvoid Keyboard(GLFWwindow* window) {
@@ -867,8 +878,12 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 				break;
 			}
 		}
+		if (!PickedControlPoint) DragMode = true;
 		
 
+	}
+	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+		DragMode = false;
 	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 		MouseRightButtonPressed = true;
@@ -1083,7 +1098,6 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 
 	}
 }
-
 
 
 void DrawPanel() {
