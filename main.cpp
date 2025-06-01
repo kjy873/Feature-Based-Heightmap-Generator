@@ -146,6 +146,8 @@ float CameraSpeed = 0.01f;
 
 bool DragMode = false;
 
+bool WireFrame = true;
+
 float SAMPLE_INTERVAL = 0.05f;
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
@@ -166,6 +168,7 @@ glm::vec3 CameraForward;
 glm::vec3 CameraRight;
 glm::mat4 view = glm::mat4(1.0f);
 
+
 glm::mat4 projection = glm::mat4(1.0f);
 
 vector<vector<glm::vec3>> controlPoints;
@@ -184,7 +187,7 @@ vector<Shape> GridRectangles;
 
 vector<glm::vec3> SurfacePoints;
 
-glm::vec3 LightSource = glm::vec3(5.0f, 5.0f, 5.0f);
+glm::vec3 LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
 
 float DiffusionGrid[TERRAIN_SIZE - 1][TERRAIN_SIZE - 1];
 
@@ -197,7 +200,7 @@ glm::mat4 PickedObjectModelTransform = glm::mat4(1.0f);
 glm::vec3 PickedObjectPos = glm::vec3(0.0f, 0.0f, 0.0f);
 
 Shape Surface(0);
-
+Shape SurfaceWire(0);
 
 int main() {
 
@@ -265,6 +268,7 @@ int main() {
 	initSplineSurface(controlPoints, 4, 4);
 
 	glfwSetScrollCallback(window, CallbackMouseWheel);
+	if(DragMode)glfwSetCursorPosCallback(window, CallbackMouseMove);
     // 루프
     while (!glfwWindowShouldClose(window)) {
         // 입력 처리 (예: ESC 키)
@@ -352,6 +356,9 @@ void init() {
 	projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 500.0f);
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_LINE_SMOOTH);
+	//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glLineWidth(1.5f);
 }
 
 GLvoid drawScene() {
@@ -361,6 +368,8 @@ GLvoid drawScene() {
 	//draw(rectangles);
 
 	draw(Surface);
+
+	if (WireFrame) drawWireframe(SurfaceWire);
 
 	if (ControlPointRender) {
 		glDisable(GL_DEPTH_TEST);
@@ -414,6 +423,7 @@ inline void drawWireframe(const Shape& dia) {
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
 	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
+	else if (dia.position.size() > 4) glDrawElements(GL_LINES, dia.index.size(), GL_UNSIGNED_INT, 0);
 }
 
 //inline void DrawSurface(const Shape& surface) {
@@ -776,6 +786,9 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
 	setSurface(Surface, SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
 
+	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
+	setSurface(SurfaceWire, SurfacePoints, SurfaceIndices, SurfaceNormals, white);
+
 	/*rectangles.clear();
 	Shape* tempRect = new Shape(4);
 	for (int i = 0; i < SizeU - 1; i++) {
@@ -792,7 +805,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	}
 	cout << rectangles.size() << endl;*/
 
-	float half = 0.02f;
+	float half = 0.03f;
 	for (int i = 0; i < nRows; i++) {
 		for (int j = 0; j < nCols; j++) {
 			Shape cube(8);
@@ -878,7 +891,10 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 				break;
 			}
 		}
-		if (!PickedControlPoint) DragMode = true;
+		if (!PickedControlPoint) {
+			DragMode = true; 
+			preMousePosition = mgl;
+		}
 		
 
 	}
@@ -924,6 +940,13 @@ void MouseMoveRightButton(GLFWwindow* window) {
 }
 
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {
+	if (!DragMode) return;
+	double startX = preMousePosition.x;
+	double startY = preMousePosition.y;
+	double endX = xpos;
+	double endY = ypos;
+
+
 
 }
 
@@ -1202,6 +1225,9 @@ void DrawPanel() {
 	if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
 		ControlPointRender = !ControlPointRender;
 	}
+	if(ImGui::Button("enable surface wire render", ImVec2(-FLT_MIN, 30))) {
+		WireFrame = !WireFrame;
+	}
 	if(ImGui::Button("increase definition", ImVec2(-FLT_MIN, 30))){
 		SAMPLE_INTERVAL -= 0.01f;
 		if (SAMPLE_INTERVAL < 0.01f) SAMPLE_INTERVAL = 0.01f;
@@ -1209,6 +1235,10 @@ void DrawPanel() {
 	if(ImGui::Button("decrease definition", ImVec2(-FLT_MIN, 30))){
 		SAMPLE_INTERVAL += 0.01f;
 		if (SAMPLE_INTERVAL > 0.1f) SAMPLE_INTERVAL = 0.1f;
+	}
+	if(ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
+		if(LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.0f, 10.0f, 0.0f);
+		else LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
 	}
 
 	ImGui::EndChild();

@@ -390,7 +390,7 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods);
 void MouseMoveRightButton(GLFWwindow* window);
-
+void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos);
 
 void DrawPanel();
 
