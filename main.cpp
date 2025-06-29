@@ -202,6 +202,14 @@ glm::vec3 PickedObjectPos = glm::vec3(0.0f, 0.0f, 0.0f);
 Shape Surface(0);
 Shape SurfaceWire(0);
 
+// basis function 캐싱
+int CachedRows = 0;
+int CachedCols = 0;
+float CachedInterval = 0.0f;
+
+vector<vector<float>> CachedBasisU;
+vector<vector<float>> CachedBasisV;
+
 int main() {
 
 	cout << "main" << endl;
@@ -700,21 +708,64 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	vector<float> KnotVectorV = initKnotVector(nCols, v_degree);
 	int sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
 
+	if (CachedRows != nRows || CachedCols != nCols || CachedInterval != SAMPLE_INTERVAL) {
+
+		CachedBasisU.clear();
+		CachedBasisU.resize(sampleCount, vector<float>(nRows));
+		CachedBasisV.clear();
+		CachedBasisV.resize(sampleCount, vector<float>(nCols));
+
+		for (int i = 0; i < sampleCount; i++) {
+			float u = i * SAMPLE_INTERVAL;
+			for (int j = 0; j < nRows; j++) {
+				CachedBasisU[i][j] = BasisFunction(j, u_degree, u, KnotVectorU);
+			}
+		}
+
+		for (int i = 0; i < sampleCount; i++) {
+			float v = i * SAMPLE_INTERVAL;
+			for (int j = 0; j < nCols; j++) {
+				CachedBasisV[i][j] = BasisFunction(j, v_degree, v, KnotVectorV);
+			}
+		}
+
+		CachedRows = nRows;
+		CachedCols = nCols;
+		CachedInterval = SAMPLE_INTERVAL;
+	
+	}
+
 	for (int p = 0; p < sampleCount; p++) {
 		float u = p * SAMPLE_INTERVAL;
 		for (int q = 0; q < sampleCount; q++) {
 			float v = q * SAMPLE_INTERVAL;
 			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
 			for (int i = 0; i < nRows; i++) {
-				float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
+				float PointU = CachedBasisU[p][i];
 				for (int j = 0; j < nCols; j++) {
-					float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
+					float PointV = CachedBasisV[q][j];
 					CurrentPoint += ControlPoints[i][j] * PointU * PointV;
 				}
 			}
 			SurfacePoints.push_back(CurrentPoint);
 		}
 	}
+
+	//for (int p = 0; p < sampleCount; p++) {
+	//	float u = p * SAMPLE_INTERVAL;
+	//	for (int q = 0; q < sampleCount; q++) {
+	//		float v = q * SAMPLE_INTERVAL;
+	//		glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
+	//		for (int i = 0; i < nRows; i++) {
+	//			float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
+	//			for (int j = 0; j < nCols; j++) {
+	//				float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
+	//				CurrentPoint += ControlPoints[i][j] * PointU * PointV;
+	//			}
+	//		}
+	//		SurfacePoints.push_back(CurrentPoint);
+	//	}
+	//}
 
 	int stepU = (int)(1.0f / SAMPLE_INTERVAL) / (nRows - 1); 
 	int stepV = (int)(1.0f / SAMPLE_INTERVAL) / (nCols - 1);
