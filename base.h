@@ -399,3 +399,5 @@ void DrawPanel();
 void UpdateToolInteraction();
 
 vector<vector<glm::vec3>> MakeInitialControlPoints(const int& Rows, const int& Cols);
+
+void ExportHeightMap(const char* FileName);

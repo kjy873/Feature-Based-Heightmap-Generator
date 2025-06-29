@@ -168,6 +168,7 @@ bool DragMode = false;
 bool WireFrame = true;
 
 float SAMPLE_INTERVAL = 0.05f;
+int sampleCount = 0.0f;
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
 
@@ -730,7 +731,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 	vector<float> KnotVectorU = initKnotVector(nRows, u_degree);
 	vector<float> KnotVectorV = initKnotVector(nCols, v_degree);
-	int sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
+	sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
 
 	if (CachedRows != nRows || CachedCols != nCols || CachedInterval != SAMPLE_INTERVAL) {
 
@@ -1296,7 +1297,13 @@ void DrawPanel() {
 
 	ImGui::Text("modify noise");
 	ImGui::Separator();
-	ImGui::Button("Noise A", ImVec2(-FLT_MIN, 30));
+	if (ImGui::Button("Random Value Noise", ImVec2(-FLT_MIN, 30))) {
+		for(auto& p : controlPoints_modifier) {
+			for (auto& cp : p) {
+				cp.y = glm::clamp(static_cast<float>(rand()) / static_cast<float>(RAND_MAX), 0.0f, 1.0f);
+			}
+		}
+	}
 	ImGui::Button("Noise B", ImVec2(-FLT_MIN, 30));
 
 	ImGui::Text("Rendering");
@@ -1308,11 +1315,11 @@ void DrawPanel() {
 		WireFrame = !WireFrame;
 	}
 	if(ImGui::Button("increase definition", ImVec2(-FLT_MIN, 30))){
-		SAMPLE_INTERVAL -= 0.01f;
-		if (SAMPLE_INTERVAL < 0.01f) SAMPLE_INTERVAL = 0.01f;
+		SAMPLE_INTERVAL -= 0.005f;
+		if (SAMPLE_INTERVAL < 0.001f) SAMPLE_INTERVAL = 0.001f;
 	}
 	if(ImGui::Button("decrease definition", ImVec2(-FLT_MIN, 30))){
-		SAMPLE_INTERVAL += 0.01f;
+		SAMPLE_INTERVAL += 0.005f;
 		if (SAMPLE_INTERVAL > 0.1f) SAMPLE_INTERVAL = 0.1f;
 	}
 	if(ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
@@ -1339,6 +1346,12 @@ void DrawPanel() {
 		initSplineSurface(temp, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 
+	ImGui::Separator();
+	if(ImGui::Button("Export", ImVec2((panel_width), button_height))) {
+		ExportHeightMap("heightmap..r16");	
+		cout << "Exported heightmap.r16" << endl;
+	}
+
 	ImGui::End();
 }
 
@@ -1359,4 +1372,20 @@ vector<vector<glm::vec3>> MakeInitialControlPoints(const int& Rows, const int& C
 	}
 
 	return points;
+}
+
+void ExportHeightMap(const char* FileName) {
+
+	ofstream file(FileName, ios::binary);
+
+	for (int x = 0; x < sampleCount; x++) {
+		for (int z = 0; z < sampleCount; z++) {
+			float height = SurfacePoints[x * sampleCount + z].y;
+			height = glm::clamp(height, 0.0f, 1.0f);
+			uint16_t height16 = static_cast<uint16_t>(height * 65535.0f);
+			file.write(reinterpret_cast<const char*>(&height16), sizeof(height16));
+		}
+	}
+
+	file.close();
 }
