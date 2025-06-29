@@ -82,6 +82,8 @@ struct Shape {
 	float u = 0.0f;
 	float r = 0.0f;
 
+	bool IsLine = false;
+
 	//2D shape
 	Shape(int vertexCount) : vertices(vertexCount) {
 		position.resize(vertices);

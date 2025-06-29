@@ -7,8 +7,27 @@ void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const
 	dst.position[0] = glm::vec3(vertex1);
 	dst.position[1] = glm::vec3(vertex2);
 
+	dst.IsLine = true;
+
 	InitBufferLine(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
 }
+
+void setLines(Shape& dst, vector<glm::vec3> vertices, const glm::vec3& c) {
+
+	dst.position.clear();
+	dst.position = vertices;
+	dst.color.clear();
+	dst.color.resize(vertices.size());
+
+	for (int i = 0; i < dst.color.size(); i++) {
+		dst.color[i] = glm::vec3(c);
+	}
+
+	dst.IsLine = true;
+
+	InitBufferLine(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
+}
+
 void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
 	dst.position[0] = glm::vec3(vertex1);
 	dst.position[1] = glm::vec3(vertex2);
@@ -175,6 +194,7 @@ vector<vector<glm::vec3>> controlPoints;
 vector<vector<glm::vec3>> controlPoints_modifier;
 vector<vector<glm::vec3>> controlPoints_initial;
 vector<Shape> ControlLines;
+vector<glm::vec3> VerticesForControlLines;
 vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;						// render surface rectangles
@@ -201,6 +221,8 @@ glm::vec3 PickedObjectPos = glm::vec3(0.0f, 0.0f, 0.0f);
 
 Shape Surface(0);
 Shape SurfaceWire(0);
+
+Shape Lines(0);
 
 // basis function 캐싱
 int CachedRows = 0;
@@ -383,6 +405,7 @@ GLvoid drawScene() {
 		glDisable(GL_DEPTH_TEST);
 		draw(v_ControlPoints);
 		draw(ControlLines);
+		draw(Lines);
 		glEnable(GL_DEPTH_TEST);
 	}
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
@@ -423,7 +446,8 @@ inline void draw(const Shape& dia) {
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-	else if (dia.position.size() > 4) glDrawElements(GL_TRIANGLES, dia.index.size(), GL_UNSIGNED_INT, 0);
+	else if (dia.position.size() > 4 && dia.IsLine == false) glDrawElements(GL_TRIANGLES, dia.index.size(), GL_UNSIGNED_INT, 0);
+	else if (dia.position.size() > 4 && dia.IsLine == true) glDrawArrays(GL_LINES, 0, dia.position.size());
 }
 inline void drawWireframe(const Shape& dia) {
 	glBindVertexArray(dia.VAO);
@@ -751,44 +775,35 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		}
 	}
 
-	//for (int p = 0; p < sampleCount; p++) {
-	//	float u = p * SAMPLE_INTERVAL;
-	//	for (int q = 0; q < sampleCount; q++) {
-	//		float v = q * SAMPLE_INTERVAL;
-	//		glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
-	//		for (int i = 0; i < nRows; i++) {
-	//			float PointU = BasisFunction(i, u_degree, u, KnotVectorU);
-	//			for (int j = 0; j < nCols; j++) {
-	//				float PointV = BasisFunction(j, v_degree, v, KnotVectorV);
-	//				CurrentPoint += ControlPoints[i][j] * PointU * PointV;
-	//			}
-	//		}
-	//		SurfacePoints.push_back(CurrentPoint);
-	//	}
-	//}
+
 
 	int stepU = (int)(1.0f / SAMPLE_INTERVAL) / (nRows - 1); 
 	int stepV = (int)(1.0f / SAMPLE_INTERVAL) / (nCols - 1);
 
-	ControlLines.clear();
+	VerticesForControlLines.clear();
+	//VerticesForControlLines.resize(nRows * nCols);
+
 	for (int i = 0; i < ControlPoints.size(); ++i) {
 		for (int j = 0; j < ControlPoints[i].size(); ++j) {
 			if (j + 1 < ControlPoints[i].size()) {
-				Shape lineH(2);
-				glm::vec3 white[2] = { glm::vec3(1.0f), glm::vec3(1.0f) };
-				setLine(lineH, ControlPoints[i][j], ControlPoints[i][j + 1], white);
-				ControlLines.push_back(lineH);
+				VerticesForControlLines.push_back(ControlPoints[i][j]);
+				VerticesForControlLines.push_back(ControlPoints[i][j + 1]);
 			}
+
 			if (i + 1 < ControlPoints.size()) {
-				Shape lineV(2);
-				glm::vec3 white[2] = { glm::vec3(1.0f), glm::vec3(1.0f) };
-				setLine(lineV, ControlPoints[i][j], ControlPoints[i + 1][j], white);
-				ControlLines.push_back(lineV);
+				VerticesForControlLines.push_back(ControlPoints[i][j]);
+				VerticesForControlLines.push_back(ControlPoints[i + 1][j]);
 			}
 		}
 	}
+
+	Shape Line(VerticesForControlLines.size());
+	glm::vec3 w = glm::vec3(1.0f);
+	setLines(Line, VerticesForControlLines, w);
+
+	Lines = Line;
+
 	// 현재 랜더링되는 사각형들은 서로 정점을 공유함, 이 중복되는 정점
-	
 
 	int SizeU = sampleCount;
 	int SizeV = sampleCount;
@@ -814,6 +829,8 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	3. 그리고 그렇게 계산한 노멀을 각 계산의 반복(각 삼각형의 반복)마다 해당 3개 점에 대응하는 1.에서 만든 배열의 인덱스에 누산 +=
 	4. 정점배열[n]에 대응하는 노멀배열[n]이 만들어진다, 정규화 필요*/
 
+
+
 	vector<glm::vec3> SurfaceNormals(SurfacePoints.size(), glm::vec3(0.0f, 0.0f, 0.0f));
 	for (int i = 0; i < SurfaceIndices.size(); i += 3) {
 		glm::vec3 p0 = SurfacePoints[SurfaceIndices[i]];
@@ -830,12 +847,19 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		SurfaceNormals[SurfaceIndices[i + 2]] += normal;
 	}
 
+
+
 	for(auto& normal : SurfaceNormals) {
 		if (glm::dot(normal, normal) > 0.0f) normal = glm::normalize(normal);
 	}
 
+
+
 	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
 	setSurface(Surface, SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
+
+
+
 
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
 	setSurface(SurfaceWire, SurfacePoints, SurfaceIndices, SurfaceNormals, white);
@@ -855,6 +879,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		}
 	}
 	cout << rectangles.size() << endl;*/
+
 
 	float half = 0.03f;
 	for (int i = 0; i < nRows; i++) {
@@ -883,6 +908,9 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 	cout << sampleCount * sampleCount << endl;
 	cout << SAMPLE_INTERVAL << endl;
+
+
+
 }
 
 GLvoid Keyboard(GLFWwindow* window) {
