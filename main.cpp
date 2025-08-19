@@ -664,11 +664,45 @@ float hold(float p, float t) {
 	return (1 - t) * p + t * p;
 }
 
+glm::vec2 CalGradient(const glm::vec2& p, int seed) {
+	uint32_t h = (uint32_t)p.x * 374761393u
+		^ (uint32_t)p.y * 668265263u
+		^ (uint32_t)seed * 982451653u;
+
+	h ^= h >> 13;
+	h *= 1274126177u;
+	h ^= h >> 16;
+	
+	float angle = (h & 0xFFFFu) * (2.0f * PI / 65536.0f);
+
+	return glm::vec2(cos(angle), sin(angle));
+}
+
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
-void Perlin(float noise[1024][1024]) {
-	glm::vec2 gradient[1025][1025];
+void Perlin(glm::vec2 input, float width, float height, int seed) {
+
+	int frequency = 32;
+	int gridSize = frequency + 1; // for gradient
+
+	//vector<vector<glm::vec2>> gradients(gridSize, vector<glm::vec2>(gridSize));
+
+	float minRange = 0.0f;
+	float maxRange = 1.0f;
+
+	float u = (input.x + 0.5) / width;
+	float v = (input.y + 0.5) / height;
+	
+	int cellX = floor(u * frequency); // cell index
+	int cellY = floor(v * frequency);
+
+	float localX = u * frequency - cellX; // local position in the cell
+	float localY = v * frequency - cellY;
+
+	CalGradient(glm::vec2(cellX, cellY), seed);
+
+	/*glm::vec2 gradient[1025][1025];
 	for (int i = 0; i < 1025; i++) {
 		for (int j = 0; j < 1025; j++) {
 			float angle = distribution(gen);
@@ -703,7 +737,7 @@ void Perlin(float noise[1024][1024]) {
 
 			float result = lerp(interpolated1, interpolated2, v);
 
-			noise[y][x] = result;
+			noise[y][x] = result;*/
 
 		}
 	}
