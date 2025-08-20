@@ -128,8 +128,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL;$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

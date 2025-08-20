@@ -656,7 +656,7 @@ bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, co
 }
 
 // linear interpolation
-float lerp(float a, float b, float t) {
+float Lerp(float a, float b, float t) {
 	return (1 - t) * a + t * b;
 }
 // hold interpolation
@@ -681,13 +681,10 @@ glm::vec2 CalGradient(const glm::vec2& p, int seed) {
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
-void Perlin(glm::vec2 input, float width, float height, int seed) {
+float Perlin(glm::vec2 input, float width, float height, int seed) {
 
 	int frequency = 32;
 	int gridSize = frequency + 1; // for gradient
-
-	//vector<vector<glm::vec2>> gradients(gridSize, vector<glm::vec2>(gridSize));
-
 	float minRange = 0.0f;
 	float maxRange = 1.0f;
 
@@ -700,49 +697,18 @@ void Perlin(glm::vec2 input, float width, float height, int seed) {
 	float localX = u * frequency - cellX; // local position in the cell
 	float localY = v * frequency - cellY;
 
-	CalGradient(glm::vec2(cellX, cellY), seed);
+	float d1 = glm::dot(glm::vec2(localX, localY), CalGradient(glm::vec2(cellX, cellY), seed));
+	float d2 = glm::dot(glm::vec2(localX - 1, localY), CalGradient(glm::vec2(cellX + 1, cellY), seed));
+	float d3 = glm::dot(glm::vec2(localX, localY - 1), CalGradient(glm::vec2(cellX, cellY + 1), seed));
+	float d4 = glm::dot(glm::vec2(localX - 1, localY - 1), CalGradient(glm::vec2(cellX + 1, cellY + 1), seed));
 
-	/*glm::vec2 gradient[1025][1025];
-	for (int i = 0; i < 1025; i++) {
-		for (int j = 0; j < 1025; j++) {
-			float angle = distribution(gen);
-			gradient[i][j] = glm::vec2(glm::cos(angle), glm::sin(angle));
-		}
-	}
+	float interpolatedX1 = Lerp(d1, d2, perlinSmooth(localX));
+	float interpolatedX2 = Lerp(d3, d4, perlinSmooth(localX));
 
-	for (int y = 0; y < 1024; y++) {
-		for (int x = 0; x < 1024; x++) {
-			glm::vec2 input = glm::vec2(x, y);
+	float value = Lerp(interpolatedX1, interpolatedX2, perlinSmooth(localY));
 
-			int x1 = floor(input.x);
-			int y1 = floor(input.y);
-			int x2 = x1 + 1;
-			int y2 = y1 + 1;
-
-			glm::vec2 d11 = input - glm::vec2(x1, y1);
-			glm::vec2 d21 = input - glm::vec2(x2, y1);
-			glm::vec2 d12 = input - glm::vec2(x1, y2);
-			glm::vec2 d22 = input - glm::vec2(x2, y2);
-
-			float dot11 = glm::dot(gradient[y1][x1], d11);
-			float dot21 = glm::dot(gradient[y1][x2], d21);
-			float dot12 = glm::dot(gradient[y2][x1], d12);
-			float dot22 = glm::dot(gradient[y2][x2], d22);
-
-			float u = perlinSmooth(input.x - x1);
-			float v = perlinSmooth(input.y - y1);
-
-			float interpolated1 = lerp(dot11, dot21, u);
-			float interpolated2 = lerp(dot12, dot22, u);
-
-			float result = lerp(interpolated1, interpolated2, v);
-
-			noise[y][x] = result;*/
-
-		}
-	}
+	return(value);
 }
-
 
 void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
 
@@ -1120,7 +1086,7 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 
 			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
 				if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R) {
-					interpolatedr = lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
+					interpolatedr = Lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
 				}
 				else interpolatedr = hold(constraintPoints[i].r, t);
 			}
@@ -1145,8 +1111,8 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 				float interpolatedAlpha = 0.0f;
 				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) {
 					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A) {
-						interpolateda = lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
-						interpolatedAlpha = lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
+						interpolateda = Lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
+						interpolatedAlpha = Lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
 					}
 					else {
 						interpolateda = hold(constraintPoints[i].a, t);
@@ -1184,8 +1150,8 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 				float interpolatedBeta = 0.0f;
 				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) {
 					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B) {
-						interpolatedb = lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
-						interpolatedBeta = lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
+						interpolatedb = Lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
+						interpolatedBeta = Lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
 					}
 					else {
 						interpolatedb = hold(constraintPoints[i].b, t);
@@ -1338,7 +1304,14 @@ void DrawPanel() {
 			}
 		}
 	}
-	ImGui::Button("Noise B", ImVec2(-FLT_MIN, 30));
+	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
+		for (auto& p : controlPoints_modifier) {
+			for (auto& cp : p) {
+				float noiseValue = Perlin(glm::vec2(cp.x, cp.z), 1024.0, 1024.0, 1653214);
+				cp.y += noiseValue*10.0f;
+			}
+		}
+	}
 
 	ImGui::Text("Rendering");
 	ImGui::Separator();
