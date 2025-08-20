@@ -681,9 +681,10 @@ glm::vec2 CalGradient(const glm::vec2& p, int seed) {
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
-float Perlin(glm::vec2 input, float width, float height, int seed) {
+float Perlin(const glm::vec2& input, const float& width, const float& height, const int& seed,
+	const int& frequency, const int& octaves, const int& persistence, const int& lacunarity) {
 
-	int frequency = 32;
+	//int frequency = 32;
 	int gridSize = frequency + 1; // for gradient
 	float minRange = 0.0f;
 	float maxRange = 1.0f;
@@ -709,7 +710,15 @@ float Perlin(glm::vec2 input, float width, float height, int seed) {
 
 	return(value);
 }
+std::function<float(const glm::vec2&)> NoiseSelector(const glm::vec2& input, const float& width, const float& height, const int& seed,
+	const int& frequency, const int& octaves, const int& persistence, const int& lacunarity) 
+{
 
+	return [width, height, seed, frequency, octaves, persistence, lacunarity](const glm::vec2& p) {
+		return Perlin(p, width, height, seed, frequency, octaves, persistence, lacunarity);
+		};
+
+}
 void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
 
 	auto start = chrono::high_resolution_clock::now();
@@ -1307,7 +1316,7 @@ void DrawPanel() {
 	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
 		for (auto& p : controlPoints_modifier) {
 			for (auto& cp : p) {
-				float noiseValue = Perlin(glm::vec2(cp.x, cp.z), 1024.0, 1024.0, 1653214);
+				float noiseValue = Perlin(glm::vec2(cp.x, cp.z), 1024.0, 1024.0, 1653214, 32, 0, 0, 0);
 				cp.y += noiseValue*10.0f;
 			}
 		}
