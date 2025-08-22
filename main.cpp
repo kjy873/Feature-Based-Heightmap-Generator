@@ -681,22 +681,13 @@ glm::vec2 CalGradient(const glm::vec2& p, int seed) {
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
-float Perlin(const glm::vec2& input, const float& width, const float& height, const int& seed,
-	const int& frequency, const int& octaves, const int& persistence, const int& lacunarity) {
-
-	//int frequency = 32;
-	int gridSize = frequency + 1; // for gradient
-	float minRange = 0.0f;
-	float maxRange = 1.0f;
-
-	float u = (input.x + 0.5) / width;
-	float v = (input.y + 0.5) / height;
+float Perlin(const glm::vec2& input, int seed) {
 	
-	int cellX = floor(u * frequency); // cell index
-	int cellY = floor(v * frequency);
+	int cellX = floor(input.x); // cell index
+	int cellY = floor(input.y);
 
-	float localX = u * frequency - cellX; // local position in the cell
-	float localY = v * frequency - cellY;
+	float localX = input.x - cellX; // local position in the cell
+	float localY = input.y - cellY;
 
 	float d1 = glm::dot(glm::vec2(localX, localY), CalGradient(glm::vec2(cellX, cellY), seed));
 	float d2 = glm::dot(glm::vec2(localX - 1, localY), CalGradient(glm::vec2(cellX + 1, cellY), seed));
@@ -710,12 +701,32 @@ float Perlin(const glm::vec2& input, const float& width, const float& height, co
 
 	return(value);
 }
-std::function<float(const glm::vec2&)> NoiseSelector(const glm::vec2& input, const float& width, const float& height, const int& seed,
-	const int& frequency, const int& octaves, const int& persistence, const int& lacunarity) 
+
+float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
+	float frequency, int octaves, float persistence, float lacunarity) {
+	
+	float total = 0.0f;
+	float amplitude = 1.0f;
+
+	glm::vec2 point = glm::vec2((p.x + 0.5f) / width, (p.y + 0.5f) / height);
+	
+	for (int i = 0; i < octaves; i++) {
+		total += Perlin(point * frequency, seed) * amplitude;
+
+		frequency *= lacunarity;
+		amplitude *= persistence;
+	}
+
+	return total;
+
+}
+
+std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
+	float frequency, int octaves, float persistence, float lacunarity) 
 {
 
 	return [width, height, seed, frequency, octaves, persistence, lacunarity](const glm::vec2& p) {
-		return Perlin(p, width, height, seed, frequency, octaves, persistence, lacunarity);
+		return NoiseCombiner1(p, width, height, seed, frequency, octaves, persistence, lacunarity);
 		};
 
 }
@@ -1314,10 +1325,12 @@ void DrawPanel() {
 		}
 	}
 	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
+		auto g = NoiseSelector(1024, 1024, 16542, 32.0f, 5, 0.5f, 2.0f);
 		for (auto& p : controlPoints_modifier) {
 			for (auto& cp : p) {
-				float noiseValue = Perlin(glm::vec2(cp.x, cp.z), 1024.0, 1024.0, 1653214, 32, 0, 0, 0);
-				cp.y += noiseValue*10.0f;
+				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
+				// 임시 scale값 10
+				// 고도를 양수로 제한하려면 g값[-1,1]을 [0,1]로 변환
 			}
 		}
 	}

@@ -380,8 +380,11 @@ bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, co
 float Lerp(float a, float b, float t);
 float hold(float p, float t);
 inline float perlinSmooth(float t);
-float Perlin(const glm::vec2& input, const float& width, const float& height, const int& seed,
-	const int& frequency, const int& octaves, const int& persistence, const int& lacunarity);
+float Perlin(const glm::vec2& input, int seed);
+float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
+	float frequency, int octaves, float persistence, float lacunarity);
+std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
+	float frequency, int octaves, float persistence, float lacunarity);
 vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]);
 glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u);
 void normalize(glm::vec3& v);
