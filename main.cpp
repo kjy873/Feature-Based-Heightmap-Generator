@@ -701,7 +701,6 @@ float Perlin(const glm::vec2& input, int seed) {
 
 	return(value);
 }
-
 float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
 	float frequency, int octaves, float persistence, float lacunarity) {
 	
@@ -720,7 +719,6 @@ float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height
 	return total;
 
 }
-
 std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
 	float frequency, int octaves, float persistence, float lacunarity) 
 {
@@ -730,6 +728,25 @@ std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const f
 		};
 
 }
+
+float Simplex(const glm::vec2& input, int seed) {
+	float F2 = (sqrt(3) - 1)/2.0f;
+	float G2 = (3 - sqrt(3)) / 6.0f;
+
+	float s = (input.x + input.y) * F2;
+
+	float i = floor(input.x + s);
+	float j = floor(input.y + s);
+
+	float t = (i + j) * G2;
+
+	glm::vec2 cellOrigin = glm::vec2(i - t, j - t);
+	glm::vec2 local = glm::vec2(input.x - cellOrigin.x, input.y - cellOrigin.y);
+
+
+
+}
+
 void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
 
 	auto start = chrono::high_resolution_clock::now();
