@@ -381,10 +381,12 @@ float Lerp(float a, float b, float t);
 float hold(float p, float t);
 inline float perlinSmooth(float t);
 float Perlin(const glm::vec2& input, int seed);
+float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient);
+float Simplex(const glm::vec2& input, int seed);
 float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity);
+	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType);
 std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity);
+	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType);
 vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]);
 glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u);
 void normalize(glm::vec3& v);

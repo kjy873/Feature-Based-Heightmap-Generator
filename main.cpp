@@ -702,30 +702,48 @@ float Perlin(const glm::vec2& input, int seed) {
 	return(value);
 }
 float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity) {
-	
+	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType) {
 	float total = 0.0f;
 	float amplitude = 1.0f;
 
 	glm::vec2 point = glm::vec2((p.x + 0.5f) / width, (p.y + 0.5f) / height);
-	
-	for (int i = 0; i < octaves; i++) {
-		total += Perlin(point * frequency, seed) * amplitude;
 
-		frequency *= lacunarity;
-		amplitude *= persistence;
+	if (noiseType == "Perlin") {
+		for (int i = 0; i < octaves; i++) {
+			total += Perlin(point * frequency, seed) * amplitude;
+			frequency *= lacunarity;
+			amplitude *= persistence;
+		}
+	}
+
+	else if (noiseType == "Simplex") {
+		for (int i = 0; i < octaves; i++) {
+			total += Simplex(point * frequency, seed) * amplitude;
+			frequency *= lacunarity;
+			amplitude *= persistence;
+		}
 	}
 
 	return total;
 
 }
+
 std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity) 
+	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType) 
 {
 
-	return [width, height, seed, frequency, octaves, persistence, lacunarity](const glm::vec2& p) {
-		return NoiseCombiner1(p, width, height, seed, frequency, octaves, persistence, lacunarity);
+	return [width, height, seed, frequency, octaves, persistence, lacunarity, noiseType](const glm::vec2& p) {
+		return NoiseCombiner1(p, width, height, seed, frequency, octaves, persistence, lacunarity, noiseType);
 		};
+
+}
+
+float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient) {
+
+	float t = 0.5 - glm::dot(point, point);
+	
+	if (t < 0) return  0.0f;
+	else return t * t * t * t * dot(point, gradient);
 
 }
 
@@ -743,8 +761,34 @@ float Simplex(const glm::vec2& input, int seed) {
 	glm::vec2 cellOrigin = glm::vec2(i - t, j - t);
 	glm::vec2 local = glm::vec2(input.x - cellOrigin.x, input.y - cellOrigin.y);
 
+	glm::vec2 p1 = glm::vec2(local.x, local.y);
+	glm::vec2 p2 = glm::vec2(0.0f);
+	glm::vec2 p3 = glm::vec2(0.0f);
 
+	glm::vec2 g1 = CalGradient(glm::vec2(i, j), seed);
+	glm::vec2 g2 = glm::vec2(0.0f);
+	glm::vec2 g3 = glm::vec2(0.0f);
+	if (local.x > local.y) {
+		p2 = glm::vec2(local.x - 1, local.y);
+		p3 = glm::vec2(local.x - 1, local.y - 1);
 
+		g2 = CalGradient(glm::vec2(i + 1, j), seed);
+		g3 = CalGradient(glm::vec2(i + 1, j + 1), seed);
+	}
+	else {
+		p2 = glm::vec2(local.x, local.y - 1);
+		p3 = glm::vec2(local.x - 1, local.y - 1);
+
+		g2 = CalGradient(glm::vec2(i, j + 1), seed);
+		g3 = CalGradient(glm::vec2(i + 1, j + 1), seed);
+	}
+
+	float a1 = SimplexAttenuation(p1, g1);
+	float a2 = SimplexAttenuation(p2, g2);
+	float a3 = SimplexAttenuation(p3, g3);
+
+	return (a1 + a2 + a3) * 70.0f;
+	
 }
 
 void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
@@ -1342,12 +1386,20 @@ void DrawPanel() {
 		}
 	}
 	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
-		auto g = NoiseSelector(1024, 1024, 16542, 32.0f, 5, 0.5f, 2.0f);
+		auto g = NoiseSelector(1024, 1024, 16542, 32.0f, 5, 0.5f, 2.0f, "Perlin");
 		for (auto& p : controlPoints_modifier) {
 			for (auto& cp : p) {
 				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
 				// 임시 scale값 10
 				// 고도를 양수로 제한하려면 g값[-1,1]을 [0,1]로 변환
+			}
+		}
+	}
+	if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
+		auto g = NoiseSelector(1024, 1024, 16542, 32.0f, 5, 0.5f, 2.0f, "Simplex");
+		for (auto& p : controlPoints_modifier) {
+			for (auto& cp : p) {
+				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
 			}
 		}
 	}
