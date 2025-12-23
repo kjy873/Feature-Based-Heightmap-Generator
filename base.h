@@ -38,10 +38,6 @@ using namespace glm;
 
 #define TERRAIN_SIZE 101
 
-//GLuint shaderProgramID;
-//GLuint vertexShader;
-//GLuint fragmentShader;
-
 enum class ToolType {
 	none,
 	confirm

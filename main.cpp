@@ -1,5 +1,6 @@
 ﻿#include "base.h"
 #include "ShaderManager.h"
+#include "BufferManager.h"
 
 void setLine(GLuint &ShaderProgramID, Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
 	for (int i = 0; i < 2; i++) {
@@ -46,6 +47,7 @@ void setRectangle(GLuint& ShaderProgramID, Shape& dst, const glm::vec3 vertex1, 
 
 	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
+
 void setHexahedron(GLuint& ShaderProgramID, vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
 
 	Shape temp(4);
@@ -70,6 +72,7 @@ void setHexahedron(GLuint& ShaderProgramID, vector<Shape>& dst, const glm::vec3 
 	setRectangle(ShaderProgramID, temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
 	dst.push_back(temp);
 }
+
 void setHexahedron(GLuint& ShaderProgramID, Shape& dst, const glm::vec3 center, float half, const glm::vec3& c) {
 	
 	glm::vec3 vertices[8] = {
@@ -138,6 +141,7 @@ void setSurface(GLuint& ShaderProgramID, Shape& dst, const vector<glm::vec3>& ve
 }
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
+BufferManager BufferMgr;
 
 float PI = 3.14159265358979323846f;
 
