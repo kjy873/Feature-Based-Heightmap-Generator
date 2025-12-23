@@ -1,6 +1,7 @@
 ﻿#include "base.h"
+#include "ShaderManager.h"
 
-void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
+void setLine(GLuint &ShaderProgramID, Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
 	for (int i = 0; i < 2; i++) {
 		dst.color[i] = glm::vec3(c[i]);
 	}
@@ -9,10 +10,10 @@ void setLine(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const
 
 	dst.IsLine = true;
 
-	InitBufferLine(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
+	InitBufferLine(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
 }
 
-void setLines(Shape& dst, vector<glm::vec3> vertices, const glm::vec3& c) {
+void setLines(GLuint& ShaderProgramID, Shape& dst, vector<glm::vec3> vertices, const glm::vec3& c) {
 
 	dst.position.clear();
 	dst.position = vertices;
@@ -25,10 +26,10 @@ void setLines(Shape& dst, vector<glm::vec3> vertices, const glm::vec3& c) {
 
 	dst.IsLine = true;
 
-	InitBufferLine(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
+	InitBufferLine(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
 }
 
-void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
+void setRectangle(GLuint& ShaderProgramID, Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
 	dst.position[0] = glm::vec3(vertex1);
 	dst.position[1] = glm::vec3(vertex2);
 	dst.position[2] = glm::vec3(vertex3);
@@ -43,9 +44,9 @@ void setRectangle(Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, 
 		dst.color[i] = glm::vec3(c[i]);
 	}
 
-	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
+	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
-void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
+void setHexahedron(GLuint& ShaderProgramID, vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
 
 	Shape temp(4);
 
@@ -56,20 +57,20 @@ void setHexahedron(vector<Shape>& dst, const glm::vec3 vertices[8], const glm::v
 	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
 	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
 
-	setRectangle(temp, vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
+	setRectangle(ShaderProgramID, temp, vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
 	dst.push_back(temp);
-	setRectangle(temp, vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
+	setRectangle(ShaderProgramID, temp, vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
 	dst.push_back(temp);
-	setRectangle(temp, vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
+	setRectangle(ShaderProgramID, temp, vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
 	dst.push_back(temp);
-	setRectangle(temp, vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
+	setRectangle(ShaderProgramID, temp, vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
 	dst.push_back(temp);
-	setRectangle(temp, vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
+	setRectangle(ShaderProgramID, temp, vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
 	dst.push_back(temp);
-	setRectangle(temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
+	setRectangle(ShaderProgramID, temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
 	dst.push_back(temp);
 }
-void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::vec3& c) {
+void setHexahedron(GLuint& ShaderProgramID, Shape& dst, const glm::vec3 center, float half, const glm::vec3& c) {
 	
 	glm::vec3 vertices[8] = {
 	   center + glm::vec3(-half,  half,  half),
@@ -116,12 +117,12 @@ void setHexahedron(Shape& dst, const glm::vec3 center, float half, const glm::ve
 			dst.normal[i] = glm::vec3(0.0f, 0.0f, 1.0f);
 	}
 
-	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
+	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
 						dst.color.data(), dst.color.size(), 
 						dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
 
-void setSurface(Shape& dst, const vector<glm::vec3>& vertices, const vector<int>& indices, const vector<glm::vec3>& normals, const glm::vec3& c) {
+void setSurface(GLuint& ShaderProgramID, Shape& dst, const vector<glm::vec3>& vertices, const vector<int>& indices, const vector<glm::vec3>& normals, const glm::vec3& c) {
 	dst.position = vertices;
 	dst.index = indices;
 	dst.normal = normals;
@@ -131,10 +132,12 @@ void setSurface(Shape& dst, const vector<glm::vec3>& vertices, const vector<int>
 		dst.color[i] = c;
 	}
 
-	InitBufferRectangle(shaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
+	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(),
 						dst.color.data(), dst.color.size(), 
 		dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
 }
+
+ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 
 float PI = 3.14159265358979323846f;
 
@@ -273,8 +276,8 @@ int main() {
     // 뷰포트 설정
     glViewport(0, 0, windowWidth, windowHeight);
 
-	InitShader(shaderProgramID, vertexShader, "vertex.glsl", fragmentShader, "fragment.glsl");
-	glUseProgram(shaderProgramID);
+	ShaderMgr.InitShader();
+	glUseProgram(ShaderMgr.GetShaderProgramID());
 
 	glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
 
@@ -360,19 +363,19 @@ int main() {
 void init() {
 	glClearColor(backgroundColor.R, backgroundColor.G, backgroundColor.B, backgroundColor.A);
 
-	viewLocation = glGetUniformLocation(shaderProgramID, "viewTransform");
-	projectionLocation = glGetUniformLocation(shaderProgramID, "projectionTransform");
-	modelTransformLococation = glGetUniformLocation(shaderProgramID, "modelTransform");
+	viewLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "viewTransform");
+	projectionLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "projectionTransform");
+	modelTransformLococation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "modelTransform");
 
-	unsigned int lightSourceLocation = glGetUniformLocation(shaderProgramID, "lightPos");
+	unsigned int lightSourceLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "lightPos");
 
 	// axes
 	Shape* temp = new Shape(2);
-	setLine(*temp, glm::vec3(-4.0, 0.0, 0.0), glm::vec3(4.0, 0.0, 0.0), returnColorRand2());
+	setLine(ShaderMgr.GetShaderProgramID(), *temp, glm::vec3(-4.0, 0.0, 0.0), glm::vec3(4.0, 0.0, 0.0), returnColorRand2());
 	axes.push_back(*temp);
-	setLine(*temp, glm::vec3(0.0, -4.0, 0.0), glm::vec3(0.0, 4.0, 0.0), returnColorRand2());
+	setLine(ShaderMgr.GetShaderProgramID(), *temp, glm::vec3(0.0, -4.0, 0.0), glm::vec3(0.0, 4.0, 0.0), returnColorRand2());
 	axes.push_back(*temp);
-	setLine(*temp, glm::vec3(0.0, 0.0, -4.0), glm::vec3(0.0, 0.0, 4.0), returnColorRand2());
+	setLine(ShaderMgr.GetShaderProgramID(), *temp, glm::vec3(0.0, 0.0, -4.0), glm::vec3(0.0, 0.0, 4.0), returnColorRand2());
 	axes.push_back(*temp);
 	delete(temp);
 
@@ -398,15 +401,15 @@ GLvoid drawScene() {
 	
 	//draw(rectangles);
 
-	draw(Surface);
+	draw(ShaderMgr.GetShaderProgramID(), Surface);
 
-	if (WireFrame) drawWireframe(SurfaceWire);
+	if (WireFrame) drawWireframe(ShaderMgr.GetShaderProgramID(), SurfaceWire);
 
 	if (ControlPointRender) {
 		glDisable(GL_DEPTH_TEST);
 		draw(v_ControlPoints);
 		draw(ControlLines);
-		draw(Lines);
+		draw(ShaderMgr.GetShaderProgramID(), Lines);
 		glEnable(GL_DEPTH_TEST);
 	}
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
@@ -433,26 +436,26 @@ inline void draw(const vector<Shape>& dia) {
 		}
 	}
 }
-inline void drawWireframe(const vector<Shape> dia) {
+inline void drawWireframe(GLuint &ShaderProgramID, const vector<Shape> dia) {
 	for (const auto& d : dia) {
 		glBindVertexArray(d.VAO);
-		glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
+		glUniformMatrix4fv(glGetUniformLocation(ShaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
 		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 		else if (d.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
 		else if (d.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
 	}
 }
-inline void draw(const Shape& dia) {
+inline void draw(GLuint& ShaderProgramID, const Shape& dia) {
 	glBindVertexArray(dia.VAO);
-	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
+	glUniformMatrix4fv(glGetUniformLocation(ShaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
 	else if (dia.position.size() > 4 && dia.IsLine == false) glDrawElements(GL_TRIANGLES, dia.index.size(), GL_UNSIGNED_INT, 0);
 	else if (dia.position.size() > 4 && dia.IsLine == true) glDrawArrays(GL_LINES, 0, dia.position.size());
 }
-inline void drawWireframe(const Shape& dia) {
+inline void drawWireframe(GLuint& ShaderProgramID, const Shape& dia) {
 	glBindVertexArray(dia.VAO);
-	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
+	glUniformMatrix4fv(glGetUniformLocation(ShaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
 	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
 	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
 	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
@@ -881,7 +884,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 	Shape Line(VerticesForControlLines.size());
 	glm::vec3 w = glm::vec3(1.0f);
-	setLines(Line, VerticesForControlLines, w);
+	setLines(ShaderMgr.GetShaderProgramID(), Line, VerticesForControlLines, w);
 
 	Lines = Line;
 
@@ -938,13 +941,13 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 
 	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
-	setSurface(Surface, SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
+	setSurface(ShaderMgr.GetShaderProgramID(), Surface, SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
 
 
 
 
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
-	setSurface(SurfaceWire, SurfacePoints, SurfaceIndices, SurfaceNormals, white);
+	setSurface(ShaderMgr.GetShaderProgramID(), SurfaceWire, SurfacePoints, SurfaceIndices, SurfaceNormals, white);
 
 	/*rectangles.clear();
 	Shape* tempRect = new Shape(4);
@@ -967,7 +970,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	for (int i = 0; i < nRows; i++) {
 		for (int j = 0; j < nCols; j++) {
 			Shape cube(8);
-			setHexahedron(cube, glm::vec3(0.0f, 0.0f, 0.0f), half, glm::vec3(1.0f, 0.0f, 1.0f));
+			setHexahedron(ShaderMgr.GetShaderProgramID(), cube, glm::vec3(0.0f, 0.0f, 0.0f), half, glm::vec3(1.0f, 0.0f, 1.0f));
 			cube.linkedPosition = &ControlPoints[i][j];
 			cube.linkedRows = i;
 			cube.linkedCols = j;
@@ -1149,13 +1152,13 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
 
 
-			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * 0.0f,
+			setRectangle(ShaderMgr.GetShaderProgramID(), rectA, pointOnBezier(ControlPoints, u) + normal * 0.0f,
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * 0.0f,
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
 				pointOnBezier(ControlPoints, u),
 				black);
 
-			setRectangle(rectB, pointOnBezier(ControlPoints, u),
+			setRectangle(ShaderMgr.GetShaderProgramID(), rectB, pointOnBezier(ControlPoints, u),
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * 0.0f,
 				pointOnBezier(ControlPoints, u) - normal * 0.0f,
@@ -1174,13 +1177,13 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 			else interpolatedr = hold(constraintPoints[i + 1].r, t);
 
 
-			setRectangle(rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
+			setRectangle(ShaderMgr.GetShaderProgramID(), rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * interpolatedr,
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
 				pointOnBezier(ControlPoints, u),
 				black);
 
-			setRectangle(rectB, pointOnBezier(ControlPoints, u),
+			setRectangle(ShaderMgr.GetShaderProgramID(), rectB, pointOnBezier(ControlPoints, u),
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
 				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * interpolatedr,
 				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
@@ -1217,7 +1220,7 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 				//cout << "clampColor: " << clampColor.x << ", " << clampColor.y << ", " << clampColor.z << endl;
 				//cout << gradientVector.x << ", " << gradientVector.y << ", " << gradientVector.z << endl;
 				glm::vec3 colorA[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor };
-				setRectangle(rectA, (rectA).position[0] + normal * interpolateda,
+				setRectangle(ShaderMgr.GetShaderProgramID(), rectA, (rectA).position[0] + normal * interpolateda,
 					(rectA).position[1] + normal * interpolateda,
 					(rectA).position[2],
 					(rectA).position[3],
@@ -1257,7 +1260,7 @@ void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& con
 				glm::vec3 colorB[4] = { clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
 
 
-				setRectangle(rectB, (rectB).position[0],
+				setRectangle(ShaderMgr.GetShaderProgramID(), rectB, (rectB).position[0],
 					(rectB).position[1],
 					(rectB).position[2] - normal * interpolatedb,
 					(rectB).position[3] - normal * interpolatedb,

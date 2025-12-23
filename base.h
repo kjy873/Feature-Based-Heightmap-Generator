@@ -38,9 +38,9 @@ using namespace glm;
 
 #define TERRAIN_SIZE 101
 
-GLuint shaderProgramID;
-GLuint vertexShader;
-GLuint fragmentShader;
+//GLuint shaderProgramID;
+//GLuint vertexShader;
+//GLuint fragmentShader;
 
 enum class ToolType {
 	none,
@@ -177,86 +177,6 @@ mouseCoordGL transformMouseToGL(double x, double y, double windowWidth, double w
 	return m;
 }
 
-// init shader
-GLchar* filetobuf(const char* filepath)
-{
-	std::ifstream file(filepath);
-	if (!file.is_open()) {
-		std::cerr << "Failed to open file: " << filepath << std::endl;
-		return nullptr;
-	}
-
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	file.close();
-
-	std::string contents = buffer.str();
-	char* source = new char[contents.size() + 1];
-	strcpy_s(source, contents.size() + 1, contents.c_str());
-	return source;
-}
-void make_vertexShaders(GLuint& vertexShader, const char* vertexName) {
-	GLchar* vertexSource;
-
-	vertexSource = filetobuf(vertexName);
-
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexSource, NULL);
-	glCompileShader(vertexShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &result);
-	if (!result) {
-		glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-		cerr << "ERROR: vertex shader error\n" << errorLog << endl;
-		return;
-	}
-}
-void make_fragmentShaders(GLuint& fragmentShader, const char* fragmentName) {
-	GLchar* fragmentSource;
-
-	fragmentSource = filetobuf(fragmentName);
-
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
-	glCompileShader(fragmentShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result);
-	if (!result) {
-		glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-		cerr << "ERROR: fragment shader error\n" << errorLog << endl;
-		return;
-	}
-}
-void make_shaderProgram(GLuint& shaderProgramID, GLuint& vertexShader, GLuint& fragmentShader) {
-	shaderProgramID = glCreateProgram();
-
-	glAttachShader(shaderProgramID, vertexShader);
-	glAttachShader(shaderProgramID, fragmentShader);
-
-	glLinkProgram(shaderProgramID);
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
-	if (!result) {
-		glGetProgramInfoLog(shaderProgramID, 512, NULL, errorLog);
-		cerr << "ERROR: shader program 연결 실패\n" << errorLog << endl;
-		return;
-	}
-}
-inline GLvoid InitShader(GLuint& shaderProgramID, GLuint& vertexShader, const char* vertexName, GLuint& fragmentShader, const char* fragmentName) {
-	make_vertexShaders(vertexShader, vertexName);
-	make_fragmentShaders(fragmentShader, fragmentName);
-	make_shaderProgram(shaderProgramID, vertexShader, fragmentShader);
-}
-// init buffer
 void InitBufferLine(GLuint& shaderProgramID, GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
 	//cout << "버퍼 초기화" << endl;
 	GLuint VBO_position, VBO_color;
@@ -359,9 +279,9 @@ void InitBufferRectangle(GLuint& shaderProgramID, GLuint& VAO, const glm::vec3* 
 void init();
 GLvoid drawScene();
 inline void draw(const vector<Shape>& dia);
-inline void drawWireframe(const vector<Shape> dia);
-inline void draw(const Shape& dia);
-inline void drawWireframe(const Shape& dia);
+inline void drawWireframe(GLuint &ShaderProgramID, const vector<Shape> dia);
+inline void draw(GLuint& ShaderProgramID, const Shape& dia);
+inline void drawWireframe(GLuint& ShaderProgramID, const Shape& dia);
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector);
 bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
