@@ -1,7 +1,7 @@
 #include "Mesh.h"
 
 
-void Mesh::SetLine(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
+void LineMesh::SetLine(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
 	for (int i = 0; i < 2; i++) {
 		Color[i] = glm::vec3(c[i]);
 	}
@@ -11,7 +11,7 @@ void Mesh::SetLine(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::
 	IsLine = true;
 }
 
-void Mesh::SetLines(std::vector<glm::vec3> vertices, const glm::vec3& c) {
+void LineMesh::SetLines(std::vector<glm::vec3> vertices, const glm::vec3& c) {
 
 	Position.clear();
 	Position = vertices;
@@ -26,7 +26,7 @@ void Mesh::SetLines(std::vector<glm::vec3> vertices, const glm::vec3& c) {
 
 }
 
-void Mesh::SetRectangle(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
+void RectangleMesh::SetRectangle(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
 	Position[0] = glm::vec3(vertex1);
 	Position[1] = glm::vec3(vertex2);
 	Position[2] = glm::vec3(vertex3);
@@ -43,33 +43,33 @@ void Mesh::SetRectangle(const glm::vec3 vertex1, const glm::vec3 vertex2, const 
 
 }
 
-void Mesh::SetHexahedron(std::vector<Mesh>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
+//void HexahedronMesh::SetHexahedron(std::vector<Mesh>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
+//
+//	Mesh temp(4);
+//
+//	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
+//	glm::vec3 TopColor[4] = { c[4], c[5], c[1], c[0] };
+//	glm::vec3 BackColor[4] = { c[6], c[7], c[5], c[4] };
+//	glm::vec3 BottomColor[4] = { c[3], c[2], c[6], c[7] };
+//	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
+//	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
+//
+//	temp.SetRectangle(vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
+//	dst.push_back(temp);
+//	temp.SetRectangle(vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
+//	dst.push_back(temp);
+//	temp.SetRectangle(vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
+//	dst.push_back(temp);
+//	temp.SetRectangle(vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
+//	dst.push_back(temp);
+//	temp.SetRectangle(vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
+//	dst.push_back(temp);
+//	temp.SetRectangle(vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
+//	dst.push_back(temp);
+//
+//}
 
-	Mesh temp(4);
-
-	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
-	glm::vec3 TopColor[4] = { c[4], c[5], c[1], c[0] };
-	glm::vec3 BackColor[4] = { c[6], c[7], c[5], c[4] };
-	glm::vec3 BottomColor[4] = { c[3], c[2], c[6], c[7] };
-	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
-	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
-
-	temp.SetRectangle(vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
-	dst.push_back(temp);
-	temp.SetRectangle(vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
-	dst.push_back(temp);
-	temp.SetRectangle(vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
-	dst.push_back(temp);
-	temp.SetRectangle(vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
-	dst.push_back(temp);
-	temp.SetRectangle(vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
-	dst.push_back(temp);
-	temp.SetRectangle(vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
-	dst.push_back(temp);
-
-}
-
-void Mesh::SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c) {
+void HexahedronMesh::SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c) {
 
 	glm::vec3 vertices[8] = {
 	   center + glm::vec3(-half,  half,  half),
@@ -117,7 +117,7 @@ void Mesh::SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c)
 	}
 }
 
-void Mesh::SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c) {
+void TerrainMesh::SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c) {
 	Position = vertices;
 	Index = indices;
 	Normal = normals;

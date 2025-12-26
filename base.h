@@ -270,7 +270,114 @@ void InitBufferRectangle(GLuint& shaderProgramID, GLuint& VAO, const glm::vec3* 
 
 }
 
+bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
+	glm::vec3& intersectionPoint, float& distance) {
 
+	glm::vec3 edge1 = v1 - v0;
+	glm::vec3 edge2 = v2 - v0;
+
+	glm::vec3 h = glm::cross(rayEnd - rayBegin, edge2);
+
+	float a = glm::dot(edge1, h);
+	if (a > -0.00001f && a < 0.00001f) return false;
+
+	float f = 1.0f / a;
+
+	glm::vec3 s = rayBegin - v0;
+
+	float u = f * glm::dot(s, h);
+	if (u < 0.0f || u > 1.0f) return false;
+
+	glm::vec3 q = glm::cross(s, edge1);
+	float v = f * glm::dot(rayEnd - rayBegin, q);
+	if (v < 0.0f || u + v > 1.0f) return false;
+
+	float t = f * glm::dot(edge2, q);
+	if (t < 0.0f) return false;
+
+	distance = t;
+	intersectionPoint = rayBegin + (rayEnd - rayBegin) * t;
+	return true;
+
+}
+
+inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3,
+	glm::vec3& intersectionPoint, float& distance) {
+
+	float t1{ 0.0f }, t2{ 0.0f };
+	glm::vec3 p1{ 0.0f, 0.0f, 0.0f }, p2{ 0.0f, 0.0f, 0.0f };
+
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p1, t1)) {
+		distance = t1;
+		intersectionPoint = p1;
+		return true;
+	}
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v2, v3, p2, t2)) {
+		distance = t2;
+		intersectionPoint = p2;
+		return true;
+	}
+	return false;
+}
+
+inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance) {
+	return intersertRayRectangle(rayBegin, rayEnd, rectangle.position[0], rectangle.position[1],
+		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
+}
+
+inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
+	bool intersected = false;
+	float minDistance = FLT_MAX;
+
+	for (int i = 0; i < Hexahedron.index.size(); i += 3) {
+		glm::vec3 v0 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i]], 1.0f));
+		glm::vec3 v1 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 1]], 1.0f));
+		glm::vec3 v2 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 2]], 1.0f));
+
+		glm::vec3 p;
+		float t;
+
+		if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p, t)) {
+			if (t < minDistance) {
+				minDistance = t;
+				intersectionPoint = p;
+				distance = t;
+				intersectedIndex = i / 3;
+				intersected = true;
+			}
+		}
+	}
+
+	return intersected;
+}
+
+void normalize(glm::vec3& v) {
+	v = (v / static_cast<float>(RESOLUTION)) * 2.0f - 1.0f;
+}
+
+inline float Cross2D(const glm::vec2& a, const glm::vec2& b) {
+	return a.x * b.y - a.y * b.x;
+}
+
+bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c) {
+	float cross1 = Cross2D(b - a, p - a);
+	float cross2 = Cross2D(c - b, p - b);
+	float cross3 = Cross2D(a - c, p - c);
+	return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0) || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0);
+}
+
+// linear interpolation
+float Lerp(float a, float b, float t) {
+	return (1 - t) * a + t * b;
+}
+// hold interpolation
+float hold(float p, float t) {
+	return (1 - t) * p + t * p;
+}
 
 void init();
 GLvoid drawScene();
