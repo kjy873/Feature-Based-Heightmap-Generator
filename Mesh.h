@@ -28,6 +28,8 @@ protected:
 
 	int MeshID = -1;
 
+	GLenum DrawMode = 0;
+
 public:
 
 	Mesh(int vertexCount) : vertices(vertexCount) {
@@ -70,6 +72,19 @@ public:
 	void SetMeshID(int id) { MeshID = id; }
 	int GetMeshID() const { return MeshID; }
 
+	const std::vector<glm::vec3>& GetPosition() const { return Position; }
+	const std::vector<glm::vec3>& GetCurrentPosition() const { return CurrentPosition; }
+	const std::vector<glm::vec3>& GetColor() const { return Color; }
+	const std::vector<unsigned int>& GetIndex() const { return Index; }
+	const std::vector<glm::vec3>& GetNormal() const { return Normal; }
+	bool IsDirty() const { return dirty; }
+
+	const glm::mat4& GetTransformMatrix() const { return TSR; }
+
+	const GLenum GetDrawMode() const { return DrawMode; }
+	const int GetVertexCount() const { return vertices; }
+
+
 	//void SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c);
 
 };
@@ -97,9 +112,12 @@ public:
 class LineMesh : public Mesh {
 
 public:
-	LineMesh(int vertexCount) : Mesh(vertexCount) {}
+	LineMesh(int vertexCount) : Mesh(vertexCount) {
+		DrawMode = GL_LINES;
+	}
 	void SetLine(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c);
 	void SetLines(std::vector<glm::vec3> vertices, const glm::vec3& c);
+
 
 };
 

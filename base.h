@@ -8,6 +8,8 @@
 
 #include "ImGuizmo.h"
 
+#include "Mesh.h"
+
 #include <glew.h>
 
 #include <glm.hpp>
@@ -49,6 +51,7 @@ struct NoiseParameters {
 	float lacunarity = 2.0f;
 	string noiseType = "Perlin";
 };
+
 
 enum class ToolType {
 	none,
@@ -185,86 +188,6 @@ mouseCoordGL transformMouseToGL(double x, double y, double windowWidth, double w
 	return m;
 }
 
-// init shader
-GLchar* filetobuf(const char* filepath)
-{
-	std::ifstream file(filepath);
-	if (!file.is_open()) {
-		std::cerr << "Failed to open file: " << filepath << std::endl;
-		return nullptr;
-	}
-
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	file.close();
-
-	std::string contents = buffer.str();
-	char* source = new char[contents.size() + 1];
-	strcpy_s(source, contents.size() + 1, contents.c_str());
-	return source;
-}
-void make_vertexShaders(GLuint& vertexShader, const char* vertexName) {
-	GLchar* vertexSource;
-
-	vertexSource = filetobuf(vertexName);
-
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexSource, NULL);
-	glCompileShader(vertexShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &result);
-	if (!result) {
-		glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-		cerr << "ERROR: vertex shader error\n" << errorLog << endl;
-		return;
-	}
-}
-void make_fragmentShaders(GLuint& fragmentShader, const char* fragmentName) {
-	GLchar* fragmentSource;
-
-	fragmentSource = filetobuf(fragmentName);
-
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
-	glCompileShader(fragmentShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result);
-	if (!result) {
-		glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-		cerr << "ERROR: fragment shader error\n" << errorLog << endl;
-		return;
-	}
-}
-void make_shaderProgram(GLuint& shaderProgramID, GLuint& vertexShader, GLuint& fragmentShader) {
-	shaderProgramID = glCreateProgram();
-
-	glAttachShader(shaderProgramID, vertexShader);
-	glAttachShader(shaderProgramID, fragmentShader);
-
-	glLinkProgram(shaderProgramID);
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-
-	GLint result;
-	GLchar errorLog[512];
-	glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
-	if (!result) {
-		glGetProgramInfoLog(shaderProgramID, 512, NULL, errorLog);
-		cerr << "ERROR: shader program 연결 실패\n" << errorLog << endl;
-		return;
-	}
-}
-inline GLvoid InitShader(GLuint& shaderProgramID, GLuint& vertexShader, const char* vertexName, GLuint& fragmentShader, const char* fragmentName) {
-	make_vertexShaders(vertexShader, vertexName);
-	make_fragmentShaders(fragmentShader, fragmentName);
-	make_shaderProgram(shaderProgramID, vertexShader, fragmentShader);
-}
-// init buffer
 void InitBufferLine(GLuint& shaderProgramID, GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize) {
 	//cout << "버퍼 초기화" << endl;
 	GLuint VBO_position, VBO_color;
@@ -362,14 +285,122 @@ void InitBufferRectangle(GLuint& shaderProgramID, GLuint& VAO, const glm::vec3* 
 
 }
 
+bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
+	glm::vec3& intersectionPoint, float& distance) {
 
+	glm::vec3 edge1 = v1 - v0;
+	glm::vec3 edge2 = v2 - v0;
+
+	glm::vec3 h = glm::cross(rayEnd - rayBegin, edge2);
+
+	float a = glm::dot(edge1, h);
+	if (a > -0.00001f && a < 0.00001f) return false;
+
+	float f = 1.0f / a;
+
+	glm::vec3 s = rayBegin - v0;
+
+	float u = f * glm::dot(s, h);
+	if (u < 0.0f || u > 1.0f) return false;
+
+	glm::vec3 q = glm::cross(s, edge1);
+	float v = f * glm::dot(rayEnd - rayBegin, q);
+	if (v < 0.0f || u + v > 1.0f) return false;
+
+	float t = f * glm::dot(edge2, q);
+	if (t < 0.0f) return false;
+
+	distance = t;
+	intersectionPoint = rayBegin + (rayEnd - rayBegin) * t;
+	return true;
+
+}
+
+inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3,
+	glm::vec3& intersectionPoint, float& distance) {
+
+	float t1{ 0.0f }, t2{ 0.0f };
+	glm::vec3 p1{ 0.0f, 0.0f, 0.0f }, p2{ 0.0f, 0.0f, 0.0f };
+
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p1, t1)) {
+		distance = t1;
+		intersectionPoint = p1;
+		return true;
+	}
+	if (intersectRayTriangle(rayBegin, rayEnd, v0, v2, v3, p2, t2)) {
+		distance = t2;
+		intersectionPoint = p2;
+		return true;
+	}
+	return false;
+}
+
+inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance) {
+	return intersertRayRectangle(rayBegin, rayEnd, rectangle.position[0], rectangle.position[1],
+		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
+}
+
+inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
+	bool intersected = false;
+	float minDistance = FLT_MAX;
+
+	for (int i = 0; i < Hexahedron.index.size(); i += 3) {
+		glm::vec3 v0 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i]], 1.0f));
+		glm::vec3 v1 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 1]], 1.0f));
+		glm::vec3 v2 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 2]], 1.0f));
+
+		glm::vec3 p;
+		float t;
+
+		if (intersectRayTriangle(rayBegin, rayEnd, v0, v1, v2, p, t)) {
+			if (t < minDistance) {
+				minDistance = t;
+				intersectionPoint = p;
+				distance = t;
+				intersectedIndex = i / 3;
+				intersected = true;
+			}
+		}
+	}
+
+	return intersected;
+}
+
+void normalize(glm::vec3& v) {
+	v = (v / static_cast<float>(RESOLUTION)) * 2.0f - 1.0f;
+}
+
+inline float Cross2D(const glm::vec2& a, const glm::vec2& b) {
+	return a.x * b.y - a.y * b.x;
+}
+
+bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c) {
+	float cross1 = Cross2D(b - a, p - a);
+	float cross2 = Cross2D(c - b, p - b);
+	float cross3 = Cross2D(a - c, p - c);
+	return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0) || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0);
+}
+
+// linear interpolation
+float Lerp(float a, float b, float t) {
+	return (1 - t) * a + t * b;
+}
+// hold interpolation
+float hold(float p, float t) {
+	return (1 - t) * p + t * p;
+}
 
 void init();
 GLvoid drawScene();
+inline void draw(const vector<LineMesh>& Mesh);
 inline void draw(const vector<Shape>& dia);
-inline void drawWireframe(const vector<Shape> dia);
-inline void draw(const Shape& dia);
-inline void drawWireframe(const Shape& dia);
+inline void drawWireframe(GLuint &ShaderProgramID, const vector<Shape> dia);
+inline void draw(GLuint& ShaderProgramID, const Shape& dia);
+inline void drawWireframe(GLuint& ShaderProgramID, const Shape& dia);
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector);
 bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,

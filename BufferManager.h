@@ -51,5 +51,14 @@ public:
 	BufferData& CreateBufferData(unsigned int ID, bool UseEBO);
 	void BindVertexBufferObjectByID(unsigned int ID, const glm::vec3* Position, int PositionSize, const glm::vec3* Color, int ColorSize, const glm::vec3* Normal, int NormalSize);
 	void BindElementBufferObjectByID(unsigned int ID, const int* Index, int IndexSize);
+
+	GLuint& GetVAOByID(unsigned int ID) {
+		auto it = BufferMap.find(ID);
+		if (it == BufferMap.end()) {
+			std::cerr << "Error: Buffer ID " << ID << " not found." << std::endl;
+			throw std::runtime_error("Buffer ID not found");
+		}
+		return it->second.VAO;
+	}
 };
 

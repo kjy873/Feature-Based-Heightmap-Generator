@@ -394,18 +394,30 @@ void init() {
 	temp2->SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(temp2->GetMeshID(), false);
 	// 여기서 정점 업로드, BufferMgr.BindVertexBufferObjectByID() 호출
+	BufferMgr.BindVertexBufferObjectByID(temp2->GetMeshID(), temp2->GetPosition().data(), temp2->GetPosition().size(),
+		temp2->GetColor().data(), temp2->GetColor().size(),
+		nullptr, 0);
+	
 	Axes.push_back(*temp2);
 
 	temp2->SetLine(glm::vec3(0.0, -4.0, 0.0), glm::vec3(0.0, 4.0, 0.0), returnColorRand2());
 	temp2->SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(temp2->GetMeshID(), false);
 	// 여기서 정점 업로드, BufferMgr.BindVertexBufferObjectByID() 호출
+
+	BufferMgr.BindVertexBufferObjectByID(temp2->GetMeshID(), temp2->GetPosition().data(), temp2->GetPosition().size(),
+		temp2->GetColor().data(), temp2->GetColor().size(),
+		nullptr, 0);
+
 	Axes.push_back(*temp2);
 
 	temp2->SetLine(glm::vec3(0.0, 0.0, -4.0), glm::vec3(0.0, 0.0, 4.0), returnColorRand2());
 	temp2->SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(temp2->GetMeshID(), false);
 	// 여기서 정점 업로드, BufferMgr.BindVertexBufferObjectByID() 호출
+	BufferMgr.BindVertexBufferObjectByID(temp2->GetMeshID(), temp2->GetPosition().data(), temp2->GetPosition().size(),
+		temp2->GetColor().data(), temp2->GetColor().size(),
+		nullptr, 0);
 	Axes.push_back(*temp2);
 
 	//ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
@@ -430,7 +442,9 @@ void init() {
 
 GLvoid drawScene() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	draw(axes);
+	//draw(axes);
+
+	draw(Axes);
 	
 	//draw(rectangles);
 
@@ -493,6 +507,15 @@ inline void drawWireframe(GLuint& ShaderProgramID, const Shape& dia) {
 	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
 	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
 	else if (dia.position.size() > 4) glDrawElements(GL_LINES, dia.index.size(), GL_UNSIGNED_INT, 0);
+}
+
+inline void draw(const vector<LineMesh>& Mesh) {
+	for (const auto& m : Mesh) {
+		glBindVertexArray(BufferMgr.GetVAOByID(m.GetMeshID()));
+		glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(m.GetTransformMatrix()));
+		glDrawArrays(m.GetDrawMode(), 0, m.GetVertexCount());
+
+	}
 }
 
 //inline void DrawSurface(const Shape& surface) {
