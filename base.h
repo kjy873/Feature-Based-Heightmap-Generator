@@ -42,6 +42,14 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
+struct NoiseParameters {
+	float frequency = 32.0f;
+	int octaves = 4;
+	float persistence = 0.5f;
+	float lacunarity = 2.0f;
+	string noiseType = "Perlin";
+};
+
 enum class ToolType {
 	none,
 	confirm

@@ -167,7 +167,7 @@ bool DragMode = false;
 
 bool WireFrame = true;
 
-float SAMPLE_INTERVAL = 0.05f;
+float SAMPLE_INTERVAL = 1.0f/2.0f;
 int sampleCount = 0.0f;
 
 COLOR backgroundColor{ 1.0f, 1.0f, 1.0f, 0.0f };
@@ -232,6 +232,8 @@ float CachedInterval = 0.0f;
 
 vector<vector<float>> CachedBasisU;
 vector<vector<float>> CachedBasisV;
+
+static NoiseParameters noiseParameters;
 
 int main() {
 
@@ -1385,8 +1387,24 @@ void DrawPanel() {
 			}
 		}
 	}
+
+	if (ImGui::InputFloat("frequency", &noiseParameters.frequency, 0.1f, 1.0f));
+	if (ImGui::InputInt("octaves", &noiseParameters.octaves, 1, 5));
+	if (ImGui::InputFloat("persistence", &noiseParameters.persistence, 0.1f, 1.0f));
+	if (ImGui::InputFloat("lacunarity", &noiseParameters.lacunarity, 0.1f, 1.0f));
+
 	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
-		auto g = NoiseSelector(1024, 1024, 16542, 32.0f, 5, 0.5f, 2.0f, "Perlin");
+	
+		auto g = NoiseSelector(
+			//1.0f / SAMPLE_INTERVAL, 1.0f / SAMPLE_INTERVAL,
+			1024, 1024,
+			16542, 
+			noiseParameters.frequency, 
+			noiseParameters.octaves,
+			noiseParameters.persistence, 
+			noiseParameters.lacunarity, 
+			"Perlin");
+
 		for (auto& p : controlPoints_modifier) {
 			for (auto& cp : p) {
 				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
@@ -1396,7 +1414,14 @@ void DrawPanel() {
 		}
 	}
 	if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
-		auto g = NoiseSelector(1024, 1024, 16542, 32.0f, 5, 0.5f, 2.0f, "Simplex");
+		auto g = NoiseSelector(
+			1024, 1024, 
+			16542, 
+			noiseParameters.frequency, 
+			noiseParameters.octaves,
+			noiseParameters.persistence,
+			noiseParameters.lacunarity,
+			"Simplex");
 		for (auto& p : controlPoints_modifier) {
 			for (auto& cp : p) {
 				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
@@ -1412,13 +1437,13 @@ void DrawPanel() {
 	if(ImGui::Button("enable surface wire render", ImVec2(-FLT_MIN, 30))) {
 		WireFrame = !WireFrame;
 	}
-	if(ImGui::Button("increase definition", ImVec2(-FLT_MIN, 30))){
-		SAMPLE_INTERVAL -= 0.005f;
-		if (SAMPLE_INTERVAL < 0.001f) SAMPLE_INTERVAL = 0.001f;
+	if(ImGui::Button("increase resolution", ImVec2(-FLT_MIN, 30))){
+		SAMPLE_INTERVAL *= 1.0f/2.0f;
+		if (SAMPLE_INTERVAL < 1.0f/1024.0f) SAMPLE_INTERVAL = 1.0f/1024.0f;
 	}
-	if(ImGui::Button("decrease definition", ImVec2(-FLT_MIN, 30))){
-		SAMPLE_INTERVAL += 0.005f;
-		if (SAMPLE_INTERVAL > 0.1f) SAMPLE_INTERVAL = 0.1f;
+	if(ImGui::Button("decrease resolution", ImVec2(-FLT_MIN, 30))){
+		SAMPLE_INTERVAL *= 2.0f;
+		if (SAMPLE_INTERVAL > 1.0f/2.0f) SAMPLE_INTERVAL = 1.0f/2.0f;
 	}
 	if(ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
 		if(LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.0f, 10.0f, 0.0f);
