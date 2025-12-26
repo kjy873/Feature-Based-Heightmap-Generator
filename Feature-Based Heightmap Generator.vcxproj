@@ -146,6 +146,8 @@
     <None Include="vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BufferManager.cpp" />
+    <ClCompile Include="HeightMap.cpp" />
     <ClCompile Include="include\imguizmo\GraphEditor.cpp" />
     <ClCompile Include="include\imguizmo\ImCurveEdit.cpp" />
     <ClCompile Include="include\imguizmo\ImGradient.cpp" />
@@ -159,9 +161,13 @@
     <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="ShaderManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h" />
+    <ClInclude Include="BufferManager.h" />
+    <ClInclude Include="HeightMap.h" />
     <ClInclude Include="include\imguizmo\GraphEditor.h" />
     <ClInclude Include="include\imguizmo\ImCurveEdit.h" />
     <ClInclude Include="include\imguizmo\ImGradient.h" />
@@ -177,6 +183,8 @@
     <ClInclude Include="include\imgui\imstb_rectpack.h" />
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="ShaderManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

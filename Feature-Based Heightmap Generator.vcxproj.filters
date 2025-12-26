@@ -74,6 +74,18 @@
     <ClCompile Include="include\imguizmo\ImSequencer.cpp">
       <Filter>소스 파일\imguizmo</Filter>
     </ClCompile>
+    <ClCompile Include="HeightMap.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderManager.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="BufferManager.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h">
@@ -123,6 +135,18 @@
     </ClInclude>
     <ClInclude Include="include\imguizmo\ImZoomSlider.h">
       <Filter>헤더 파일\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="HeightMap.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="BufferManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
