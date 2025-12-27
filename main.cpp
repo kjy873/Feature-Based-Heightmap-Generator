@@ -454,7 +454,7 @@ GLvoid drawScene() {
 
 	//draw(Axes);
 
-	RenderMgr.BeginFrame(view[0][0], projection[0][0], LightSource);
+	RenderMgr.BeginFrame(view, projection, LightSource);
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 	
@@ -466,6 +466,9 @@ GLvoid drawScene() {
 
 	//if (WireFrame) drawWireframe(ShaderMgr.GetShaderProgramID(), SurfaceWire);
 
+	if (WireFrame) RenderMgr.DrawWireframe(Surface);
+	else RenderMgr.Draw(Surface);
+
 	/*if (ControlPointRender) {
 		glDisable(GL_DEPTH_TEST);
 		draw(v_ControlPoints);
@@ -473,6 +476,13 @@ GLvoid drawScene() {
 		draw(ShaderMgr.GetShaderProgramID(), Lines);
 		glEnable(GL_DEPTH_TEST);
 	}*/
+
+	//RenderMgr.Draw(Lines);
+
+	for (const auto& cp : v_ControlPoints) {
+		RenderMgr.Draw(cp);
+	}
+
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
 	float aspect = static_cast<float>(windowWidth) / windowHeight;
@@ -481,62 +491,6 @@ GLvoid drawScene() {
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);*/
 }
 
-inline void draw(const vector<Shape>& dia) {
-	GLuint currentVAO = -1;
-	for (const auto& d : dia) {
-		if (d.VAO != currentVAO) {
-			glBindVertexArray(d.VAO);
-			currentVAO = d.VAO;
-		}
-		glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(d.TSR));
-		switch (d.vertices) {
-		case 2: glDrawArrays(GL_LINES, 0, 2); break;
-		case 3: glDrawArrays(GL_TRIANGLES, 0, 3); break;
-		case 4: glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); break;
-		case 8: glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0); break;
-		}
-	}
-}
-inline void drawWireframe(GLuint &ShaderProgramID, const vector<Shape> dia) {
-	for (const auto& d : dia) {
-		glBindVertexArray(d.VAO);
-		glUniformMatrix4fv(glGetUniformLocation(ShaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(d.TSR));
-		if (d.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-		else if (d.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
-		else if (d.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
-	}
-}
-inline void draw(GLuint& ShaderProgramID, const Shape& dia) {
-	glBindVertexArray(dia.VAO);
-	glUniformMatrix4fv(glGetUniformLocation(ShaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
-	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-	else if (dia.vertices == 3) glDrawArrays(GL_TRIANGLES, 0, 3);
-	else if (dia.position.size() > 4 && dia.IsLine == false) glDrawElements(GL_TRIANGLES, dia.index.size(), GL_UNSIGNED_INT, 0);
-	else if (dia.position.size() > 4 && dia.IsLine == true) glDrawArrays(GL_LINES, 0, dia.position.size());
-}
-inline void drawWireframe(GLuint& ShaderProgramID, const Shape& dia) {
-	glBindVertexArray(dia.VAO);
-	glUniformMatrix4fv(glGetUniformLocation(ShaderProgramID, "modelTransform"), 1, GL_FALSE, glm::value_ptr(dia.TSR));
-	if (dia.vertices == 2) glDrawArrays(GL_LINES, 0, 2);
-	else if (dia.vertices == 3) glDrawArrays(GL_LINE_LOOP, 0, 3);
-	else if (dia.vertices == 4) glDrawElements(GL_LINE_LOOP, 6, GL_UNSIGNED_INT, 0);
-	else if (dia.position.size() > 4) glDrawElements(GL_LINES, dia.index.size(), GL_UNSIGNED_INT, 0);
-}
-
-inline void draw(const vector<LineMesh>& Mesh) {
-	for (const auto& m : Mesh) {
-		glBindVertexArray(BufferMgr.GetVAOByID(m.GetMeshID()));
-		glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(m.GetTransformMatrix()));
-		glDrawArrays(m.GetDrawMode(), 0, m.GetVertexCount());
-
-	}
-}
-
-//inline void DrawSurface(const Shape& surface) {
-//	glBindVertexArray(surface.VAO);
-//	glUniformMatrix4fv(modelTransformLococation, 1, GL_FALSE, glm::value_ptr(surface.TSR));
-//	glDrawElements(GL_TRIANGLES, surface.index.size(), GL_UNSIGNED_INT, 0);
-//}
 // function to generate b-spline surface
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
 	if (degree == 0) {
@@ -629,10 +583,6 @@ glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u) {
 		u * u * u * ControlPoints[3];
 	return P;
 }
-
-
-
-
 
 glm::vec2 CalGradient(const glm::vec2& p, int seed) {
 	uint32_t h = (uint32_t)p.x * 374761393u
@@ -849,10 +799,6 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 		}
 	}
 
-	/*Shape Line(VerticesForControlLines.size());
-	glm::vec3 w = glm::vec3(1.0f);
-	setLines(ShaderMgr.GetShaderProgramID(), Line, VerticesForControlLines, w);*/
-
 	LineMesh Line(VerticesForControlLines.size());
 	Line.SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(Line.GetMeshID(), false);
@@ -917,7 +863,6 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 
 	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
-	//setSurface(ShaderMgr.GetShaderProgramID(), Surface, SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
 	Surface.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
 	Surface.SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(Surface.GetMeshID(), true);
@@ -928,12 +873,12 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
-	//setSurface(ShaderMgr.GetShaderProgramID(), SurfaceWire, SurfacePoints, SurfaceIndices, SurfaceNormals, white);
 	SurfaceWire.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, white);
 	SurfaceWire.SetMeshID(BufferMgr.CreateMeshID());
-	BufferMgr.CreateBufferData(SurfaceWire.GetMeshID(), false);
+	BufferMgr.CreateBufferData(SurfaceWire.GetMeshID(), true);
 	BufferMgr.BindVertexBufferObjectByID(SurfaceWire.GetMeshID(), SurfaceWire.GetPosition().data(), SurfaceWire.GetPosition().size(),
-		SurfaceWire.GetColor().data(), SurfaceWire.GetColor().size(), nullptr, 0);
+		SurfaceWire.GetColor().data(), SurfaceWire.GetColor().size(), SurfaceWire.GetNormal().data(), SurfaceWire.GetNormal().size());
+	BufferMgr.BindElementBufferObjectByID(SurfaceWire.GetMeshID(), SurfaceWire.GetIndex().data(), SurfaceWire.GetIndex().size());
 	/*rectangles.clear();
 	Shape* tempRect = new Shape(4);
 	for (int i = 0; i < SizeU - 1; i++) {
@@ -954,13 +899,6 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	float half = 0.03f;
 	for (int i = 0; i < nRows; i++) {
 		for (int j = 0; j < nCols; j++) {
-			/*Shape cube(8);
-			setHexahedron(ShaderMgr.GetShaderProgramID(), cube, glm::vec3(0.0f, 0.0f, 0.0f), half, glm::vec3(1.0f, 0.0f, 1.0f));
-			cube.linkedPosition = &ControlPoints[i][j];
-			cube.linkedRows = i;
-			cube.linkedCols = j;
-			cube.TSR = glm::translate(glm::mat4(1.0f), ControlPoints[i][j]);
-			v_ControlPoints.push_back(cube);*/
 			ControlPointVisualMesh Cube(8);
 			Cube.SetHexahedron(glm::vec3(0.0f, 0.0f, 0.0f), half, glm::vec3(1.0f, 0.0f, 1.0f));
 			Cube.LinkedPosition = ControlPoints[i][j];
@@ -969,7 +907,7 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 			Cube.TSR = glm::translate(glm::mat4(1.0f), ControlPoints[i][j]);
 
 			Cube.SetMeshID(BufferMgr.CreateMeshID());
-			BufferMgr.CreateBufferData(Cube.GetMeshID(), false);
+			BufferMgr.CreateBufferData(Cube.GetMeshID(), true);
 			BufferMgr.BindVertexBufferObjectByID(Cube.GetMeshID(), Cube.GetPosition().data(), Cube.GetPosition().size(),
 				Cube.GetColor().data(), Cube.GetColor().size(), nullptr, 0);
 			BufferMgr.BindElementBufferObjectByID(Cube.GetMeshID(), Cube.GetIndex().data(), Cube.GetIndex().size());

@@ -118,11 +118,15 @@ void BufferManager::BindVertexBufferObject(BufferData &BufferData, const glm::ve
 	glBufferData(GL_ARRAY_BUFFER, ColorSize * sizeof(glm::vec3), Color, GL_STATIC_DRAW);
 
 	if (Normals != nullptr && NormalSize > 0) {
-
+		glBindBuffer(GL_ARRAY_BUFFER, BufferData.VBO_Normal);
+		glBufferData(GL_ARRAY_BUFFER, NormalSize * sizeof(glm::vec3), Normals, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(2);
+	}
+	else {
+		glDisableVertexAttribArray(2);
+		glVertexAttrib3f(2, 0.0f, 0.0f, 0.0f); // Set default normal
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, BufferData.VBO_Normal);
-	glBufferData(GL_ARRAY_BUFFER, NormalSize * sizeof(glm::vec3), Normals, GL_STATIC_DRAW);
 
 	glBindVertexArray(0);
 

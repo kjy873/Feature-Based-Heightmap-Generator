@@ -69,7 +69,7 @@ void RectangleMesh::SetRectangle(const glm::vec3 vertex1, const glm::vec3 vertex
 //
 //}
 
-void HexahedronMesh::SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c) {
+void CubeMesh::SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c) {
 
 	glm::vec3 vertices[8] = {
 	   center + glm::vec3(-half,  half,  half),

@@ -36,4 +36,6 @@ public:
 
 	void Draw(const Mesh& Mesh);
 
+	void DrawWireframe(const Mesh& Mesh);
+
 };

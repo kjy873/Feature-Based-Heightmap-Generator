@@ -343,7 +343,7 @@ inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& 
 		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
 }
 
-inline bool intersectRayHexahedron(const HexahedronMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+inline bool intersectRayHexahedron(const CubeMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
 	bool intersected = false;
 	float minDistance = FLT_MAX;
@@ -396,11 +396,6 @@ float hold(float p, float t) {
 
 void init();
 GLvoid drawScene();
-inline void draw(const vector<LineMesh>& Mesh);
-inline void draw(const vector<Shape>& dia);
-inline void drawWireframe(GLuint &ShaderProgramID, const vector<Shape> dia);
-inline void draw(GLuint& ShaderProgramID, const Shape& dia);
-inline void drawWireframe(GLuint& ShaderProgramID, const Shape& dia);
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector);
 bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
@@ -410,7 +405,7 @@ inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& ra
 	glm::vec3& intersectionPoint, float& distance);
 inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance);
-inline bool intersectRayHexahedron(const HexahedronMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+inline bool intersectRayHexahedron(const CubeMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex);
 vector<float> initKnotVector(int n, int degree);
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b);

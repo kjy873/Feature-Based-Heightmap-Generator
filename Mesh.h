@@ -93,17 +93,17 @@ public:
 
 class TerrainMesh : public Mesh {
 public:
-	TerrainMesh(int vertexCount) : Mesh(vertexCount) {}
+	TerrainMesh(int vertexCount) : Mesh(vertexCount) { DrawMode = GL_TRIANGLES; }
 
 	void SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<int>& indices,
 		const std::vector<glm::vec3>& normals, const glm::vec3& c);
 
 };
 
-class HexahedronMesh : public Mesh {
+class CubeMesh : public Mesh {
 
 public:
-	HexahedronMesh(int vertexCount) : Mesh(vertexCount) {}
+	CubeMesh(int vertexCount) : Mesh(vertexCount) { DrawMode = GL_TRIANGLES; }
 
 	//void SetHexahedron(std::vector<Mesh>& dst, const glm::vec3 vertices[8], const glm::vec3* c);
 
@@ -111,12 +111,12 @@ public:
 
 };
 
-class ControlPointVisualMesh : public HexahedronMesh {
+class ControlPointVisualMesh : public CubeMesh {
 
 	
 
 public:
-	ControlPointVisualMesh(int vertexCount) : HexahedronMesh(vertexCount) {}
+	ControlPointVisualMesh(int vertexCount) : CubeMesh(vertexCount) { DrawMode = GL_TRIANGLES; }
 
 	glm::vec3 LinkedPosition;
 	int LinkedRow;
@@ -138,7 +138,7 @@ public:
 class RectangleMesh : public Mesh {
 
 public:
-	RectangleMesh(int vertexCount) : Mesh(vertexCount) {}
+	RectangleMesh(int vertexCount) : Mesh(vertexCount) { DrawMode = GL_TRIANGLES; }
 	void SetRectangle(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c);
 
 };

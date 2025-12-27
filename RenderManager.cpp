@@ -27,6 +27,32 @@ void RenderManager::Draw(const Mesh& mesh) {
 
 	glBindVertexArray(BufferMgr.GetVAOByID(mesh.GetMeshID()));
 	glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(mesh.GetTransformMatrix()));
-	glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetVertexCount());
+	//glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
+
+	//std::cout << "Start Draw" << std::endl;
+
+	const auto& HasIndex = mesh.GetIndex();
+	if (!HasIndex.empty()) glDrawElements(mesh.GetDrawMode(), HasIndex.size(), GL_UNSIGNED_INT, 0);
+	else glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
+
+	//std::cout << "End Draw" << std::endl;
 
 }
+
+void RenderManager::DrawWireframe(const Mesh& mesh) {
+
+	glUseProgram(ShaderMgr.GetShaderProgramID());
+
+	glBindVertexArray(BufferMgr.GetVAOByID(mesh.GetMeshID()));
+	glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(mesh.GetTransformMatrix()));
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
+
+	const auto& HasIndex = mesh.GetIndex();
+	if (!HasIndex.empty()) glDrawElements(mesh.GetDrawMode(), HasIndex.size(), GL_UNSIGNED_INT, 0);
+	else glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+}
+
