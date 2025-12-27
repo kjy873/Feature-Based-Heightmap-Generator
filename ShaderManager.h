@@ -19,9 +19,9 @@ class ShaderManager
 
 
 private:
-	GLuint ShaderProgramID;
-	GLuint VertexShader;
-	GLuint FragmentShader;
+	GLuint ShaderProgramID = 0;
+	GLuint VertexShader = 0;
+	GLuint FragmentShader = 0;
 
 	const char* VertexName = NULL;
 	const char* FragmentName = NULL;
@@ -43,9 +43,9 @@ public:
 	GLvoid InitShader();
 	// init buffer
 
-	GLuint& GetShaderProgramID() { return ShaderProgramID; }
-	GLuint& GetVertexShader() { return VertexShader; }
-	GLuint& GetFragmentShader() { return FragmentShader; }
+	const GLuint& GetShaderProgramID() const{ return ShaderProgramID; }
+	const GLuint& GetVertexShader() { return VertexShader; }
+	const GLuint& GetFragmentShader() { return FragmentShader; }
 };
 
 

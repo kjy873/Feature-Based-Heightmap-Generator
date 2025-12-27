@@ -112,6 +112,7 @@
       <PreprocessorDefinitions>GLEW_STATIC;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -162,6 +163,7 @@
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="RenderManager.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -184,6 +186,7 @@
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="RenderManager.h" />
     <ClInclude Include="ShaderManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

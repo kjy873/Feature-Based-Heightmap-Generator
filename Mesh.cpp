@@ -117,7 +117,7 @@ void HexahedronMesh::SetHexahedron(const glm::vec3 center, float half, const glm
 	}
 }
 
-void TerrainMesh::SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c) {
+void TerrainMesh::SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c) {
 	Position = vertices;
 	Index = indices;
 	Normal = normals;

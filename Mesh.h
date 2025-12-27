@@ -15,7 +15,7 @@ protected:
 	std::vector<glm::vec3> Position;
 	std::vector<glm::vec3> CurrentPosition;
 	std::vector<glm::vec3> Color;
-	std::vector<unsigned int> Index;
+	std::vector<int> Index;
 	std::vector<glm::vec3> Normal;
 
 	int vertices = 0;
@@ -24,13 +24,15 @@ protected:
 
 	bool dirty = false;   // 데이터 변경 여부
 
-	glm::mat4 TSR = glm::mat4(1.0f);		// transform matrix, 이후 인스턴싱으로 변경하면 없앰
+	
 
 	int MeshID = -1;
 
 	GLenum DrawMode = 0;
 
 public:
+
+	glm::mat4 TSR = glm::mat4(1.0f);		// transform matrix, 이후 인스턴싱으로 변경하면 없앰
 
 	Mesh(int vertexCount) : vertices(vertexCount) {
 		Position.resize(vertices);
@@ -46,7 +48,7 @@ public:
 
 		if (vertices == 4) {
 			Index.resize(6);
-			Index = std::vector<unsigned int>{ 0, 2, 1, 0, 3, 2 };
+			Index = std::vector<int>{ 0, 2, 1, 0, 3, 2 };
 		}
 
 		if (vertices == 8) {
@@ -54,7 +56,7 @@ public:
 			Color.resize(8);
 			Normal.resize(8);
 			Index.resize(36);
-			Index = std::vector<unsigned int>{// front
+			Index = std::vector<int>{// front
 								0, 1, 2,  2, 3, 0,
 								// right
 								1, 5, 6,  6, 2, 1,
@@ -75,7 +77,7 @@ public:
 	const std::vector<glm::vec3>& GetPosition() const { return Position; }
 	const std::vector<glm::vec3>& GetCurrentPosition() const { return CurrentPosition; }
 	const std::vector<glm::vec3>& GetColor() const { return Color; }
-	const std::vector<unsigned int>& GetIndex() const { return Index; }
+	const std::vector<int>& GetIndex() const { return Index; }
 	const std::vector<glm::vec3>& GetNormal() const { return Normal; }
 	bool IsDirty() const { return dirty; }
 
@@ -93,7 +95,7 @@ class TerrainMesh : public Mesh {
 public:
 	TerrainMesh(int vertexCount) : Mesh(vertexCount) {}
 
-	void SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices,
+	void SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<int>& indices,
 		const std::vector<glm::vec3>& normals, const glm::vec3& c);
 
 };
@@ -107,6 +109,18 @@ public:
 
 	void SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c);
 
+};
+
+class ControlPointVisualMesh : public HexahedronMesh {
+
+	
+
+public:
+	ControlPointVisualMesh(int vertexCount) : HexahedronMesh(vertexCount) {}
+
+	glm::vec3 LinkedPosition;
+	int LinkedRow;
+	int LinkedCol;
 };
 
 class LineMesh : public Mesh {

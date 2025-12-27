@@ -343,15 +343,15 @@ inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& 
 		rectangle.position[2], rectangle.position[3], intersectionPoint, distance);
 }
 
-inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+inline bool intersectRayHexahedron(const HexahedronMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex) {
 	bool intersected = false;
 	float minDistance = FLT_MAX;
 
-	for (int i = 0; i < Hexahedron.index.size(); i += 3) {
-		glm::vec3 v0 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i]], 1.0f));
-		glm::vec3 v1 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 1]], 1.0f));
-		glm::vec3 v2 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.position[Hexahedron.index[i + 2]], 1.0f));
+	for (int i = 0; i < Hexahedron.GetIndex().size(); i += 3) {
+		glm::vec3 v0 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.GetPosition()[Hexahedron.GetIndex()[i]], 1.0f));
+		glm::vec3 v1 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.GetPosition()[Hexahedron.GetIndex()[i + 1]], 1.0f));
+		glm::vec3 v2 = glm::vec3(Hexahedron.TSR * glm::vec4(Hexahedron.GetPosition()[Hexahedron.GetIndex()[i + 2]], 1.0f));
 
 		glm::vec3 p;
 		float t;
@@ -410,7 +410,7 @@ inline bool intersertRayRectangle(const glm::vec3& rayBegin, const glm::vec3& ra
 	glm::vec3& intersectionPoint, float& distance);
 inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance);
-inline bool intersectRayHexahedron(const Shape& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
+inline bool intersectRayHexahedron(const HexahedronMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex);
 vector<float> initKnotVector(int n, int degree);
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b);

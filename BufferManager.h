@@ -52,7 +52,7 @@ public:
 	void BindVertexBufferObjectByID(unsigned int ID, const glm::vec3* Position, int PositionSize, const glm::vec3* Color, int ColorSize, const glm::vec3* Normal, int NormalSize);
 	void BindElementBufferObjectByID(unsigned int ID, const int* Index, int IndexSize);
 
-	GLuint& GetVAOByID(unsigned int ID) {
+	const GLuint& GetVAOByID(unsigned int ID) const{
 		auto it = BufferMap.find(ID);
 		if (it == BufferMap.end()) {
 			std::cerr << "Error: Buffer ID " << ID << " not found." << std::endl;
