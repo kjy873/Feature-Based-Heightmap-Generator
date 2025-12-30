@@ -127,3 +127,78 @@ void TerrainMesh::SetSurface(const std::vector<glm::vec3>& vertices, const std::
 		Color[i] = c;
 	}
 }
+
+void TerrainMesh::SetSurfaceNormalized(const std::vector<float>& HeightMap, const int Rows, const int Cols, const glm::vec3& color) {
+
+	if ((int)HeightMap.size() != Rows * Cols) {
+		printf("HeightMap size mismatch\n");
+		return;
+	}
+
+
+	Position.resize(Rows * Cols);
+
+	for (int i = 0; i < Rows * Cols; i++) {
+		int r = i / Cols;
+		int c = i % Cols;
+
+		float x = (Rows == 1) ? 0.0f : (float)r / (float)(Rows - 1);
+		float y = HeightMap[i];
+		float z = (Cols == 1) ? 0.0f : (float)c / (float)(Cols - 1);
+
+		Position[i] = glm::vec3(x, y, z);
+
+	}
+
+	int SizeU2 = Rows;
+	int SizeV2 = Cols;
+
+	Index.clear();
+	Index.reserve((Rows - 1) * (Cols - 1) * 6);
+	for (int i = 0; i < SizeU2 - 1; i++) {
+		for (int j = 0; j < SizeV2 - 1; j++) {
+			// 사각형 정점 인덱스 중복 저장을 방지하기 위해 EBO 사용
+			int index = i * SizeV2 + j;
+			Index.push_back(index);
+			Index.push_back(index + SizeV2);
+			Index.push_back(index + SizeV2 + 1);
+			Index.push_back(index + SizeV2 + 1);
+			Index.push_back(index + 1);
+			Index.push_back(index);
+		}
+	}
+
+	// 이전 방식에서는 같은 위치의 정점이라도 별개로 취급했으므로 각 면마다 노멀을 계산했음, 하지만 정점을 재사용하면 다른 노멀 계산이 필요함
+// face normal -> vertex normal
+/*1.모든 정점에 매핑 가능한 float3(vec3) 배열을 만든다
+2. 원래 가지고 있던 모든 정점의 배열과 각 삼각형을 정의하는 인덱스를 활용해서 노멀 계산
+	(인덱스를 3씩 늘리면서 한 번 반복 index, index + 1, index + 2로 이루어진 노멀 계산)
+3. 그리고 그렇게 계산한 노멀을 각 계산의 반복(각 삼각형의 반복)마다 해당 3개 점에 대응하는 1.에서 만든 배열의 인덱스에 누산 +=
+4. 정점배열[n]에 대응하는 노멀배열[n]이 만들어진다, 정규화 필요*/
+	Normal.resize(Position.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+	for (int i = 0; i < Index.size(); i += 3) {
+		glm::vec3 p0 = Position[Index[i]];
+		glm::vec3 p1 = Position[Index[i + 1]];
+		glm::vec3 p2 = Position[Index[i + 2]];
+
+		glm::vec3 normal = normalize(cross(glm::vec3(p1 - p0), glm::vec3(p2 - p0)));
+		// 삼각형의 면적에 따른 normal에 가중치를 부여할 수 있음
+		//glm::vec3 face = cross(p1 - p0, p2 - p0);
+		//float area = length(face) * 0.5f;
+		//glm::vec3 normal = normalize(face) * area;  == face(면)노멀 x 면적
+		Normal[Index[i]] += normal;
+		Normal[Index[i + 1]] += normal;
+		Normal[Index[i + 2]] += normal;
+	}
+
+	for (auto& normal : Normal) {
+		if (glm::dot(normal, normal) > 0.0f) normal = glm::normalize(normal);
+	}
+
+	Color.resize(Position.size());
+
+	for (int i = 0; i < Position.size(); i++) {
+		Color[i] = color;
+	}
+
+}

@@ -425,11 +425,11 @@ vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]);
 glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u);
 void normalize(glm::vec3& v);
 inline float Cross2D(const glm::vec2& a, const glm::vec2& b);
-void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols);
+void initSplineSurface();
 GLvoid Keyboard(GLFWwindow* window);
 void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset);
 
-void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList);
+//void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList);
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods);
 void MouseMoveRightButton(GLFWwindow* window);

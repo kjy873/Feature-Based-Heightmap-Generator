@@ -66,3 +66,9 @@ void HeightMap::AddHeight(const std::vector<std::vector<float>>& Values) {
 	}
 
 }
+
+void HeightMap::SetResolution(int Rows, int Cols) {
+	this->Rows = Rows;
+	this->Cols = Cols;
+	Map.resize(Rows * Cols);
+}

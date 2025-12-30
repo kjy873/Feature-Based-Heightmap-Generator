@@ -3,144 +3,8 @@
 #include "BufferManager.h"
 #include "Mesh.h"
 #include "RenderManager.h"
-
-void setLine(GLuint &ShaderProgramID, Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c) {
-	for (int i = 0; i < 2; i++) {
-		dst.color[i] = glm::vec3(c[i]);
-	}
-	dst.position[0] = glm::vec3(vertex1);
-	dst.position[1] = glm::vec3(vertex2);
-
-	dst.IsLine = true;
-
-	InitBufferLine(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
-}
-
-void setLines(GLuint& ShaderProgramID, Shape& dst, vector<glm::vec3> vertices, const glm::vec3& c) {
-
-	dst.position.clear();
-	dst.position = vertices;
-	dst.color.clear();
-	dst.color.resize(vertices.size());
-
-	for (int i = 0; i < dst.color.size(); i++) {
-		dst.color[i] = glm::vec3(c);
-	}
-
-	dst.IsLine = true;
-
-	InitBufferLine(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size());
-}
-
-void setRectangle(GLuint& ShaderProgramID, Shape& dst, const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3 vertex3, const glm::vec3 vertex4, const glm::vec3* c) {
-	dst.position[0] = glm::vec3(vertex1);
-	dst.position[1] = glm::vec3(vertex2);
-	dst.position[2] = glm::vec3(vertex3);
-	dst.position[3] = glm::vec3(vertex4);
-
-	glm::vec3 normal = glm::normalize(glm::cross(vertex2 - vertex1, vertex4 - vertex1));
-	for (int i = 0; i < 4; i++) {
-		dst.normal[i] = normal;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		dst.color[i] = glm::vec3(c[i]);
-	}
-
-	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), dst.color.data(), dst.color.size(), dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
-}
-
-void setHexahedron(GLuint& ShaderProgramID, vector<Shape>& dst, const glm::vec3 vertices[8], const glm::vec3* c) {
-
-	Shape temp(4);
-
-	glm::vec3 FrontColor[4] = { c[0], c[1], c[2], c[3] };
-	glm::vec3 TopColor[4] = { c[4], c[5], c[1], c[0] };
-	glm::vec3 BackColor[4] = { c[6], c[7], c[5], c[4] };
-	glm::vec3 BottomColor[4] = { c[3], c[2], c[6], c[7] };
-	glm::vec3 LeftColor[4] = { c[4], c[0], c[3], c[7] };
-	glm::vec3 RightColor[4] = { c[1], c[5], c[6], c[2] };
-
-	setRectangle(ShaderProgramID, temp, vertices[0], vertices[1], vertices[2], vertices[3], FrontColor); // front
-	dst.push_back(temp);
-	setRectangle(ShaderProgramID, temp, vertices[4], vertices[5], vertices[1], vertices[0], TopColor); // top
-	dst.push_back(temp);
-	setRectangle(ShaderProgramID, temp, vertices[6], vertices[7], vertices[5], vertices[4], BackColor); // back
-	dst.push_back(temp);
-	setRectangle(ShaderProgramID, temp, vertices[3], vertices[2], vertices[6], vertices[7], BottomColor); // bottom
-	dst.push_back(temp);
-	setRectangle(ShaderProgramID, temp, vertices[4], vertices[0], vertices[3], vertices[7], LeftColor); // left
-	dst.push_back(temp);
-	setRectangle(ShaderProgramID, temp, vertices[1], vertices[5], vertices[6], vertices[2], RightColor); // right
-	dst.push_back(temp);
-}
-
-void setHexahedron(GLuint& ShaderProgramID, Shape& dst, const glm::vec3 center, float half, const glm::vec3& c) {
-	
-	glm::vec3 vertices[8] = {
-	   center + glm::vec3(-half,  half,  half),
-	   center + glm::vec3(half,  half,  half),
-	   center + glm::vec3(half, -half,  half),
-	   center + glm::vec3(-half, -half,  half),
-	   center + glm::vec3(-half,  half, -half),
-	   center + glm::vec3(half,  half, -half),
-	   center + glm::vec3(half, -half, -half),
-	   center + glm::vec3(-half, -half, -half)
-	};
-
-	for (int i = 0; i < 8; ++i) {
-		dst.position[i] = vertices[i];
-		dst.color[i] = c;
-	}
-
-	vector<glm::vec3> normalSum(8, glm::vec3(0.0f));
-	vector<int> normalCount(8, 0);
-	for (int i = 0; i < 36; i += 3) {
-		int i0 = dst.index[i];
-		int i1 = dst.index[i + 1];
-		int i2 = dst.index[i + 2];
-
-		glm::vec3& p0 = dst.position[i0];
-		glm::vec3& p1 = dst.position[i1];
-		glm::vec3& p2 = dst.position[i2];
-
-		glm::vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
-
-		normalSum[i0] += faceNormal;
-		normalSum[i1] += faceNormal;
-		normalSum[i2] += faceNormal;
-
-		normalCount[i0]++;
-		normalCount[i1]++;
-		normalCount[i2]++;
-	}
-
-	for (int i = 0; i < 8; ++i) {
-		if (normalCount[i] > 0)
-			dst.normal[i] = glm::normalize(normalSum[i] / (float)normalCount[i]);
-		else
-			dst.normal[i] = glm::vec3(0.0f, 0.0f, 1.0f);
-	}
-
-	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(), 
-						dst.color.data(), dst.color.size(), 
-						dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
-}
-
-void setSurface(GLuint& ShaderProgramID, Shape& dst, const vector<glm::vec3>& vertices, const vector<int>& indices, const vector<glm::vec3>& normals, const glm::vec3& c) {
-	dst.position = vertices;
-	dst.index = indices;
-	dst.normal = normals;
-	dst.color.resize(vertices.size());
-
-	for(int i = 0; i < vertices.size(); i++) {
-		dst.color[i] = c;
-	}
-
-	InitBufferRectangle(ShaderProgramID, dst.VAO, dst.position.data(), dst.position.size(),
-						dst.color.data(), dst.color.size(), 
-		dst.index.data(), dst.index.size(), dst.normal.data(), dst.normal.size());
-}
+#include "B_SplineSurface.h"
+#include "HeightMap.h"
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
@@ -236,6 +100,10 @@ TerrainMesh SurfaceWire(0);
 
 LineMesh Lines(0);
 
+HeightMap heightmap(0, 0);
+
+B_SplineSurface SplineSurface(0, 0);
+
 
 // basis function 캐싱
 int CachedRows = 0;
@@ -306,14 +174,8 @@ int main() {
 
 
 	init();
-	controlPoints.resize(4, vector<glm::vec3>(4));
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			controlPoints[i][j] = glm::vec3(j, 0.0f, i);
-		}
-	}
+
 	controlPoints_modifier = controlPoints;
-	initSplineSurface(controlPoints, 4, 4);
 
 	glfwSetScrollCallback(window, CallbackMouseWheel);
 	if(DragMode)glfwSetCursorPosCallback(window, CallbackMouseMove);
@@ -428,6 +290,26 @@ void init() {
 
 	//ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
+	// ㅡㅡ init heightmap and spline surface ㅡㅡ
+
+	heightmap.SetResolution(1024, 1024);
+	SplineSurface.SetResolution(heightmap.GetResU(), heightmap.GetResV());
+	SplineSurface.GenerateSurface();
+	heightmap.SetHeight(SplineSurface.GetHeightMap());
+
+	controlPoints_initial = {
+		{glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1 / 3.0f, 0.0f, 0.0f), glm::vec3(2 / 3.0f, 0.0f, 0.0f) , glm::vec3(3 / 3.0f, 0.0f, 0.0f)},
+		{glm::vec3(0.0f, 0.0f, 1 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 1 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 1 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 1 / 3.0f)},
+		{glm::vec3(0.0f, 0.0f, 2 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 2 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 2 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 2 / 3.0f)},
+		{glm::vec3(0.0f, 0.0f, 3 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 3 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 3 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 3 / 3.0f)},
+	};
+
+	controlPoints_modifier = controlPoints_initial;
+
+	initSplineSurface();
+
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+
 	delete(temp2);
 
 	camera[0] = glm::vec3(0.4, 0.2, 0.8);
@@ -466,15 +348,14 @@ GLvoid drawScene() {
 	if (WireFrame) RenderMgr.DrawWireframe(Surface);
 	else RenderMgr.Draw(Surface);
 
-	/*if (ControlPointRender) {
+	if (ControlPointRender) {
 		glDisable(GL_DEPTH_TEST);
-		draw(v_ControlPoints);
-		draw(ControlLines);
-		draw(ShaderMgr.GetShaderProgramID(), Lines);
+		/*draw(v_ControlPoints);
+		draw(ControlLines);*/
+		RenderMgr.Draw(Lines);
 		glEnable(GL_DEPTH_TEST);
-	}*/
+	}
 
-	//RenderMgr.Draw(Lines);
 
 	for (const auto& cp : v_ControlPoints) {
 		RenderMgr.Draw(cp);
@@ -708,98 +589,16 @@ float Simplex(const glm::vec2& input, int seed) {
 	
 }
 
-void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRows, const int& nCols) {
+void initSplineSurface() {
 
 	auto start = chrono::high_resolution_clock::now();
 
 	SurfacePoints.clear();
 
-	if (ControlPoints.size() != nRows) {
-		std::cerr << "행 개수 다름" << std::endl;
-		return;
-	}
-	for (const auto& row : ControlPoints) {
-		if (row.size() != nCols) {
-			std::cerr << "열 개수 다름" << std::endl;
-			return;
-		}
-	}
-	int u_degree = 3;
-	int v_degree = 3;
-
-	vector<float> KnotVectorU = initKnotVector(nRows, u_degree);
-	vector<float> KnotVectorV = initKnotVector(nCols, v_degree);
-	sampleCount = (int)(1.0f / SAMPLE_INTERVAL) + 1;
-
-	if (CachedRows != nRows || CachedCols != nCols || CachedInterval != SAMPLE_INTERVAL) {
-
-		CachedBasisU.clear();
-		CachedBasisU.resize(sampleCount, vector<float>(nRows));
-		CachedBasisV.clear();
-		CachedBasisV.resize(sampleCount, vector<float>(nCols));
-
-		for (int i = 0; i < sampleCount; i++) {
-			float u = i * SAMPLE_INTERVAL;
-			for (int j = 0; j < nRows; j++) {
-				CachedBasisU[i][j] = BasisFunction(j, u_degree, u, KnotVectorU);
-			}
-		}
-
-		for (int i = 0; i < sampleCount; i++) {
-			float v = i * SAMPLE_INTERVAL;
-			for (int j = 0; j < nCols; j++) {
-				CachedBasisV[i][j] = BasisFunction(j, v_degree, v, KnotVectorV);
-			}
-		}
-
-		CachedRows = nRows;
-		CachedCols = nCols;
-		CachedInterval = SAMPLE_INTERVAL;
-	
-	}
-
-	for (int p = 0; p < sampleCount; p++) {
-		float u = p * SAMPLE_INTERVAL;
-		for (int q = 0; q < sampleCount; q++) {
-			float v = q * SAMPLE_INTERVAL;
-			glm::vec3 CurrentPoint(0.0f, 0.0f, 0.0f);
-			for (int i = 0; i < nRows; i++) {
-				float PointU = CachedBasisU[p][i];
-				for (int j = 0; j < nCols; j++) {
-					float PointV = CachedBasisV[q][j];
-					CurrentPoint += ControlPoints[i][j] * PointU * PointV;
-				}
-			}
-			SurfacePoints.push_back(CurrentPoint);
-		}
-	}
-
-
-
-	int stepU = (int)(1.0f / SAMPLE_INTERVAL) / (nRows - 1); 
-	int stepV = (int)(1.0f / SAMPLE_INTERVAL) / (nCols - 1);
-
-	VerticesForControlLines.clear();
-	//VerticesForControlLines.resize(nRows * nCols);
-
-	for (int i = 0; i < ControlPoints.size(); ++i) {
-		for (int j = 0; j < ControlPoints[i].size(); ++j) {
-			if (j + 1 < ControlPoints[i].size()) {
-				VerticesForControlLines.push_back(ControlPoints[i][j]);
-				VerticesForControlLines.push_back(ControlPoints[i][j + 1]);
-			}
-
-			if (i + 1 < ControlPoints.size()) {
-				VerticesForControlLines.push_back(ControlPoints[i][j]);
-				VerticesForControlLines.push_back(ControlPoints[i + 1][j]);
-			}
-		}
-	}
-
 	LineMesh Line(VerticesForControlLines.size());
 	Line.SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(Line.GetMeshID(), false);
-	
+
 	glm::vec3 w = glm::vec3(1.0f);
 	Line.SetLines(VerticesForControlLines, w);
 	BufferMgr.BindVertexBufferObjectByID(Line.GetMeshID(), Line.GetPosition().data(), Line.GetPosition().size(), Line.GetColor().data(), Line.GetColor().size(),
@@ -807,60 +606,17 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 	Lines = Line;
 
-	// 현재 랜더링되는 사각형들은 서로 정점을 공유함, 이 중복되는 정점
-
-	int SizeU = sampleCount;
-	int SizeV = sampleCount;
-
-	vector<int> SurfaceIndices;
-	for(int i = 0; i < SizeU - 1; i++) {
-		for (int j = 0; j < SizeV - 1; j++) {
-			// 사각형 정점 인덱스 중복 저장을 방지하기 위해 EBO 사용
-			int index = i * SizeV + j;
-			SurfaceIndices.push_back(index);
-			SurfaceIndices.push_back(index + SizeV);
-			SurfaceIndices.push_back(index + SizeV + 1);
-			SurfaceIndices.push_back(index + SizeV + 1);
-			SurfaceIndices.push_back(index + 1);
-			SurfaceIndices.push_back(index);
-		}
-	}
-	// 이전 방식에서는 같은 위치의 정점이라도 별개로 취급했으므로 각 면마다 노멀을 계산했음, 하지만 정점을 재사용하면 다른 노멀 계산이 필요함
-	// face normal -> vertex normal
-	/*1.모든 정점에 매핑 가능한 float3(vec3) 배열을 만든다
-	2. 원래 가지고 있던 모든 정점의 배열과 각 삼각형을 정의하는 인덱스를 활용해서 노멀 계산
-		(인덱스를 3씩 늘리면서 한 번 반복 index, index + 1, index + 2로 이루어진 노멀 계산)
-	3. 그리고 그렇게 계산한 노멀을 각 계산의 반복(각 삼각형의 반복)마다 해당 3개 점에 대응하는 1.에서 만든 배열의 인덱스에 누산 +=
-	4. 정점배열[n]에 대응하는 노멀배열[n]이 만들어진다, 정규화 필요*/
 
 
 
-	vector<glm::vec3> SurfaceNormals(SurfacePoints.size(), glm::vec3(0.0f, 0.0f, 0.0f));
-	for (int i = 0; i < SurfaceIndices.size(); i += 3) {
-		glm::vec3 p0 = SurfacePoints[SurfaceIndices[i]];
-		glm::vec3 p1 = SurfacePoints[SurfaceIndices[i + 1]];
-		glm::vec3 p2 = SurfacePoints[SurfaceIndices[i + 2]];
 
-		glm::vec3 normal = normalize(cross(glm::vec3(p1-p0), glm::vec3(p2-p0)));
-		// 삼각형의 면적에 따른 normal에 가중치를 부여할 수 있음
-		//glm::vec3 face = cross(p1 - p0, p2 - p0);
-		//float area = length(face) * 0.5f;
-		//glm::vec3 normal = normalize(face) * area;  == face(면)노멀 x 면적
-		SurfaceNormals[SurfaceIndices[i]] += normal;
-		SurfaceNormals[SurfaceIndices[i + 1]] += normal;
-		SurfaceNormals[SurfaceIndices[i + 2]] += normal;
-	}
-
-
-
-	for(auto& normal : SurfaceNormals) {
-		if (glm::dot(normal, normal) > 0.0f) normal = glm::normalize(normal);
-	}
-
+	VerticesForControlLines.clear();
+	//VerticesForControlLines.resize(nRows * nCols);
 
 
 	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
-	Surface.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
+	Surface.SetSurfaceNormalized(heightmap.GetHeightMap(), heightmap.GetResU(), heightmap.GetResV(), gray);
+	//Surface.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
 	Surface.SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(Surface.GetMeshID(), true);
 	BufferMgr.BindVertexBufferObjectByID(Surface.GetMeshID(), Surface.GetPosition().data(), Surface.GetPosition().size(),
@@ -870,38 +626,24 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 
 
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
-	SurfaceWire.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, white);
+	Surface.SetSurfaceNormalized(heightmap.GetHeightMap(), heightmap.GetResU(), heightmap.GetResV(), white);
+	//SurfaceWire.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, white);
 	SurfaceWire.SetMeshID(BufferMgr.CreateMeshID());
 	BufferMgr.CreateBufferData(SurfaceWire.GetMeshID(), true);
 	BufferMgr.BindVertexBufferObjectByID(SurfaceWire.GetMeshID(), SurfaceWire.GetPosition().data(), SurfaceWire.GetPosition().size(),
 		SurfaceWire.GetColor().data(), SurfaceWire.GetColor().size(), SurfaceWire.GetNormal().data(), SurfaceWire.GetNormal().size());
 	BufferMgr.BindElementBufferObjectByID(SurfaceWire.GetMeshID(), SurfaceWire.GetIndex().data(), SurfaceWire.GetIndex().size());
-	/*rectangles.clear();
-	Shape* tempRect = new Shape(4);
-	for (int i = 0; i < SizeU - 1; i++) {
-		for (int j = 0; j < SizeV - 1; j++) {
-			int index = i * SizeV + j;
-			glm::vec3 p1 = SurfacePoints[index];
-			glm::vec3 p2 = SurfacePoints[index + 1];
-			glm::vec3 p3 = SurfacePoints[index + SizeV + 1];
-			glm::vec3 p4 = SurfacePoints[index + SizeV];
-			glm::vec3 gray[4] = { glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f) };
-			setRectangle(*tempRect, p1, p2, p3, p4, gray);
-			rectangles.push_back(*tempRect);
-		}
-	}
-	cout << rectangles.size() << endl;*/
 
 
 	float half = 0.03f;
-	for (int i = 0; i < nRows; i++) {
-		for (int j = 0; j < nCols; j++) {
+	for (int i = 0; i < SplineSurface.GetRowsControlPoints(); i++) {
+		for (int j = 0; j < SplineSurface.GetColsControlPoints(); j++) {
 			ControlPointVisualMesh Cube(8);
 			Cube.SetHexahedron(glm::vec3(0.0f, 0.0f, 0.0f), half, glm::vec3(1.0f, 0.0f, 1.0f));
-			Cube.LinkedPosition = ControlPoints[i][j];
+			Cube.LinkedPosition = SplineSurface.GetControlPoint(i, j);
 			Cube.LinkedRow = i;
 			Cube.LinkedCol = j;
-			Cube.TSR = glm::translate(glm::mat4(1.0f), ControlPoints[i][j]);
+			Cube.TSR = glm::translate(glm::mat4(1.0f), SplineSurface.GetControlPoint(i, j));
 
 			Cube.SetMeshID(BufferMgr.CreateMeshID());
 			BufferMgr.CreateBufferData(Cube.GetMeshID(), true);
@@ -925,8 +667,8 @@ void initSplineSurface(vector<vector<glm::vec3>>& ControlPoints, const int& nRow
 	//	cout << "SurfaceNormals[" << i << "]: " << SurfaceNormals[i].x << ", " << SurfaceNormals[i].y << ", " << SurfaceNormals[i].z << endl;
 	//}
 
-	cout << sampleCount * sampleCount << endl;
-	cout << SAMPLE_INTERVAL << endl;
+	/*cout << sampleCount * sampleCount << endl;
+	cout << SAMPLE_INTERVAL << endl;*/
 
 
 
@@ -1399,7 +1141,7 @@ void DrawPanel() {
 	{
 		rectangles.clear();
 		v_ControlPoints.clear();
-		initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
+		//initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
@@ -1407,7 +1149,7 @@ void DrawPanel() {
 		cout << "reset surface" << endl;
 		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(controlPoints_modifier.size(), controlPoints_modifier[0].size());
 		controlPoints_modifier = temp;
-		initSplineSurface(temp, controlPoints_modifier.size(), controlPoints_modifier[0].size());
+		//initSplineSurface(temp, controlPoints_modifier.size(), controlPoints_modifier[0].size());
 	}
 
 	ImGui::Separator();

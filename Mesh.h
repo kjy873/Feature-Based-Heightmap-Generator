@@ -97,6 +97,9 @@ public:
 
 	void SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<int>& indices,
 		const std::vector<glm::vec3>& normals, const glm::vec3& c);
+	void TerrainMesh::SetSurfaceNormalized(const std::vector<float>& HeightMap, const int Rows, const int Cols, const glm::vec3& color);
+
+	
 
 };
 

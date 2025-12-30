@@ -15,6 +15,10 @@ public:
 
 	HeightMap(int Rows, int Cols) : Rows(Rows), Cols(Cols), Map(Rows* Cols) {};
 
+	void SetResolution(int Rows, int Cols);
+	int GetResU() const { return Rows; }
+	int GetResV() const { return Cols; }
+
 	const std::vector<float>& GetHeightMap() const { return Map; }
 	
 	float& operator()(int Row, int Col) { return Map[Row * Cols + Col]; }

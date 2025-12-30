@@ -89,7 +89,7 @@
     <ClCompile Include="RenderManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="B_Spline.cpp">
+    <ClCompile Include="B_SplineSurface.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -157,7 +157,7 @@
     <ClInclude Include="RenderManager.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="B_Spline.h">
+    <ClInclude Include="B_SplineSurface.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
