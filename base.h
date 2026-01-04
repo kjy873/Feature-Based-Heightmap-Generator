@@ -385,15 +385,6 @@ bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, co
 	return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0) || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0);
 }
 
-// linear interpolation
-float Lerp(float a, float b, float t) {
-	return (1 - t) * a + t * b;
-}
-// hold interpolation
-float hold(float p, float t) {
-	return (1 - t) * p + t * p;
-}
-
 void init();
 GLvoid drawScene();
 float BasisFunction(int index, int degree, float t, vector<float> KnotVector);
@@ -411,16 +402,6 @@ vector<float> initKnotVector(int n, int degree);
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b);
 glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view);
 bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c);
-float Lerp(float a, float b, float t);
-float hold(float p, float t);
-inline float perlinSmooth(float t);
-float Perlin(const glm::vec2& input, int seed);
-float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient);
-float Simplex(const glm::vec2& input, int seed);
-float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType);
-std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType);
 vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]);
 glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u);
 void normalize(glm::vec3& v);

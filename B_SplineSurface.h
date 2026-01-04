@@ -64,5 +64,7 @@ public:
 	const int GetColsControlPoints() const { return ControlPoints.Cols; }
 
 	const glm::vec3& GetControlPoint(int Row, int Col) { return ControlPoints(Row, Col); };
+
+
 };
 

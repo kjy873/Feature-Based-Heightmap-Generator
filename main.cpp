@@ -5,12 +5,13 @@
 #include "RenderManager.h"
 #include "B_SplineSurface.h"
 #include "HeightMap.h"
+#include "Noise.h"
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
 RenderManager RenderMgr(ShaderMgr, BufferMgr);
 
-float PI = 3.14159265358979323846f;
+//float PI = 3.14159265358979323846f;
 
 static random_device random;
 static mt19937 gen(random());
@@ -103,6 +104,8 @@ LineMesh Lines(0);
 HeightMap heightmap(0, 0);
 
 B_SplineSurface SplineSurface(0, 0);
+
+B_SplineSurface SplineSurface_Modifier(0, 0);
 
 
 // basis function 캐싱
@@ -292,7 +295,7 @@ void init() {
 
 	// ㅡㅡ init heightmap and spline surface ㅡㅡ
 
-	heightmap.SetResolution(1024, 1024);
+	heightmap.SetResolution(256, 256);
 	SplineSurface.SetResolution(heightmap.GetResU(), heightmap.GetResV());
 	SplineSurface.GenerateSurface();
 	heightmap.SetHeight(SplineSurface.GetHeightMap());
@@ -304,7 +307,12 @@ void init() {
 		{glm::vec3(0.0f, 0.0f, 3 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 3 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 3 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 3 / 3.0f)},
 	};
 
-	controlPoints_modifier = controlPoints_initial;
+	controlPoints_modifier.resize(SplineSurface.GetRowsControlPoints(), std::vector<glm::vec3>(SplineSurface.GetColsControlPoints()));
+	for (int i = 0; i < controlPoints_modifier.size(); i++) {
+		for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+			controlPoints_modifier[i][j] = SplineSurface.GetControlPoint(i, j);
+		}
+	}
 
 	initSplineSurface();
 
@@ -369,52 +377,6 @@ GLvoid drawScene() {
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);*/
 }
 
-// function to generate b-spline surface
-float BasisFunction(int index, int degree, float t, vector<float> KnotVector) {
-	if (degree == 0) {
-		if (t >= KnotVector[index] && t < KnotVector[index + 1])return 1.0f;
-		else return 0.0f;
-	}
-
-	float left{ 0.0f };
-	float right{ 0.0f };
-
-	if (KnotVector[index + degree] != KnotVector[index]) {
-		left = (t - KnotVector[index]) / (KnotVector[index + degree] - KnotVector[index]) * BasisFunction(index, degree - 1, t, KnotVector);
-	}
-	if (KnotVector[index + degree + 1] != KnotVector[index + 1]) {
-		right = (KnotVector[index + degree + 1] - t) / (KnotVector[index + degree + 1] - KnotVector[index + 1]) * BasisFunction(index + 1, degree - 1, t, KnotVector);
-	}
-
-	if (t == KnotVector.back() && index == KnotVector.size() - degree - 2)
-		return 1.0f;
-
-	return left + right;
-
-}
-
-
-
-vector<float> initKnotVector(int n, int degree) {
-	int length = n + degree + 1;
-	vector<float> KnotVector(length);
-
-	int segment = n - degree;
-
-	for (int i = 0; i < length; i++) {
-		if (i <= degree) {
-			KnotVector[i] = 0.0f;
-		}
-		else if (i >= n + 1) {
-			KnotVector[i] = 1.0f;
-		}
-		else {
-			KnotVector[i] = (float)(i - degree) / (float)segment;
-		}
-	}
-
-	return KnotVector;
-}
 
 // normal vector of a, b
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
@@ -462,132 +424,7 @@ glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u) {
 	return P;
 }
 
-glm::vec2 CalGradient(const glm::vec2& p, int seed) {
-	uint32_t h = (uint32_t)p.x * 374761393u
-		^ (uint32_t)p.y * 668265263u
-		^ (uint32_t)seed * 982451653u;
 
-	h ^= h >> 13;
-	h *= 1274126177u;
-	h ^= h >> 16;
-	
-	float angle = (h & 0xFFFFu) * (2.0f * PI / 65536.0f);
-
-	return glm::vec2(cos(angle), sin(angle));
-}
-
-inline float perlinSmooth(float t) {
-	return t * t * t * (t * (t * 6 - 15) + 10);
-}
-float Perlin(const glm::vec2& input, int seed) {
-	
-	int cellX = floor(input.x); // cell index
-	int cellY = floor(input.y);
-
-	float localX = input.x - cellX; // local position in the cell
-	float localY = input.y - cellY;
-
-	float d1 = glm::dot(glm::vec2(localX, localY), CalGradient(glm::vec2(cellX, cellY), seed));
-	float d2 = glm::dot(glm::vec2(localX - 1, localY), CalGradient(glm::vec2(cellX + 1, cellY), seed));
-	float d3 = glm::dot(glm::vec2(localX, localY - 1), CalGradient(glm::vec2(cellX, cellY + 1), seed));
-	float d4 = glm::dot(glm::vec2(localX - 1, localY - 1), CalGradient(glm::vec2(cellX + 1, cellY + 1), seed));
-
-	float interpolatedX1 = Lerp(d1, d2, perlinSmooth(localX));
-	float interpolatedX2 = Lerp(d3, d4, perlinSmooth(localX));
-
-	float value = Lerp(interpolatedX1, interpolatedX2, perlinSmooth(localY));
-
-	return(value);
-}
-float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType) {
-	float total = 0.0f;
-	float amplitude = 1.0f;
-
-	glm::vec2 point = glm::vec2((p.x + 0.5f) / width, (p.y + 0.5f) / height);
-
-	if (noiseType == "Perlin") {
-		for (int i = 0; i < octaves; i++) {
-			total += Perlin(point * frequency, seed) * amplitude;
-			frequency *= lacunarity;
-			amplitude *= persistence;
-		}
-	}
-
-	else if (noiseType == "Simplex") {
-		for (int i = 0; i < octaves; i++) {
-			total += Simplex(point * frequency, seed) * amplitude;
-			frequency *= lacunarity;
-			amplitude *= persistence;
-		}
-	}
-
-	return total;
-
-}
-
-std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
-	float frequency, int octaves, float persistence, float lacunarity, const string& noiseType) 
-{
-
-	return [width, height, seed, frequency, octaves, persistence, lacunarity, noiseType](const glm::vec2& p) {
-		return NoiseCombiner1(p, width, height, seed, frequency, octaves, persistence, lacunarity, noiseType);
-		};
-
-}
-
-float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient) {
-
-	float t = 0.5 - glm::dot(point, point);
-	
-	if (t < 0) return  0.0f;
-	else return t * t * t * t * dot(point, gradient);
-
-}
-
-float Simplex(const glm::vec2& input, int seed) {
-	float F2 = (sqrt(3) - 1)/2.0f;
-	float G2 = (3 - sqrt(3)) / 6.0f;
-
-	float s = (input.x + input.y) * F2;
-
-	float i = floor(input.x + s);
-	float j = floor(input.y + s);
-
-	float t = (i + j) * G2;
-
-	glm::vec2 cellOrigin = glm::vec2(i - t, j - t);
-	glm::vec2 local = glm::vec2(input.x - cellOrigin.x, input.y - cellOrigin.y);
-
-	glm::vec2 p1 = glm::vec2(local.x, local.y);
-	glm::vec2 p2 = glm::vec2(0.0f);
-	glm::vec2 p3 = glm::vec2(0.0f);
-
-	glm::vec2 g1 = CalGradient(glm::vec2(i, j), seed);
-	glm::vec2 g2 = glm::vec2(0.0f);
-	glm::vec2 g3 = glm::vec2(0.0f);
-	if (local.x > local.y) {
-		p2 = glm::vec2(local.x - 1, local.y);
-		p3 = glm::vec2(local.x - 1, local.y - 1);
-
-		g2 = CalGradient(glm::vec2(i + 1, j), seed);
-		g3 = CalGradient(glm::vec2(i + 1, j + 1), seed);
-	}
-	else {
-		p2 = glm::vec2(local.x, local.y - 1);
-		p3 = glm::vec2(local.x - 1, local.y - 1);
-
-		g2 = CalGradient(glm::vec2(i, j + 1), seed);
-		g3 = CalGradient(glm::vec2(i + 1, j + 1), seed);
-	}
-
-	float a1 = SimplexAttenuation(p1, g1);
-	float a2 = SimplexAttenuation(p2, g2);
-	float a3 = SimplexAttenuation(p3, g3);
-
-	return (a1 + a2 + a3) * 70.0f;
-	
-}
 
 void initSplineSurface() {
 
@@ -990,75 +827,75 @@ void DrawPanel() {
 	ImGui::Text("modify constraint points");
 	ImGui::Separator();
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
-	if (ImGui::Button("Rows + 1", ImVec2(-FLT_MIN, 30))) {
-		int addedRows = controlPoints_modifier.size() + 1;
-		int addedCols = controlPoints_modifier[0].size();
+	//if (ImGui::Button("Rows + 1", ImVec2(-FLT_MIN, 30))) {
+	//	int addedRows = controlPoints_modifier.size() + 1;
+	//	int addedCols = controlPoints_modifier[0].size();
 
-		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
-		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-				temp[i][j] = controlPoints_modifier[i][j];
-			}
-		}
-		controlPoints_modifier = temp;
-	}
-	if (ImGui::Button("Cols + 1", ImVec2(-FLT_MIN, 30))) {
-		int addedRows = controlPoints_modifier.size();
-		int addedCols = controlPoints_modifier[0].size() + 1;
+	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
+	//	for (int i = 0; i < controlPoints_modifier.size(); i++) {
+	//		for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+	//			temp[i][j] = controlPoints_modifier[i][j];
+	//		}
+	//	}
+	//	controlPoints_modifier = temp;
+	//}
+	//if (ImGui::Button("Cols + 1", ImVec2(-FLT_MIN, 30))) {
+	//	int addedRows = controlPoints_modifier.size();
+	//	int addedCols = controlPoints_modifier[0].size() + 1;
 
-		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
-		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-				temp[i][j] = controlPoints_modifier[i][j];
-			}
-		}
-		controlPoints_modifier = temp;
-	}
+	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
+	//	for (int i = 0; i < controlPoints_modifier.size(); i++) {
+	//		for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+	//			temp[i][j] = controlPoints_modifier[i][j];
+	//		}
+	//	}
+	//	controlPoints_modifier = temp;
+	//}
 
-	// 선택된 제어점의 좌표 표시(left click으로 선택했을때만
-	if (PickedControlPoint) {
-		glm::vec3 pos = controlPoints_modifier[PickedControlPoint->LinkedRow][PickedControlPoint->LinkedCol];
-		ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
-	}
+	//// 선택된 제어점의 좌표 표시(left click으로 선택했을때만
+	//if (PickedControlPoint) {
+	//	glm::vec3 pos = controlPoints_modifier[PickedControlPoint->LinkedRow][PickedControlPoint->LinkedCol];
+	//	ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
+	//}
 
-	int inputRows = controlPoints_modifier.size();
-	int inputCols = controlPoints_modifier[0].size();
-	if (ImGui::InputInt("Rows", &inputRows, 1, 100)){
-		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
-		if (inputRows < controlPoints_modifier.size()) {
-			for (int i = 0; i < inputRows; i++) {
-				for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-					temp[i][j] = controlPoints_modifier[i][j];
-				}
-			}
-		}
-		else {
-			for (int i = 0; i < controlPoints_modifier.size(); i++) {
-				for (int j = 0; j < controlPoints_modifier[0].size(); j++){
-					temp[i][j] = controlPoints_modifier[i][j];
-				}
-			}
-		}
-		controlPoints_modifier = temp;
-	}
-	if (ImGui::InputInt("Cols", &inputCols, 1, 100)) {
-		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
-		if (inputCols < controlPoints_modifier[0].size()) {
-			for (int i = 0; i < controlPoints_modifier.size(); i++) {
-				for (int j = 0; j < inputCols; j++) {
-					temp[i][j] = controlPoints_modifier[i][j];
-				}
-			}
-		}
-		else {
-			for (int i = 0; i < controlPoints_modifier.size(); i++) {
-				for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-					temp[i][j] = controlPoints_modifier[i][j];
-				}
-			}
-		}
-		controlPoints_modifier = temp;
-	}
+	//int inputRows = controlPoints_modifier.size();
+	//int inputCols = controlPoints_modifier[0].size();
+	//if (ImGui::InputInt("Rows", &inputRows, 1, 100)){
+	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
+	//	if (inputRows < controlPoints_modifier.size()) {
+	//		for (int i = 0; i < inputRows; i++) {
+	//			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+	//				temp[i][j] = controlPoints_modifier[i][j];
+	//			}
+	//		}
+	//	}
+	//	else {
+	//		for (int i = 0; i < controlPoints_modifier.size(); i++) {
+	//			for (int j = 0; j < controlPoints_modifier[0].size(); j++){
+	//				temp[i][j] = controlPoints_modifier[i][j];
+	//			}
+	//		}
+	//	}
+	//	controlPoints_modifier = temp;
+	//}
+	//if (ImGui::InputInt("Cols", &inputCols, 1, 100)) {
+	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
+	//	if (inputCols < controlPoints_modifier[0].size()) {
+	//		for (int i = 0; i < controlPoints_modifier.size(); i++) {
+	//			for (int j = 0; j < inputCols; j++) {
+	//				temp[i][j] = controlPoints_modifier[i][j];
+	//			}
+	//		}
+	//	}
+	//	else {
+	//		for (int i = 0; i < controlPoints_modifier.size(); i++) {
+	//			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
+	//				temp[i][j] = controlPoints_modifier[i][j];
+	//			}
+	//		}
+	//	}
+	//	controlPoints_modifier = temp;
+	//}
 
 
 	ImGui::Text("modify noise");
