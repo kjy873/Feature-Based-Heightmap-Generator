@@ -40,7 +40,7 @@ float CameraSpeed = 0.01f;
 
 bool DragMode = false;
 
-bool WireFrame = true;
+bool WireFrame = false;
 
 float SAMPLE_INTERVAL = 1.0f/2.0f;
 int sampleCount = 0.0f;
@@ -295,7 +295,7 @@ void init() {
 
 	// ㅡㅡ init heightmap and spline surface ㅡㅡ
 
-	heightmap.SetResolution(256, 256);
+	heightmap.SetResolution(1024, 1024);
 	SplineSurface.SetResolution(heightmap.GetResU(), heightmap.GetResV());
 	SplineSurface.GenerateSurface();
 	heightmap.SetHeight(SplineSurface.GetHeightMap());
@@ -334,7 +334,11 @@ GLvoid drawScene() {
 
 	//std::cout << Surface.GetMeshID() << "SURFACEMESHID" << endl;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(GL_CCW);
 	RenderMgr.BeginFrame(view, projection, LightSource);
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
@@ -350,8 +354,9 @@ GLvoid drawScene() {
 	if (WireFrame) RenderMgr.DrawWireframe(Surface);
 	else RenderMgr.Draw(Surface);
 
+
 	if (ControlPointRender) {
-		glDisable(GL_DEPTH_TEST);
+		
 		/*draw(v_ControlPoints);
 		draw(ControlLines);*/
 		RenderMgr.Draw(Lines);
@@ -369,6 +374,8 @@ GLvoid drawScene() {
 
 	/*glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);*/
+
+	UpdateWindowTitleWithFPS(glfwGetCurrentContext());
 }
 
 

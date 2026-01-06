@@ -157,7 +157,6 @@ void TerrainMesh::SetSurfaceNormalized(const std::vector<float>& HeightMap, cons
 	Index.reserve((Rows - 1) * (Cols - 1) * 6);
 	for (int i = 0; i < SizeU2 - 1; i++) {
 		for (int j = 0; j < SizeV2 - 1; j++) {
-			// 사각형 정점 인덱스 중복 저장을 방지하기 위해 EBO 사용
 			int index = i * SizeV2 + j;
 			Index.push_back(index);
 			Index.push_back(index + SizeV2);

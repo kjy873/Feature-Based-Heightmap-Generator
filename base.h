@@ -385,9 +385,30 @@ bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, co
 	return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0) || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0);
 }
 
+void UpdateWindowTitleWithFPS(GLFWwindow* window)
+{
+	using clock = std::chrono::high_resolution_clock;
+	static auto last = clock::now();
+	static int frames = 0;
+
+	frames++;
+	auto now = clock::now();
+	std::chrono::duration<double> elapsed = now - last;
+
+	if (elapsed.count() >= 1.0)
+	{
+		double fps = frames / elapsed.count();
+		std::string title = "My App - FPS: " + std::to_string((int)(fps + 0.5));
+		glfwSetWindowTitle(window, title.c_str());
+
+		frames = 0;
+		last = now;
+	}
+}
+
+void UpdateWindowTitleWithFPS(GLFWwindow* window);
 void init();
 GLvoid drawScene();
-float BasisFunction(int index, int degree, float t, vector<float> KnotVector);
 bool intersectRayTriangle(const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
 	glm::vec3& intersectionPoint, float& distance);
