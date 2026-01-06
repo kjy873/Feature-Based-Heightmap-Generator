@@ -167,6 +167,7 @@
     <ClCompile Include="NoiseGenerator.cpp" />
     <ClCompile Include="RenderManager.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
+    <ClCompile Include="TerrainObject.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h" />
@@ -193,6 +194,7 @@
     <ClInclude Include="NoiseGenerator.h" />
     <ClInclude Include="RenderManager.h" />
     <ClInclude Include="ShaderManager.h" />
+    <ClInclude Include="TerrainObject.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
