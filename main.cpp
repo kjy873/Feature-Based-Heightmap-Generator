@@ -68,7 +68,7 @@ glm::mat4 view = glm::mat4(1.0f);
 glm::mat4 projection = glm::mat4(1.0f);
 
 vector<vector<glm::vec3>> controlPoints;
-vector<vector<glm::vec3>> controlPoints_modifier;
+//vector<vector<glm::vec3>> controlPoints_modifier;
 vector<vector<glm::vec3>> controlPoints_initial;
 vector<Shape> ControlLines;
 vector<glm::vec3> VerticesForControlLines;
@@ -178,7 +178,7 @@ int main() {
 
 	init();
 
-	controlPoints_modifier = controlPoints;
+	//controlPoints_modifier = controlPoints;
 
 	glfwSetScrollCallback(window, CallbackMouseWheel);
 	if(DragMode)glfwSetCursorPosCallback(window, CallbackMouseMove);
@@ -213,7 +213,7 @@ int main() {
 
 			PickedControlPoint->TSR = PickedObjectModelTransform; // ImGuizmo가 사용 중이면 PickedControlPoint의 변환을 업데이트
 			glm::vec3 newPosition = glm::vec3(PickedObjectModelTransform[3]);
-			controlPoints_modifier[PickedControlPoint->LinkedRow][PickedControlPoint->LinkedCol] = newPosition;
+			SplineSurface.SetControlPoint(PickedControlPoint->LinkedRow, PickedControlPoint->LinkedCol, newPosition);
 			PickedObjectPos = newPosition;
 		}
 
@@ -307,13 +307,6 @@ void init() {
 		{glm::vec3(0.0f, 0.0f, 3 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 3 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 3 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 3 / 3.0f)},
 	};
 
-	controlPoints_modifier.resize(SplineSurface.GetRowsControlPoints(), std::vector<glm::vec3>(SplineSurface.GetColsControlPoints()));
-	for (int i = 0; i < controlPoints_modifier.size(); i++) {
-		for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-			controlPoints_modifier[i][j] = SplineSurface.GetControlPoint(i, j);
-		}
-	}
-
 	initSplineSurface();
 
 	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
@@ -334,6 +327,7 @@ void init() {
 	glEnable(GL_LINE_SMOOTH);
 	//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glLineWidth(1.5f);
+
 }
 
 GLvoid drawScene() {
@@ -640,170 +634,6 @@ void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset) {
 
 	}
 }	
-// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡGenerate rectangles ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-// rectangles are generated on both sides of the line perpendicular to the tangent in each segment of the linearly approximated curve
-// since it is linearly approximated, the direction is perpendicular to each segment (u₂ - u₁)
-
-// elevation is interpolated using cubic interpolation.
-// since the four currently defined constraints do not allow elevation interpolation, it will be performed
-// additionally, issues caused by curve intersections will also be addressed later
-//void Rasterization_rect(glm::vec3 ControlPoints[4], vector<ConstraintPoint>& constraintPoints, vector<Shape>& RectList) {
-//	for (int i = 0; i < constraintPoints.size() - 1; i++) {
-//		float u1 = constraintPoints[i].u;
-//		float u2 = constraintPoints[i + 1].u;
-//
-//		// if this condition is satisfied, it means that an interpolated r value exists in the segment, so a rectangle is generated.
-//		// next, the rectangle is generated based on whether both constraintPoint A and B have r, or only one of them does.
-//		// then, the same branching logic is applied to a and b to modify the size of the rectangle.
-//		/*if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_H) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_H)) continue;
-//		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R)) continue;
-//		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) continue;
-//		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) continue;
-//		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_BETA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_BETA)) continue;
-//		if (!(constraintPoints[i].flag & ConstraintPoint::Flag::HAS_ALPHA) && !(constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_ALPHA)) continue;*/
-//
-//		for (float u = u1; u < u2; u += SAMPLE_INTERVAL) {
-//			glm::vec3 tangent = (pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - pointOnBezier(ControlPoints, u)) / SAMPLE_INTERVAL;
-//			glm::vec3 normal = glm::normalize(glm::vec3(tangent.z, 0.0f, -tangent.x));
-//			float t = (u - u1) / (u2 - u1);
-//			Shape rectA(4);
-//			Shape rectB(4);
-//			glm::vec3 black[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
-//
-//
-//			setRectangle(ShaderMgr.GetShaderProgramID(), rectA, pointOnBezier(ControlPoints, u) + normal * 0.0f,
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * 0.0f,
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-//				pointOnBezier(ControlPoints, u),
-//				black);
-//
-//			setRectangle(ShaderMgr.GetShaderProgramID(), rectB, pointOnBezier(ControlPoints, u),
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * 0.0f,
-//				pointOnBezier(ControlPoints, u) - normal * 0.0f,
-//				black);
-//
-//			//cout << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
-//
-//			float interpolatedr = 0.0f;
-//
-//			if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_R) {
-//				if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_R) {
-//					interpolatedr = Lerp(constraintPoints[i].r, constraintPoints[i + 1].r, t);
-//				}
-//				else interpolatedr = hold(constraintPoints[i].r, t);
-//			}
-//			else interpolatedr = hold(constraintPoints[i + 1].r, t);
-//
-//
-//			setRectangle(ShaderMgr.GetShaderProgramID(), rectA, pointOnBezier(ControlPoints, u) + normal * interpolatedr,
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) + normal * interpolatedr,
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-//				pointOnBezier(ControlPoints, u),
-//				black);
-//
-//			setRectangle(ShaderMgr.GetShaderProgramID(), rectB, pointOnBezier(ControlPoints, u),
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL),
-//				pointOnBezier(ControlPoints, u + SAMPLE_INTERVAL) - normal * interpolatedr,
-//				pointOnBezier(ControlPoints, u) - normal * interpolatedr,
-//				black);
-//
-//
-//			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A)) {
-//				float interpolateda = 0.0f;
-//				float interpolatedAlpha = 0.0f;
-//				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_A) {
-//					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_A) {
-//						interpolateda = Lerp(constraintPoints[i].a, constraintPoints[i + 1].a, t);
-//						interpolatedAlpha = Lerp(constraintPoints[i].alpha, constraintPoints[i + 1].alpha, t);
-//					}
-//					else {
-//						interpolateda = hold(constraintPoints[i].a, t);
-//						interpolatedAlpha = hold(constraintPoints[i].alpha, t);
-//					}
-//				}
-//				else {
-//					interpolateda = hold(constraintPoints[i + 1].a, t);
-//					interpolatedAlpha = hold(constraintPoints[i + 1].alpha, t);
-//				}
-//
-//				interpolatedAlpha = glm::clamp(interpolatedAlpha, -30.0f, 30.0f);
-//				float tan = glm::tan(glm::radians(interpolatedAlpha));
-//
-//				glm::vec3 gradientVector = glm::vec3(normal.x, normal.z, tan);
-//				gradientVector = glm::normalize(gradientVector);
-//
-//				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
-//					glm::clamp(gradientVector.y, 0.0f, 1.0f),
-//					glm::clamp(gradientVector.z, 0.0f, 1.0f));
-//				//cout << "clampColor: " << clampColor.x << ", " << clampColor.y << ", " << clampColor.z << endl;
-//				//cout << gradientVector.x << ", " << gradientVector.y << ", " << gradientVector.z << endl;
-//				glm::vec3 colorA[4] = { glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), clampColor, clampColor };
-//				setRectangle(ShaderMgr.GetShaderProgramID(), rectA, (rectA).position[0] + normal * interpolateda,
-//					(rectA).position[1] + normal * interpolateda,
-//					(rectA).position[2],
-//					(rectA).position[3],
-//					colorA);
-//				//cout << "rectA.color[0]: " << rectA.color[0].x << ", " << rectA.color[0].y << ", " << rectA.color[0].z << endl;
-//			}
-//
-//
-//			if ((constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) || (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B)) {
-//				float interpolatedb = 0.0f;
-//				float interpolatedBeta = 0.0f;
-//				if (constraintPoints[i].flag & ConstraintPoint::Flag::HAS_B) {
-//					if (constraintPoints[i + 1].flag & ConstraintPoint::Flag::HAS_B) {
-//						interpolatedb = Lerp(constraintPoints[i].b, constraintPoints[i + 1].b, t);
-//						interpolatedBeta = Lerp(constraintPoints[i].beta, constraintPoints[i + 1].beta, t);
-//					}
-//					else {
-//						interpolatedb = hold(constraintPoints[i].b, t);
-//						interpolatedBeta = hold(constraintPoints[i].beta, t);
-//					}
-//				}
-//				else {
-//					interpolatedb = hold(constraintPoints[i + 1].b, t);
-//					interpolatedBeta = hold(constraintPoints[i + 1].beta, t);
-//				}
-//
-//				interpolatedBeta = glm::clamp(interpolatedBeta, -30.0f, 30.0f);
-//
-//				float tan = glm::tan(glm::radians(interpolatedBeta));
-//				glm::vec3 gradientVector = glm::vec3(-normal.x, -normal.z, tan);
-//
-//				gradientVector = glm::normalize(gradientVector);
-//
-//				glm::vec3 clampColor = glm::vec3(glm::clamp(gradientVector.x, 0.0f, 1.0f),
-//					glm::clamp(gradientVector.y, 0.0f, 1.0f),
-//					glm::clamp(gradientVector.z, 0.0f, 1.0f));
-//				glm::vec3 colorB[4] = { clampColor, clampColor, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f) };
-//
-//
-//				setRectangle(ShaderMgr.GetShaderProgramID(), rectB, (rectB).position[0],
-//					(rectB).position[1],
-//					(rectB).position[2] - normal * interpolatedb,
-//					(rectB).position[3] - normal * interpolatedb,
-//					colorB);
-//
-//				//cout << "rectB.color[0]: " << rectB.color[0].x << ", " << rectB.color[0].y << ", " << rectB.color[0].z << endl;
-//			}
-//
-//			rectA.u = u;
-//			rectB.u = u;
-//			rectA.r = interpolatedr;
-//			rectB.r = interpolatedr;
-//			RectList.push_back(rectA);
-//			RectList.push_back(rectB);
-//
-//
-//
-//
-//			// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-//
-//		}
-//
-//	}
-//}
 
 
 void DrawPanel() {
@@ -826,86 +656,19 @@ void DrawPanel() {
 
 	ImGui::Text("modify constraint points");
 	ImGui::Separator();
-	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
-	//if (ImGui::Button("Rows + 1", ImVec2(-FLT_MIN, 30))) {
-	//	int addedRows = controlPoints_modifier.size() + 1;
-	//	int addedCols = controlPoints_modifier[0].size();
+	 //ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
 
-	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
-	//	for (int i = 0; i < controlPoints_modifier.size(); i++) {
-	//		for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-	//			temp[i][j] = controlPoints_modifier[i][j];
-	//		}
-	//	}
-	//	controlPoints_modifier = temp;
-	//}
-	//if (ImGui::Button("Cols + 1", ImVec2(-FLT_MIN, 30))) {
-	//	int addedRows = controlPoints_modifier.size();
-	//	int addedCols = controlPoints_modifier[0].size() + 1;
-
-	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(addedRows, addedCols);
-	//	for (int i = 0; i < controlPoints_modifier.size(); i++) {
-	//		for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-	//			temp[i][j] = controlPoints_modifier[i][j];
-	//		}
-	//	}
-	//	controlPoints_modifier = temp;
-	//}
-
-	//// 선택된 제어점의 좌표 표시(left click으로 선택했을때만
-	//if (PickedControlPoint) {
-	//	glm::vec3 pos = controlPoints_modifier[PickedControlPoint->LinkedRow][PickedControlPoint->LinkedCol];
-	//	ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
-	//}
-
-	//int inputRows = controlPoints_modifier.size();
-	//int inputCols = controlPoints_modifier[0].size();
-	//if (ImGui::InputInt("Rows", &inputRows, 1, 100)){
-	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
-	//	if (inputRows < controlPoints_modifier.size()) {
-	//		for (int i = 0; i < inputRows; i++) {
-	//			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-	//				temp[i][j] = controlPoints_modifier[i][j];
-	//			}
-	//		}
-	//	}
-	//	else {
-	//		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-	//			for (int j = 0; j < controlPoints_modifier[0].size(); j++){
-	//				temp[i][j] = controlPoints_modifier[i][j];
-	//			}
-	//		}
-	//	}
-	//	controlPoints_modifier = temp;
-	//}
-	//if (ImGui::InputInt("Cols", &inputCols, 1, 100)) {
-	//	vector<vector<glm::vec3>> temp = MakeInitialControlPoints(inputRows, inputCols);
-	//	if (inputCols < controlPoints_modifier[0].size()) {
-	//		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-	//			for (int j = 0; j < inputCols; j++) {
-	//				temp[i][j] = controlPoints_modifier[i][j];
-	//			}
-	//		}
-	//	}
-	//	else {
-	//		for (int i = 0; i < controlPoints_modifier.size(); i++) {
-	//			for (int j = 0; j < controlPoints_modifier[0].size(); j++) {
-	//				temp[i][j] = controlPoints_modifier[i][j];
-	//			}
-	//		}
-	//	}
-	//	controlPoints_modifier = temp;
-	//}
+	// 선택된 제어점의 좌표 표시(left click으로 선택했을때만
+	if (PickedControlPoint) {
+		glm::vec3 pos = SplineSurface.GetControlPoint(PickedControlPoint->LinkedRow, PickedControlPoint->LinkedCol);
+		ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
+	}
 
 
 	ImGui::Text("modify noise");
 	ImGui::Separator();
 	if (ImGui::Button("Random Value Noise", ImVec2(-FLT_MIN, 30))) {
-		for(auto& p : controlPoints_modifier) {
-			for (auto& cp : p) {
-				cp.y = glm::clamp(static_cast<float>(rand()) / static_cast<float>(RAND_MAX), 0.0f, 1.0f);
-			}
-		}
+
 	}
 
 	if (ImGui::InputFloat("frequency", &noiseParameters.frequency, 0.1f, 1.0f));
@@ -925,13 +688,10 @@ void DrawPanel() {
 			noiseParameters.lacunarity, 
 			"Perlin");
 
-		for (auto& p : controlPoints_modifier) {
-			for (auto& cp : p) {
-				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
+				//cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
 				// 임시 scale값 10
 				// 고도를 양수로 제한하려면 g값[-1,1]을 [0,1]로 변환
-			}
-		}
+
 	}
 	if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
 		auto g = NoiseSelector(
@@ -942,11 +702,7 @@ void DrawPanel() {
 			noiseParameters.persistence,
 			noiseParameters.lacunarity,
 			"Simplex");
-		for (auto& p : controlPoints_modifier) {
-			for (auto& cp : p) {
-				cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
-			}
-		}
+
 	}
 
 	ImGui::Text("Rendering");
@@ -976,17 +732,18 @@ void DrawPanel() {
 	ImGui::Separator();
 	if (ImGui::Button("confirm", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
-		rectangles.clear();
-		v_ControlPoints.clear();
+		//rectangles.clear();
+		//v_ControlPoints.clear();
 		//initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
+		SplineSurface.GenerateSurface();
+		heightmap.SetHeight(SplineSurface.GetHeightMap());
+		initSplineSurface();
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
 	{
 		cout << "reset surface" << endl;
-		vector<vector<glm::vec3>> temp = MakeInitialControlPoints(controlPoints_modifier.size(), controlPoints_modifier[0].size());
-		controlPoints_modifier = temp;
-		//initSplineSurface(temp, controlPoints_modifier.size(), controlPoints_modifier[0].size());
+		//initSplineSurface();
 	}
 
 	ImGui::Separator();

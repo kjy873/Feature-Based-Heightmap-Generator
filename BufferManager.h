@@ -14,6 +14,7 @@
 
 struct BufferData {
 	GLuint VBO_Position;
+	GLuint VBO_Height;
 	GLuint VBO_Color;
 	GLuint VBO_Normal;
 	GLuint VAO;
@@ -36,21 +37,19 @@ public:
 	BufferManager() {}
 	~BufferManager() {}
 
-	void InitBufferLine(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize);
-	void InitBufferTriangle(GLuint& VAO, const glm::vec3* position, int positionSize, const glm::vec3* color, int colorSize);
-	void InitBufferRectangle(GLuint& VAO, const glm::vec3* position, const int positionSize,
-		const glm::vec3* color, const int colorSize,
-		const int* index, const int indexSize, const glm::vec3* normals, const int normalSize);
-
 	void InitVertexArrayObejct(BufferData &BufferData, bool UseEBO);
 	void BindVertexBufferObject(BufferData& BufferData, const glm::vec3* Position, int PositionSize, const glm::vec3* Color, int ColorSize, const glm::vec3* Normal, int NormalSize);
 	void BindElementBufferObject(BufferData& BufferData, const int* Index, int IndexSize);
+	void UploadHeight(BufferData& BufferData, const float* HeightMap, int Size);
 
 	unsigned int CreateMeshID() { return BufferID++; };
 
 	BufferData& CreateBufferData(unsigned int ID, bool UseEBO);
 	void BindVertexBufferObjectByID(unsigned int ID, const glm::vec3* Position, int PositionSize, const glm::vec3* Color, int ColorSize, const glm::vec3* Normal, int NormalSize);
 	void BindElementBufferObjectByID(unsigned int ID, const int* Index, int IndexSize);
+
+	void UploadHeightByID(unsigned int ID, const float* HeightMap, int Size);
+
 
 	const GLuint& GetVAOByID(unsigned int ID) const{
 		auto it = BufferMap.find(ID);

@@ -142,9 +142,9 @@ void TerrainMesh::SetSurfaceNormalized(const std::vector<float>& HeightMap, cons
 		int r = i / Cols;
 		int c = i % Cols;
 
-		float x = (Rows == 1) ? 0.0f : (float)r / (float)(Rows - 1);
+		float x = (Cols == 1) ? 0.0f : (float)c / (float)(Cols - 1);
 		float y = HeightMap[i];
-		float z = (Cols == 1) ? 0.0f : (float)c / (float)(Cols - 1);
+		float z = (Rows == 1) ? 0.0f : (float)r / (float)(Rows - 1);
 
 		Position[i] = glm::vec3(x, y, z);
 

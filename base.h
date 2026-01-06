@@ -398,7 +398,6 @@ inline bool intersectRayRectangleShape(const Shape& rectangle, const glm::vec3& 
 	glm::vec3& intersectionPoint, float& distance);
 inline bool intersectRayHexahedron(const CubeMesh& Hexahedron, const glm::vec3& rayBegin, const glm::vec3& rayEnd,
 	glm::vec3& intersectionPoint, float& distance, int& intersectedIndex);
-vector<float> initKnotVector(int n, int degree);
 glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b);
 glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view);
 bool isInTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c);
