@@ -30,5 +30,10 @@ public:
 	void AddHeight(int Row, int Col, float Value) { (*this)(Row, Col) += Value; }
 	void AddHeight(const std::vector<float>& Values);
 	void AddHeight(const std::vector<std::vector<float>>& Values);
+
+	void ClearHeight() {
+		Map.clear();
+		Map.resize(Rows * Cols);
+	}
 };
 

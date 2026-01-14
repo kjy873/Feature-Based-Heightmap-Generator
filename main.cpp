@@ -5,7 +5,7 @@
 #include "RenderManager.h"
 #include "B_SplineSurface.h"
 #include "HeightMap.h"
-#include "Noise.h"
+#include "NoiseGenerator.h"
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
@@ -106,6 +106,8 @@ HeightMap heightmap(0, 0);
 B_SplineSurface SplineSurface(0, 0);
 
 B_SplineSurface SplineSurface_Modifier(0, 0);
+
+NoiseGenerator NoiseGen(0, 0);
 
 
 // basis function 캐싱
@@ -300,6 +302,8 @@ void init() {
 	SplineSurface.GenerateSurface();
 	heightmap.SetHeight(SplineSurface.GetHeightMap());
 
+	NoiseGen.SetRes(1024, 1024);
+
 	controlPoints_initial = {
 		{glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1 / 3.0f, 0.0f, 0.0f), glm::vec3(2 / 3.0f, 0.0f, 0.0f) , glm::vec3(3 / 3.0f, 0.0f, 0.0f)},
 		{glm::vec3(0.0f, 0.0f, 1 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 1 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 1 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 1 / 3.0f)},
@@ -357,16 +361,16 @@ GLvoid drawScene() {
 
 	if (ControlPointRender) {
 		
-		/*draw(v_ControlPoints);
-		draw(ControlLines);*/
+		for (const auto& cp : v_ControlPoints) {
+			RenderMgr.Draw(cp);
+		}
 		RenderMgr.Draw(Lines);
 		glEnable(GL_DEPTH_TEST);
+
 	}
 
 
-	for (const auto& cp : v_ControlPoints) {
-		RenderMgr.Draw(cp);
-	}
+
 
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
@@ -509,6 +513,45 @@ void initSplineSurface() {
 	cout << SAMPLE_INTERVAL << endl;*/
 
 
+
+}
+
+void UpdateSplineSurface() {
+
+	LineMesh Line(VerticesForControlLines.size());
+	Line.SetMeshID(BufferMgr.CreateMeshID());
+	BufferMgr.CreateBufferData(Line.GetMeshID(), false);
+
+	glm::vec3 w = glm::vec3(1.0f);
+	Line.SetLines(VerticesForControlLines, w);
+	BufferMgr.BindVertexBufferObjectByID(Line.GetMeshID(), Line.GetPosition().data(), Line.GetPosition().size(), Line.GetColor().data(), Line.GetColor().size(),
+		nullptr, 0);
+
+	Lines = Line;
+
+	VerticesForControlLines.clear();
+	//VerticesForControlLines.resize(nRows * nCols);
+
+
+	glm::vec3 gray = glm::vec3(0.5f, 0.5f, 0.5f);
+	Surface.SetSurfaceNormalized(heightmap.GetHeightMap(), heightmap.GetResU(), heightmap.GetResV(), gray);
+	//Surface.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, gray);
+	Surface.SetMeshID(BufferMgr.CreateMeshID());
+	BufferMgr.CreateBufferData(Surface.GetMeshID(), true);
+	BufferMgr.BindVertexBufferObjectByID(Surface.GetMeshID(), Surface.GetPosition().data(), Surface.GetPosition().size(),
+		Surface.GetColor().data(), Surface.GetColor().size(), Surface.GetNormal().data(), Surface.GetNormal().size());
+	BufferMgr.BindElementBufferObjectByID(Surface.GetMeshID(), Surface.GetIndex().data(), Surface.GetIndex().size());
+
+
+
+	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
+	Surface.SetSurfaceNormalized(heightmap.GetHeightMap(), heightmap.GetResU(), heightmap.GetResV(), white);
+	//SurfaceWire.SetSurface(SurfacePoints, SurfaceIndices, SurfaceNormals, white);
+	SurfaceWire.SetMeshID(BufferMgr.CreateMeshID());
+	BufferMgr.CreateBufferData(SurfaceWire.GetMeshID(), true);
+	BufferMgr.BindVertexBufferObjectByID(SurfaceWire.GetMeshID(), SurfaceWire.GetPosition().data(), SurfaceWire.GetPosition().size(),
+		SurfaceWire.GetColor().data(), SurfaceWire.GetColor().size(), SurfaceWire.GetNormal().data(), SurfaceWire.GetNormal().size());
+	BufferMgr.BindElementBufferObjectByID(SurfaceWire.GetMeshID(), SurfaceWire.GetIndex().data(), SurfaceWire.GetIndex().size());
 
 }
 
@@ -684,31 +727,23 @@ void DrawPanel() {
 	if (ImGui::InputFloat("lacunarity", &noiseParameters.lacunarity, 0.1f, 1.0f));
 
 	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
-	
-		auto g = NoiseSelector(
-			//1.0f / SAMPLE_INTERVAL, 1.0f / SAMPLE_INTERVAL,
-			1024, 1024,
-			16542, 
-			noiseParameters.frequency, 
-			noiseParameters.octaves,
-			noiseParameters.persistence, 
-			noiseParameters.lacunarity, 
-			"Perlin");
 
-				//cp.y = g(glm::vec2(cp.x, cp.z)) * 10;
-				// 임시 scale값 10
-				// 고도를 양수로 제한하려면 g값[-1,1]을 [0,1]로 변환
-
-	}
-	if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
-		auto g = NoiseSelector(
-			1024, 1024, 
-			16542, 
-			noiseParameters.frequency, 
+		NoiseGen.GeneratePerlinNoise(
+			16542,
+			noiseParameters.frequency,
 			noiseParameters.octaves,
 			noiseParameters.persistence,
-			noiseParameters.lacunarity,
-			"Simplex");
+			noiseParameters.lacunarity);
+		
+	}
+	if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
+	
+		NoiseGen.GenerateSimplexNoise(
+			16542,
+			noiseParameters.frequency,
+			noiseParameters.octaves,
+			noiseParameters.persistence,
+			noiseParameters.lacunarity);
 
 	}
 
@@ -742,9 +777,16 @@ void DrawPanel() {
 		//rectangles.clear();
 		//v_ControlPoints.clear();
 		//initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
+
+		//heightmap.ClearHeight();
+		
+		//cout << "Heightmap Size: " << heightmap.GetHeightMap().size();
+		//cout << "SplineSurface Size: " << SplineSurface.GetHeightMap().size();
+		//cout << "Noisemap size: " << NoiseGen.GetHeightMap().size();
 		SplineSurface.GenerateSurface();
-		heightmap.SetHeight(SplineSurface.GetHeightMap());
-		initSplineSurface();
+		heightmap.AddHeight(SplineSurface.GetHeightMap());
+		heightmap.AddHeight(NoiseGen.GetHeightMap());
+		UpdateSplineSurface();
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))

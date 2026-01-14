@@ -4,18 +4,24 @@
 #include <functional>
 #include <string>
 
-float PI = 3.14159265358979323846f;
+static const glm::vec2 GRADS[8] = {
+	{1,0},{-1,0},{0,1},{0,-1},
+	{0.7071067f,0.7071067f},{-0.7071067f,0.7071067f},
+	{0.7071067f,-0.7071067f},{-0.7071067f,-0.7071067f}
+};  // for fast gradient calculation
+
+static float PI = 3.14159265358979323846f;
 
 // linear interpolation
-float Lerp(float a, float b, float t) {
+inline float Lerp(float a, float b, float t) {
 	return (1 - t) * a + t * b;
 }
 // hold interpolation
-float hold(float p, float t) {
+inline float hold(float p, float t) {
 	return (1 - t) * p + t * p;
 }
 
-glm::vec2 CalGradient(const glm::vec2& p, int seed) {
+inline glm::vec2 CalGradient(const glm::vec2& p, int seed) {
 	uint32_t h = (uint32_t)p.x * 374761393u
 		^ (uint32_t)p.y * 668265263u
 		^ (uint32_t)seed * 982451653u;
@@ -29,10 +35,24 @@ glm::vec2 CalGradient(const glm::vec2& p, int seed) {
 	return glm::vec2(cos(angle), sin(angle));
 }
 
+inline glm::vec2 CalGradientFast(const glm::vec2& p, int seed) {
+
+	uint32_t h = (uint32_t)p.x * 374761393u
+		^ (uint32_t)p.y * 668265263u
+		^ (uint32_t)seed * 982451653u;
+
+	h ^= h >> 13;
+	h *= 1274126177u;
+	h ^= h >> 16;
+
+	return GRADS[h & 7u];
+
+}
+
 inline float perlinSmooth(float t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
-float Perlin(const glm::vec2& input, int seed) {
+inline float Perlin(const glm::vec2& input, int seed) {
 
 	int cellX = floor(input.x); // cell index
 	int cellY = floor(input.y);
@@ -40,10 +60,10 @@ float Perlin(const glm::vec2& input, int seed) {
 	float localX = input.x - cellX; // local position in the cell
 	float localY = input.y - cellY;
 
-	float d1 = glm::dot(glm::vec2(localX, localY), CalGradient(glm::vec2(cellX, cellY), seed));
-	float d2 = glm::dot(glm::vec2(localX - 1, localY), CalGradient(glm::vec2(cellX + 1, cellY), seed));
-	float d3 = glm::dot(glm::vec2(localX, localY - 1), CalGradient(glm::vec2(cellX, cellY + 1), seed));
-	float d4 = glm::dot(glm::vec2(localX - 1, localY - 1), CalGradient(glm::vec2(cellX + 1, cellY + 1), seed));
+	float d1 = glm::dot(glm::vec2(localX, localY), CalGradientFast(glm::vec2(cellX, cellY), seed));
+	float d2 = glm::dot(glm::vec2(localX - 1, localY), CalGradientFast(glm::vec2(cellX + 1, cellY), seed));
+	float d3 = glm::dot(glm::vec2(localX, localY - 1), CalGradientFast(glm::vec2(cellX, cellY + 1), seed));
+	float d4 = glm::dot(glm::vec2(localX - 1, localY - 1), CalGradientFast(glm::vec2(cellX + 1, cellY + 1), seed));
 
 	float interpolatedX1 = Lerp(d1, d2, perlinSmooth(localX));
 	float interpolatedX2 = Lerp(d3, d4, perlinSmooth(localX));
@@ -53,7 +73,7 @@ float Perlin(const glm::vec2& input, int seed) {
 	return(value);
 }
 
-float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient) {
+inline float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient) {
 
 	float t = 0.5 - glm::dot(point, point);
 
@@ -62,7 +82,7 @@ float SimplexAttenuation(const glm::vec2& point, const glm::vec2& gradient) {
 
 }
 
-float Simplex(const glm::vec2& input, int seed) {
+inline float Simplex(const glm::vec2& input, int seed) {
 	float F2 = (sqrt(3) - 1) / 2.0f;
 	float G2 = (3 - sqrt(3)) / 6.0f;
 
@@ -106,7 +126,7 @@ float Simplex(const glm::vec2& input, int seed) {
 
 }
 
-float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
+inline float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height, const int& seed,
 	float frequency, int octaves, float persistence, float lacunarity, const std::string& noiseType) {
 	float total = 0.0f;
 	float amplitude = 1.0f;
@@ -133,7 +153,7 @@ float NoiseCombiner1(const glm::vec2& p, const float& width, const float& height
 
 }
 
-std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
+inline std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
 	float frequency, int octaves, float persistence, float lacunarity, const std::string& noiseType)
 {
 

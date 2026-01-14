@@ -32,8 +32,8 @@ void RenderManager::Draw(const Mesh& mesh) {
 	//std::cout << "Start Draw" << std::endl;
 
 	const auto& HasIndex = mesh.GetIndex();
-	if (!HasIndex.empty()) std::cout << "Drawing with Indices: " << HasIndex.size() << " indices." << std::endl;
-	else std::cout << "Drawing without Indices: " << mesh.GetPosition().size() << " vertices." << std::endl;
+	//if (!HasIndex.empty()) std::cout << "Drawing with Indices: " << HasIndex.size() << " indices." << std::endl;
+	//else std::cout << "Drawing without Indices: " << mesh.GetPosition().size() << " vertices." << std::endl;
 	if (!HasIndex.empty()) glDrawElements(mesh.GetDrawMode(), HasIndex.size(), GL_UNSIGNED_INT, 0);
 	else glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
 
@@ -51,8 +51,8 @@ void RenderManager::DrawWireframe(const Mesh& mesh) {
 	//glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
 
 	const auto& HasIndex = mesh.GetIndex();
-	if (!HasIndex.empty()) std::cout << "Drawing with Indices: " << HasIndex.size() << " indices." << std::endl;
-	else std::cout << "Drawing without Indices: " << mesh.GetPosition().size() << " vertices." << std::endl;
+	//if (!HasIndex.empty()) std::cout << "Drawing with Indices: " << HasIndex.size() << " indices." << std::endl;
+	//else std::cout << "Drawing without Indices: " << mesh.GetPosition().size() << " vertices." << std::endl;
 	if (!HasIndex.empty()) glDrawElements(mesh.GetDrawMode(), HasIndex.size(), GL_UNSIGNED_INT, 0);
 	else glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
 
