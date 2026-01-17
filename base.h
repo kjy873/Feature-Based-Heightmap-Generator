@@ -437,6 +437,7 @@ void MouseMoveRightButton(GLFWwindow* window);
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos);
 
 void DrawPanel();
+void DrawMouseOverlay(GLFWwindow* window);
 
 void UpdateToolInteraction();
 

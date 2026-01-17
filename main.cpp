@@ -6,6 +6,7 @@
 #include "B_SplineSurface.h"
 #include "HeightMap.h"
 #include "NoiseGenerator.h"
+#include "FeatureCurve.h"
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
@@ -24,19 +25,24 @@ bool MoveCameraRight = false;
 float CameraYaw = -90.0f;
 float CameraPitch = 0.0f;
 
+char ControlMode = 0;
+bool EditVectorMode = false;
+
 bool MouseRightButtonPressed = false;
 double LastMouseX = 0.0;
 double LastMouseY = 0.0;
 
 bool ControlPointRender = true;
 
-double windowWidth = 1280;
-double windowHeight = 720;
+double windowWidth = 1920;
+double windowHeight = 1080;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
 
 float CameraSpeed = 0.01f;
+
+bool DrawRightPanel = true;
 
 bool DragMode = false;
 
@@ -72,7 +78,6 @@ vector<vector<glm::vec3>> controlPoints;
 vector<vector<glm::vec3>> controlPoints_initial;
 vector<Shape> ControlLines;
 vector<glm::vec3> VerticesForControlLines;
-vector<vector<Shape>> FeatureCurves;
 vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;						// render surface rectangles
 vector<ControlPointVisualMesh> v_ControlPoints;				// render control points
@@ -108,6 +113,8 @@ B_SplineSurface SplineSurface(0, 0);
 B_SplineSurface SplineSurface_Modifier(0, 0);
 
 NoiseGenerator NoiseGen(0, 0);
+
+FeatureCurve FeatureCurves;
 
 
 // basis function 캐싱
@@ -220,6 +227,7 @@ int main() {
 		}
 
 		DrawPanel();
+		DrawMouseOverlay(window);
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -343,9 +351,18 @@ GLvoid drawScene() {
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glFrontFace(GL_CCW);
+
+
+	float aspect = static_cast<float>(windowWidth) / windowHeight;
+	projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 500.0f);
+
 	RenderMgr.BeginFrame(view, projection, LightSource);
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
+
+	for (const auto& cp : FeatureCurves.GetControlPoints()) {
+		//RenderMgr.Draw(*(cp.GetMesh()));
+	}
 	
 	//draw(rectangles);
 
@@ -374,7 +391,7 @@ GLvoid drawScene() {
 
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
-	float aspect = static_cast<float>(windowWidth) / windowHeight;
+	
 
 	/*glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);*/
@@ -591,36 +608,54 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		glm::vec3 point = RayfromMouse(mgl, projection, view);
 		glm::vec3 ray = camera[0] + point * 500.0f;
 
-		/*Shape* temp = new Shape(2);
-		glm::vec3 rayColor[2] = { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f) };
+		if (!EditVectorMode) {
+			glm::vec3 intersectionPoint;
+			float distance = 0.0f;
+			int intersectedIndex = -1;
 
-		setLine(*temp, camera[0], ray, rayColor);
-		axes.push_back(*temp);
-		delete(temp);*/
+			PickedControlPoint = NULL;
+			PickedObjectModelTransform = glm::mat4(1.0f);
+			for (auto& c : v_ControlPoints) {
+				/*if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
 
-		glm::vec3 intersectionPoint;
-		float distance = 0.0f;
-		int intersectedIndex = -1;
+					PickedObjectModelTransform = c.TSR;
+					PickedControlPoint = &c;
+					break;
+				}*/
+				if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
+					PickedObjectModelTransform = c.TSR;
+					PickedControlPoint = &c;
+					break;
+				}
 
-		PickedControlPoint = NULL;
-		PickedObjectModelTransform = glm::mat4(1.0f);
-		for (auto& c : v_ControlPoints) {
-			/*if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
-				
-				PickedObjectModelTransform = c.TSR;
-				PickedControlPoint = &c;
-				break;
-			}*/
-			if (intersectRayHexahedron(c, camera[0], ray, intersectionPoint, distance, intersectedIndex)) {
-				PickedObjectModelTransform = c.TSR;
-				PickedControlPoint = &c;
-				break;
 			}
-
+			if (!PickedControlPoint) {
+				DragMode = true;
+				preMousePosition = mgl;
+			}
 		}
-		if (!PickedControlPoint) {
-			DragMode = true; 
-			preMousePosition = mgl;
+
+		else if (EditVectorMode) {
+			glm::vec3 dir = ray - camera[0];
+			float t = -camera[0].y / dir.y;
+			glm::vec3 hit = camera[0] + dir * t;
+
+			glm::vec3 NodePos = glm::vec3(hit.x, 0.0f, hit.z);
+
+			FeatureCurves.AddControlPoint(NodePos, 0);
+
+			FeatureCurves.UploadBuffer(BufferMgr);
+
+			/*FC::ControlPoint cp(NodePos, 0);
+			cp.SetMesh();
+			cp.GetMesh()->SetMeshID(BufferMgr.CreateMeshID());
+			BufferMgr.CreateBufferData(cp.GetMesh()->GetMeshID(), true);
+			BufferMgr.BindVertexBufferObjectByID(cp.GetMesh()->GetMeshID(), cp.GetMesh()->GetPosition().data(), cp.GetMesh()->GetPosition().size(),
+				cp.GetMesh()->GetColor().data(), cp.GetMesh()->GetColor().size(), nullptr, 0);
+			BufferMgr.BindElementBufferObjectByID(cp.GetMesh()->GetMeshID(), cp.GetMesh()->GetIndex().data(), cp.GetMesh()->GetIndex().size());*/
+			
+
+
 		}
 		
 
@@ -629,12 +664,14 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		DragMode = false;
 	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		if (EditVectorMode)return;
 		MouseRightButtonPressed = true;
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
 		mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
 		preMousePosition = mgl;
 	}
 	if( button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+		if (EditVectorMode)return;
 		MouseRightButtonPressed = false;
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
 		mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
@@ -685,123 +722,217 @@ void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset) {
 	}
 }	
 
+void CameraTopCenter() {
+	camera[0] = glm::vec3(0.5f, 1.5f, 0.5f);
+	camera[1] = glm::vec3(0.5f, 0.0f, 0.5f);
+	camera[2] = glm::vec3(0.0f, 0.0f, -1.0f);
+	CameraForward = glm::vec3(0.0f, -1.0f, 0.0f);
+	CameraRight = glm::vec3(1.0f, 0.0f, 0.0f);
+	CameraYaw = -90.0f;
+	CameraPitch = -89.0f;
+	CameraSpeed = 0.1f;
+}
+
+void CameraPerspective() {
+	camera[0] = glm::vec3(0.4, 0.2, 0.8);
+	camera[1] = glm::vec3(0.5, 0.0, 0.5);
+	camera[2] = glm::vec3(0.0f, 1.0f, 0.0f);
+	CameraYaw = -45.0f;
+	CameraPitch = -20.0f;
+	CameraSpeed = 0.1f;
+}
+
 
 void DrawPanel() {
 
 	ImGuiIO& io = ImGui::GetIO();
-	float panel_width = 300.0f;
-	float button_height = 40.0f;
 
-	// 패널 위치
-	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - panel_width, 0), ImGuiCond_Always);
-	ImGui::SetNextWindowSize(ImVec2(panel_width, io.DisplaySize.y), ImGuiCond_Always);
+	if (DrawRightPanel) {
 
-	ImGui::Begin("Right Panel", nullptr,
+		float panel_width = 300.0f;
+		float button_height = 40.0f;
+
+		// 패널 위치
+		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - panel_width, 0), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(panel_width, io.DisplaySize.y), ImGuiCond_Always);
+
+		ImGui::Begin("Right Panel", nullptr,
+			ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoMove);
+
+		// 스크롤 가능한 툴
+		ImGui::BeginChild("ScrollableRegion", ImVec2(0, -button_height - 20), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
+		ImGui::Text("modify constraint points");
+		ImGui::Separator();
+		//ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
+
+	   // 선택된 제어점의 좌표 표시(left click으로 선택했을때만
+		if (PickedControlPoint) {
+			glm::vec3 pos = SplineSurface.GetControlPoint(PickedControlPoint->LinkedRow, PickedControlPoint->LinkedCol);
+			ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
+		}
+
+
+		ImGui::Text("modify noise");
+		ImGui::Separator();
+		if (ImGui::Button("Random Value Noise", ImVec2(-FLT_MIN, 30))) {
+
+		}
+
+		if (ImGui::InputFloat("frequency", &noiseParameters.frequency, 0.1f, 1.0f));
+		if (ImGui::InputInt("octaves", &noiseParameters.octaves, 1, 5));
+		if (ImGui::InputFloat("persistence", &noiseParameters.persistence, 0.1f, 1.0f));
+		if (ImGui::InputFloat("lacunarity", &noiseParameters.lacunarity, 0.1f, 1.0f));
+
+		if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
+
+			NoiseGen.GeneratePerlinNoise(
+				16542,
+				noiseParameters.frequency,
+				noiseParameters.octaves,
+				noiseParameters.persistence,
+				noiseParameters.lacunarity);
+
+		}
+		if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
+
+			NoiseGen.GenerateSimplexNoise(
+				16542,
+				noiseParameters.frequency,
+				noiseParameters.octaves,
+				noiseParameters.persistence,
+				noiseParameters.lacunarity);
+
+		}
+
+		ImGui::Text("Rendering");
+		ImGui::Separator();
+		if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
+			ControlPointRender = !ControlPointRender;
+		}
+		if (ImGui::Button("enable surface wire render", ImVec2(-FLT_MIN, 30))) {
+			WireFrame = !WireFrame;
+		}
+		if (ImGui::Button("increase resolution", ImVec2(-FLT_MIN, 30))) {
+			SAMPLE_INTERVAL *= 1.0f / 2.0f;
+			if (SAMPLE_INTERVAL < 1.0f / 1024.0f) SAMPLE_INTERVAL = 1.0f / 1024.0f;
+		}
+		if (ImGui::Button("decrease resolution", ImVec2(-FLT_MIN, 30))) {
+			SAMPLE_INTERVAL *= 2.0f;
+			if (SAMPLE_INTERVAL > 1.0f / 2.0f) SAMPLE_INTERVAL = 1.0f / 2.0f;
+		}
+		if (ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
+			if (LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.0f, 10.0f, 0.0f);
+			else LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
+		}
+
+		ImGui::EndChild();
+
+		// 하단 confirm, reset 버튼
+		ImGui::Separator();
+		if (ImGui::Button("confirm", ImVec2((panel_width - 30) * 0.5f, button_height)))
+		{
+			SplineSurface.GenerateSurface();
+			heightmap.AddHeight(SplineSurface.GetHeightMap());
+			heightmap.AddHeight(NoiseGen.GetHeightMap());
+			UpdateSplineSurface();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
+		{
+			cout << "reset surface" << endl;
+			SplineSurface.ResetControlPoints();
+			heightmap.ClearHeight();
+			initSplineSurface();
+		}
+
+		ImGui::Separator();
+		if (ImGui::Button("Export", ImVec2((panel_width), button_height))) {
+			ExportHeightMap("heightmap..r16");
+			cout << "Exported heightmap.r16" << endl;
+		}
+
+		ImGui::End();
+	}
+
+
+	// 다른 패널
+	io = ImGui::GetIO();
+	ImVec2 pos = ImVec2(20.0f, 20.0f);
+
+	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.2f);
+
+	ImGuiWindowFlags flags =
 		ImGuiWindowFlags_NoTitleBar |
 		ImGuiWindowFlags_NoResize |
-		ImGuiWindowFlags_NoMove);
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_AlwaysAutoResize;
 
-	// 스크롤 가능한 툴
-	ImGui::BeginChild("ScrollableRegion", ImVec2(0, -button_height - 20), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+	ImGui::Begin("##FloatingButton", nullptr, flags);
 
-	ImGui::Text("modify constraint points");
-	ImGui::Separator();
-	 //ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ modifiers
-
-	// 선택된 제어점의 좌표 표시(left click으로 선택했을때만
-	if (PickedControlPoint) {
-		glm::vec3 pos = SplineSurface.GetControlPoint(PickedControlPoint->LinkedRow, PickedControlPoint->LinkedCol);
-		ImGui::Text("Selected: (%.3f, %.3f, %.3f)", pos.x, pos.y, pos.z);
-	}
-
-
-	ImGui::Text("modify noise");
-	ImGui::Separator();
-	if (ImGui::Button("Random Value Noise", ImVec2(-FLT_MIN, 30))) {
-
-	}
-
-	if (ImGui::InputFloat("frequency", &noiseParameters.frequency, 0.1f, 1.0f));
-	if (ImGui::InputInt("octaves", &noiseParameters.octaves, 1, 5));
-	if (ImGui::InputFloat("persistence", &noiseParameters.persistence, 0.1f, 1.0f));
-	if (ImGui::InputFloat("lacunarity", &noiseParameters.lacunarity, 0.1f, 1.0f));
-
-	if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
-
-		NoiseGen.GeneratePerlinNoise(
-			16542,
-			noiseParameters.frequency,
-			noiseParameters.octaves,
-			noiseParameters.persistence,
-			noiseParameters.lacunarity);
+	if (ImGui::Button("Edit Feature Curves")) {
+		if (!EditVectorMode) {
+			EditVectorMode = true;
+			ControlPointRender = false;
+			CameraTopCenter();
+			CameraSpeed = 0.0f;
+			
+		}
+		else {
+			EditVectorMode = false;
+			CameraPerspective();
+			CameraSpeed = 0.01f;
+		}
 		
-	}
-	if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
-	
-		NoiseGen.GenerateSimplexNoise(
-			16542,
-			noiseParameters.frequency,
-			noiseParameters.octaves,
-			noiseParameters.persistence,
-			noiseParameters.lacunarity);
-
-	}
-
-	ImGui::Text("Rendering");
-	ImGui::Separator();
-	if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
-		ControlPointRender = !ControlPointRender;
-	}
-	if(ImGui::Button("enable surface wire render", ImVec2(-FLT_MIN, 30))) {
-		WireFrame = !WireFrame;
-	}
-	if(ImGui::Button("increase resolution", ImVec2(-FLT_MIN, 30))){
-		SAMPLE_INTERVAL *= 1.0f/2.0f;
-		if (SAMPLE_INTERVAL < 1.0f/1024.0f) SAMPLE_INTERVAL = 1.0f/1024.0f;
-	}
-	if(ImGui::Button("decrease resolution", ImVec2(-FLT_MIN, 30))){
-		SAMPLE_INTERVAL *= 2.0f;
-		if (SAMPLE_INTERVAL > 1.0f/2.0f) SAMPLE_INTERVAL = 1.0f/2.0f;
-	}
-	if(ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
-		if(LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.0f, 10.0f, 0.0f);
-		else LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
-	}
-
-	ImGui::EndChild();
-
-	// 하단 confirm, reset 버튼
-	ImGui::Separator();
-	if (ImGui::Button("confirm", ImVec2((panel_width - 30) * 0.5f, button_height)))
-	{
-		//rectangles.clear();
-		//v_ControlPoints.clear();
-		//initSplineSurface(controlPoints_modifier, controlPoints_modifier.size(), controlPoints_modifier[0].size());
-
-		//heightmap.ClearHeight();
 		
-		//cout << "Heightmap Size: " << heightmap.GetHeightMap().size();
-		//cout << "SplineSurface Size: " << SplineSurface.GetHeightMap().size();
-		//cout << "Noisemap size: " << NoiseGen.GetHeightMap().size();
-		SplineSurface.GenerateSurface();
-		heightmap.AddHeight(SplineSurface.GetHeightMap());
-		heightmap.AddHeight(NoiseGen.GetHeightMap());
-		UpdateSplineSurface();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("reset", ImVec2((panel_width - 30) * 0.5f, button_height)))
-	{
-		cout << "reset surface" << endl;
-		//initSplineSurface();
-	}
 
-	ImGui::Separator();
-	if(ImGui::Button("Export", ImVec2((panel_width), button_height))) {
-		ExportHeightMap("heightmap..r16");	
-		cout << "Exported heightmap.r16" << endl;
+	if(ImGui::Button("Draw Right Panel")) {
+		DrawRightPanel = !DrawRightPanel;
 	}
+	ImGui::End();
+}
+
+void DrawMouseOverlay(GLFWwindow* window) {
+	ImGuiIO& io = ImGui::GetIO();
+
+	if (!EditVectorMode) return;
+
+	ImVec2 p = io.MousePos + ImVec2(16.0f, 16.0f);
+
+	ImGui::SetNextWindowPos(p, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.75f);
+
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoDecoration |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoNav |
+	    ImGuiWindowFlags_NoInputs;
+
+	glfwGetCursorPos(window, &mgl.x, &mgl.y);	
+	glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
+	mgl = transformMouseToGL(mgl.x + 0.5, mgl.y + 0.5, FrameBufferWidth, FrameBufferHeight);
+	glm::vec3 point = RayfromMouse(mgl, projection, view);
+	glm::vec3 ray = camera[0] + point * 500.0f;
+	glm::vec3 dir = ray - camera[0];
+	float t = -camera[0].y / dir.y;
+	glm::vec3 hit = camera[0] + dir * t;
+
+	ImGui::Begin("##MouseOverlay", nullptr, flags);
+
+	ImGui::Text("(%f, %f)", hit.x, hit.z);
 
 	ImGui::End();
+	
 }
 
 void UpdateToolInteraction() {
@@ -838,3 +969,4 @@ void ExportHeightMap(const char* FileName) {
 
 	file.close();
 }
+

@@ -97,3 +97,16 @@ float B_SplineSurface::BasisFunction(int index, int degree, float t, const std::
 	return left + right;
 
 }
+
+void B_SplineSurface::PrintControlPoints() {
+	for (int i = 0; i < ControlPoints.Rows; i++) {
+		for (int j = 0; j < ControlPoints.Cols; j++) {
+			glm::vec3 pt = ControlPoints(i, j);
+			std::cout << "Control Point (" << i << ", " << j << "): " << pt.x << ", " << pt.y << ", " << pt.z << std::endl;
+		}
+	}
+}
+
+void B_SplineSurface::ResetControlPoints() {
+	ControlPoints = ControlPoint();
+}

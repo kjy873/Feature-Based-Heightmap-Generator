@@ -98,6 +98,9 @@
     <ClCompile Include="TerrainObject.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="FeatureCurve.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h">
@@ -173,6 +176,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="TerrainObject.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="FeatureCurve.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

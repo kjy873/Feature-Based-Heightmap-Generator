@@ -4,6 +4,7 @@
 #include <glm.hpp>
 #include <ext.hpp>
 #include <gtc/matrix_transform.hpp>
+#include <iostream>
 
 #include <glfw3.h>
 
@@ -65,6 +66,9 @@ public:
 
 	const glm::vec3& GetControlPoint(int Row, int Col) { return ControlPoints(Row, Col); };
 	void SetControlPoint(int Row, int Col, glm::vec3 Point) { ControlPoints(Row, Col) = Point; };
+
+	void PrintControlPoints();
+	void ResetControlPoints();
 
 
 };
