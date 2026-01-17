@@ -406,6 +406,51 @@ void UpdateWindowTitleWithFPS(GLFWwindow* window)
 	}
 }
 
+glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
+	return glm::normalize(glm::cross(a, b));
+}
+
+glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view) {
+	glm::mat4 inverseProjection = glm::inverse(ProjectionMatrix);
+	glm::mat4 inverseView = glm::inverse(view);
+
+	glm::vec4 clip_ray = glm::vec4(mgl.x, mgl.y, -1.0f, 1.0f);
+
+	glm::vec4 view_ray = inverseProjection * clip_ray;
+	view_ray = glm::vec4(view_ray.x, view_ray.y, -1.0f, 0.0f);
+
+	glm::vec4 world_ray = inverseView * view_ray;
+
+	return glm::normalize(glm::vec3(world_ray));
+}
+
+vector<glm::vec3> bezier(glm::vec3 ControlPoints[4], int Res) {
+
+	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
+
+	vector<glm::vec3> bezierPoints;
+
+	for (float t = 0; t < 1; t += Res) {
+		P = (1 - t) * (1 - t) * (1 - t) * ControlPoints[0] +
+			3 * (1 - t) * (1 - t) * t * ControlPoints[1] +
+			3 * (1 - t) * t * t * ControlPoints[2] +
+			t * t * t * ControlPoints[3];
+		//std::cout << "P: " << P.x << ", " << P.y << ", " << P.z << std::endl;
+		bezierPoints.push_back(P);
+	}
+
+	return bezierPoints;
+}
+
+glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u) {
+	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
+	P = (1 - u) * (1 - u) * (1 - u) * ControlPoints[0] +
+		3 * (1 - u) * (1 - u) * u * ControlPoints[1] +
+		3 * (1 - u) * u * u * ControlPoints[2] +
+		u * u * u * ControlPoints[3];
+	return P;
+}
+
 void UpdateWindowTitleWithFPS(GLFWwindow* window);
 void init();
 GLvoid drawScene();

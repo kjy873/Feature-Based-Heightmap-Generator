@@ -2,12 +2,11 @@
 
 FC::ControlPoint::ControlPoint(glm::vec3 pos, int Index) : Position(pos), Index(Index) {
 	Mesh = new ControlPointVisualMesh(8);
-	
 }
 
 void FC::ControlPoint::SetMesh() {
 
-	Mesh->SetHexahedron(Position, 0.01f, glm::vec3(1.0f, 0.0f, 1.0f));
+	Mesh->SetHexahedron(Position, 0.005f, glm::vec3(1.0f, 0.0f, 1.0f));
 
 }
 

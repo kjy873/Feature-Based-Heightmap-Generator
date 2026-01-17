@@ -14,6 +14,7 @@ namespace FC {
 
 		glm::vec3 Position;
 
+
 		ControlPointVisualMesh* Mesh;
 
 		int Index = -1;
@@ -25,8 +26,8 @@ namespace FC {
 		ControlPoint(glm::vec3 pos, int Index);
 		~ControlPoint() {
 			if (Mesh) {
-				delete Mesh;
-				Mesh = nullptr;
+				//delete Mesh;
+				//Mesh = nullptr;
 			}
 		}
 

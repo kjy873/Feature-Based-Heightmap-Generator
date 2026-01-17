@@ -48,6 +48,8 @@ bool DragMode = false;
 
 bool WireFrame = false;
 
+int DrawCurveMode = 0;
+
 float SAMPLE_INTERVAL = 1.0f/2.0f;
 int sampleCount = 0.0f;
 
@@ -114,7 +116,7 @@ B_SplineSurface SplineSurface_Modifier(0, 0);
 
 NoiseGenerator NoiseGen(0, 0);
 
-FeatureCurve FeatureCurves;
+vector<FeatureCurve> FeatureCurves;
 
 
 // basis function 캐싱
@@ -346,11 +348,11 @@ GLvoid drawScene() {
 
 	//std::cout << Surface.GetMeshID() << "SURFACEMESHID" << endl;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
-	glDepthMask(GL_TRUE);
+	//glDisable(GL_DEPTH_TEST);
+	/*glDepthMask(GL_TRUE);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
-	glFrontFace(GL_CCW);
+	glFrontFace(GL_CCW);*/
 
 
 	float aspect = static_cast<float>(windowWidth) / windowHeight;
@@ -360,8 +362,16 @@ GLvoid drawScene() {
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
-	for (const auto& cp : FeatureCurves.GetControlPoints()) {
-		//RenderMgr.Draw(*(cp.GetMesh()));
+	for (const auto& fc : FeatureCurves) {
+		int count = 0;
+		for (const auto& cp : fc.GetControlPoints()) {
+			if (cp.GetMesh()) {
+				RenderMgr.Draw(*cp.GetMesh());
+				count++;
+			}
+		}
+		if (count == 0) cout << "Count : 0" << endl;
+		else cout << "Count : " << count << endl;
 	}
 	
 	//draw(rectangles);
@@ -401,50 +411,7 @@ GLvoid drawScene() {
 
 
 // normal vector of a, b
-glm::vec3 getNormal(const glm::vec3& a, const glm::vec3& b) {
-	return glm::normalize(glm::cross(a, b));
-}
 
-glm::vec3 RayfromMouse(mouseCoordGL mgl, const glm::mat4& ProjectionMatrix, const glm::mat4& view) {
-	glm::mat4 inverseProjection = glm::inverse(ProjectionMatrix);
-	glm::mat4 inverseView = glm::inverse(view);
-
-	glm::vec4 clip_ray = glm::vec4(mgl.x, mgl.y, -1.0f, 1.0f);
-
-	glm::vec4 view_ray = inverseProjection * clip_ray;
-	view_ray = glm::vec4(view_ray.x, view_ray.y, -1.0f, 0.0f);
-
-	glm::vec4 world_ray = inverseView * view_ray;
-
-	return glm::normalize(glm::vec3(world_ray));
-}
-
-vector<glm::vec3> bezier(glm::vec3 ControlPoints[4]) {
-
-	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
-
-	vector<glm::vec3> bezierPoints;
-
-	for (float t = 0; t < 1; t += SAMPLE_INTERVAL) {
-		P = (1 - t) * (1 - t) * (1 - t) * ControlPoints[0] +
-			3 * (1 - t) * (1 - t) * t * ControlPoints[1] +
-			3 * (1 - t) * t * t * ControlPoints[2] +
-			t * t * t * ControlPoints[3];
-		//std::cout << "P: " << P.x << ", " << P.y << ", " << P.z << std::endl;
-		bezierPoints.push_back(P);
-	}
-
-	return bezierPoints;
-}
-
-glm::vec3 pointOnBezier(glm::vec3 ControlPoints[4], float u) {
-	glm::vec3 P = glm::vec3(0.0f, 0.0f, 0.0f);
-	P = (1 - u) * (1 - u) * (1 - u) * ControlPoints[0] +
-		3 * (1 - u) * (1 - u) * u * ControlPoints[1] +
-		3 * (1 - u) * u * u * ControlPoints[2] +
-		u * u * u * ControlPoints[3];
-	return P;
-}
 
 
 
@@ -636,26 +603,35 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		}
 
 		else if (EditVectorMode) {
-			glm::vec3 dir = ray - camera[0];
-			float t = -camera[0].y / dir.y;
-			glm::vec3 hit = camera[0] + dir * t;
 
-			glm::vec3 NodePos = glm::vec3(hit.x, 0.0f, hit.z);
+			FeatureCurve FC;
+			float t;
 
-			FeatureCurves.AddControlPoint(NodePos, 0);
+			switch (DrawCurveMode) {
+				
+			case 0:
+				glm::vec3 dir = ray - camera[0];
+				t = -camera[0].y / dir.y;
+				glm::vec3 hit = camera[0] + dir * t;
 
-			FeatureCurves.UploadBuffer(BufferMgr);
-
-			/*FC::ControlPoint cp(NodePos, 0);
-			cp.SetMesh();
-			cp.GetMesh()->SetMeshID(BufferMgr.CreateMeshID());
-			BufferMgr.CreateBufferData(cp.GetMesh()->GetMeshID(), true);
-			BufferMgr.BindVertexBufferObjectByID(cp.GetMesh()->GetMeshID(), cp.GetMesh()->GetPosition().data(), cp.GetMesh()->GetPosition().size(),
-				cp.GetMesh()->GetColor().data(), cp.GetMesh()->GetColor().size(), nullptr, 0);
-			BufferMgr.BindElementBufferObjectByID(cp.GetMesh()->GetMeshID(), cp.GetMesh()->GetIndex().data(), cp.GetMesh()->GetIndex().size());*/
-			
+				glm::vec3 NodePos = glm::vec3(hit.x, 0.0f, hit.z);
 
 
+
+				FC.AddControlPoint(NodePos, 0);
+
+				FC.UploadBuffer(BufferMgr);
+
+				FeatureCurves.push_back(FC);
+
+				break;
+
+			case 1:
+				break;
+
+			default:
+				break;
+			}
 		}
 		
 
