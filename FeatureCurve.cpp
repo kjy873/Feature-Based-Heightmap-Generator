@@ -32,6 +32,51 @@ void FeatureCurve::UploadBuffer(BufferManager& BufferMgr) {
 	}
 }
 
+void FeatureCurve::BuildLines() {
+
+	Vertices.clear();
+
+	int Count = ControlPoints.size();
+	if (Count < 4 || (Count - 1) % 3 != 0) return;
+
+	for (int i = 0; i + 3 < Count; i += 3) {
+		const glm::vec3& P0 = ControlPoints[i].GetPosition();
+		const glm::vec3& P1 = ControlPoints[i + 1].GetPosition();
+		const glm::vec3& P2 = ControlPoints[i + 2].GetPosition();
+		const glm::vec3& P3 = ControlPoints[i + 3].GetPosition();
+
+		int SamplingStart = (i == 0) ? 0 : 1;
+
+		for (int j = SamplingStart; j <= SamplePerSegment; j++) {
+			float t = (float)j / (float)SamplePerSegment;
+
+			Vertices.push_back(BezierCubic(P0, P1, P2, P3, t));
+		}
+	}
+
+	LineDirty = true;
+}
+
+void FeatureCurve::UploadBufferLine(BufferManager& BufferMgr) {
+	if (Vertices.empty()) return;
+	if (!LineDirty) return;
+
+	if (!Line) {
+		Line = std::make_unique<LineMesh>(Vertices.size());
+		Line->SetMeshID(BufferMgr.CreateMeshID());
+		BufferMgr.CreateBufferData(Line->GetMeshID(), false);
+	}
+
+	Line->SetLines(Vertices, glm::vec3(1.0f, 1.0f, 1.0f));
+
+	BufferMgr.BindVertexBufferObjectByID(Line->GetMeshID(), Line->GetPosition().data(), Line->GetPosition().size(),
+		Line->GetColor().data(), Line->GetColor().size(),
+		nullptr, 0);
+
+	LineDirty = false;
+
+}
+
 void FeatureCurveManager::AddFeatureCurve() {
 
 	int NewId = CreateCurveID();
@@ -67,8 +112,6 @@ void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 
 	int Remainder = GetRemainder(Curve);
 
-	int CPcount = Curve->GetControlPoints().size();
-
 	switch (State) {
 	case EditCurveState::P0: {
 		Curve->AddControlPoint(Pos);
@@ -95,6 +138,7 @@ void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 		Curve->AddControlPoint(NewPos);
 		Curve->AddControlPoint(std::move(*Pended));
 		Pended.reset();
+		Curve->BuildLines();
 		State = EditCurveState::P1;
 		break;
 
@@ -103,53 +147,14 @@ void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 		break;
 	}
 
-	//if (State) {
-	//	Curve->AddControlPoint(Pos);
-	//	std::cout << "P0 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
-	//}
-	//else {
-	//	switch (Remainder) {
-	//	case 0: {
-	//		glm::vec3 NewPos = AppliedTangentPos(Curve->GetControlPoints().back().GetPosition(), Pos, Tangent);
-	//		std::cout << "P1 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
-	//		Curve->AddControlPoint(NewPos);
-	//		break;
-	//	}
-	//	case 1: {
-	//		//Curve->AddControlPoint(Pos);
-	//		PendControlPoint(Pos);
-	//		std::cout << "P3 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
-	//		break;
-	//	}
-	//	case 2: {
-	//		glm::vec3 NewPos = AppliedTangentPos(Pended->GetPosition(), Pos, Tangent);
-	//		std::cout << "P2 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
-	//		Curve->AddControlPoint(NewPos);
-	//		Curve->AddControlPoint(std::move(*Pended));
-	//		Pended.reset();
-	//		break;
-	//	}
-
-	//	default:
-	//		break;
-	//	}
-	//}
-
-
-}
-
-void FeatureCurveManager::RightClick() {
-
-	if (SelectedID < 0) return;
-	
-
-
 }
 
 void FeatureCurveManager::UploadBuffers(BufferManager& BufferMgr) {
 	for (auto& curve : FeatureCurves) {
 		curve.UploadBuffer(BufferMgr);
+		curve.UploadBufferLine(BufferMgr);
 	}
+
 }
 
 const glm::vec3 FeatureCurveManager::AppliedTangentPos(const glm::vec3 P0, const glm::vec3& Pos, int Tangent) const {
@@ -194,4 +199,60 @@ void FeatureCurveManager::UploadPendedBuffer(BufferManager& BufferMgr) {
 	}
 
 
+}
+
+void FeatureCurveManager::RightClick() {
+
+	if (SelectedID == -1) return;
+
+	int Count = GetFeatureCurve(SelectedID)->GetControlPoints().size();
+
+	switch (State) {
+	case EditCurveState::P0:
+		break;
+	case EditCurveState::P1:
+		if (Count >= 4) {
+			Pended.reset();
+			SelectedID = -1;
+			State = EditCurveState::P0;
+		}
+		else {
+			FeatureCurves.pop_back();
+			Pended.reset();
+			SelectedID = -1;
+			State = EditCurveState::P0;
+		}
+		break;
+
+	case EditCurveState::P3:
+		if (Count >= 4) {
+			GetFeatureCurve(SelectedID)->PopBack();
+			Pended.reset();
+			SelectedID = -1;
+			State = EditCurveState::P0;
+		}
+		else {
+			FeatureCurves.pop_back();
+			Pended.reset();
+			SelectedID = -1;
+			State = EditCurveState::P0;
+		}
+		break;
+
+	case EditCurveState::P2:
+		if (Count >= 4) {
+			GetFeatureCurve(SelectedID)->PopBack();
+			Pended.reset();
+			SelectedID = -1;
+			State = EditCurveState::P0;
+		}
+		else {
+			FeatureCurves.pop_back();
+			Pended.reset();
+			SelectedID = -1;
+			State = EditCurveState::P0;
+		}
+		break;
+
+	}
 }

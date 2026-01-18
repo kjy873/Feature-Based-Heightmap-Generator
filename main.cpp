@@ -364,12 +364,23 @@ GLvoid drawScene() {
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
-	for (const auto& fc : FeatureCurveMgr.GetCurves()) {
+
+
+	for (auto& fc : FeatureCurveMgr.GetCurves()) {
+
 		for (const auto& cp : fc.GetControlPoints()) {
 			if (cp.GetMesh()) {
 				RenderMgr.Draw(*cp.GetMesh());
 			}
 		}
+
+		const LineMesh* Line = fc.GetLineMesh();
+		if (!Line) continue;
+		if (Line->GetPosition().size() == 0) continue;
+		if (!Line->GetMeshID()) continue;
+		RenderMgr.Draw(*Line);
+
+
 	}
 	
 	//if (FeatureCurveMgr.GetPendedControlPoint().GetMesh()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint().GetMesh());
@@ -384,6 +395,8 @@ GLvoid drawScene() {
 
 	if (WireFrame) RenderMgr.DrawWireframe(Surface);
 	else RenderMgr.Draw(Surface);
+
+
 
 
 	if (ControlPointRender) {
@@ -420,6 +433,12 @@ void initSplineSurface() {
 	auto start = chrono::high_resolution_clock::now();
 
 	SurfacePoints.clear();
+
+	//for (int i = 0; i < SplineSurface.GetRowsControlPoints(); i++) {
+	//	for (int j = 0; j < SplineSurface.GetColsControlPoints(); j++) {
+	//		VerticesForControlLines.push_back(SplineSurface.GetControlPoint(i, j));
+	//	}
+	//}
 
 	LineMesh Line(VerticesForControlLines.size());
 	Line.SetMeshID(BufferMgr.CreateMeshID());
@@ -501,6 +520,12 @@ void initSplineSurface() {
 }
 
 void UpdateSplineSurface() {
+
+	//for (int i = 0; i < SplineSurface.GetRowsControlPoints(); i++) {
+	//	for (int j = 0; j < SplineSurface.GetColsControlPoints(); j++) {
+	//		VerticesForControlLines.push_back(SplineSurface.GetControlPoint(i, j));
+	//	}
+	//}
 
 	LineMesh Line(VerticesForControlLines.size());
 	Line.SetMeshID(BufferMgr.CreateMeshID());
@@ -626,11 +651,17 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		DragMode = false;
 	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-		if (EditVectorMode)return;
-		MouseRightButtonPressed = true;
-		glfwGetCursorPos(window, &mgl.x, &mgl.y);
-		mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
-		preMousePosition = mgl;
+
+		if (!EditVectorMode) {
+			MouseRightButtonPressed = true;
+			glfwGetCursorPos(window, &mgl.x, &mgl.y);
+			mgl = transformMouseToGL(mgl.x, mgl.y, windowWidth, windowHeight);
+			preMousePosition = mgl;
+		}
+
+		else if (EditVectorMode) {
+			FeatureCurveMgr.RightClick();
+		}
 	}
 	if( button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
 		if (EditVectorMode)return;

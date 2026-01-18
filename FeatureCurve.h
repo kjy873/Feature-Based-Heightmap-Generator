@@ -50,14 +50,20 @@ class FeatureCurve
 
 	int CurveID = -1;
 
+	std::vector<glm::vec3> Vertices;
 
+	std::unique_ptr<LineMesh> Line;
+
+	bool LineDirty = false;
+
+
+
+	int SamplePerSegment = 64;
 
 public:
 
-	FeatureCurve() {
-	};
-	FeatureCurve(int id) : CurveID(id) {
-	};
+	FeatureCurve() {};
+	FeatureCurve(int id) : CurveID(id) {};
 	~FeatureCurve() = default;
 
 	FeatureCurve(const FeatureCurve&) = delete;
@@ -74,6 +80,18 @@ public:
 	const std::vector<FC::ControlPoint>& GetControlPoints() const { return ControlPoints; }
 
 	void UploadBuffer(BufferManager& BufferMgr);
+	void UploadBufferLine(BufferManager& BufferMgr);
+
+	void PopBack() { ControlPoints.pop_back(); }
+
+	glm::vec3 BezierCubic(const glm::vec3& P0, const glm::vec3& P1, const glm::vec3& P2, const glm::vec3& P3, float t) const {
+		float u = 1.0f - t;
+		return u * u * u * P0 + 3.0f * u * u * t * P1 + 3.0f * u * t * t * P2 + t * t * t * P3;
+	}
+
+	void BuildLines();
+
+	LineMesh* GetLineMesh() const { return Line.get(); }
 
 };
 
@@ -126,5 +144,7 @@ public:
 	void PendControlPoint(const glm::vec3& Pos);
 	void UploadPendedBuffer(BufferManager& BufferMgr);
 	std::optional<FC::ControlPoint>& GetPendedControlPoint() { return Pended; }
+
+	bool SegmentComplete(int Count) const{ return (Count >= 4) && ((Count - 1) % 3 == 0); }
 
 };

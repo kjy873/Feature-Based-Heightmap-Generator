@@ -23,6 +23,8 @@ void RenderManager::BeginFrame(const glm::mat4& View, const glm::mat4& Proj, con
 
 void RenderManager::Draw(const Mesh& mesh) {
 
+	if (mesh.GetPosition().size() == 0) return;
+
 	glUseProgram(ShaderMgr.GetShaderProgramID());
 
 	glBindVertexArray(BufferMgr.GetVAOByID(mesh.GetMeshID()));

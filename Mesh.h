@@ -34,6 +34,8 @@ public:
 
 	glm::mat4 TSR = glm::mat4(1.0f);		// transform matrix, 이후 인스턴싱으로 변경하면 없앰
 
+	Mesh() = default;
+
 	Mesh(int vertexCount) : vertices(vertexCount) {
 		Position.resize(vertices);
 		CurrentPosition.resize(vertices);
@@ -130,7 +132,7 @@ class LineMesh : public Mesh {
 
 public:
 	LineMesh(int vertexCount) : Mesh(vertexCount) {
-		DrawMode = GL_LINES;
+		DrawMode = GL_LINE_STRIP;
 	}
 	void SetLine(const glm::vec3 vertex1, const glm::vec3 vertex2, const glm::vec3* c);
 	void SetLines(std::vector<glm::vec3> vertices, const glm::vec3& c);
