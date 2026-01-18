@@ -10,7 +10,7 @@ void FeatureCurve::AddControlPoint(const glm::vec3& pos) {
 	
 	const int Index = ControlPoints.size();
 
-	FC::ControlPoint cp(pos, Index);
+	FC::ControlPoint cp(pos);
 
 	cp.SetMesh();
 
@@ -20,7 +20,7 @@ void FeatureCurve::AddControlPoint(const glm::vec3& pos) {
 
 void FeatureCurve::UploadBuffer(BufferManager& BufferMgr) {
 	for (const auto& cp : ControlPoints) {
-		if (cp.GetIndex() == -1) continue;
+		if (cp.GetMesh() == nullptr) continue;
 		ControlPointVisualMesh* mesh = cp.GetMesh();
 		if (mesh) {
 			mesh->SetMeshID(BufferMgr.CreateMeshID());
@@ -69,27 +69,71 @@ void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 
 	int CPcount = Curve->GetControlPoints().size();
 
-	if (CPcount == 0) {
+	switch (State) {
+	case EditCurveState::P0: {
 		Curve->AddControlPoint(Pos);
+		std::cout << "P0 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+		State = EditCurveState::P1;
+		break;
 	}
-	else {
-		switch (Remainder) {
-		case 0:
-			glm::vec3 NewPos = AppliedTangentPos(Curve->GetControlPoints().back().GetPosition(), Pos, Tangent);
-			std::cout << "NewPos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
-			Curve->AddControlPoint(NewPos);
-			break;
-		case 1:
-			Curve->AddControlPoint(Pos);
-			break;
-		case 2:
-			Curve->AddControlPoint(Pos);
-			break;
+	case EditCurveState::P1: {
+		glm::vec3 NewPos = AppliedTangentPos(Curve->GetControlPoints().back().GetPosition(), Pos, Tangent);
+		std::cout << "P1 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
+		Curve->AddControlPoint(NewPos);
+		State = EditCurveState::P3;
+		break;
+	}
+	case EditCurveState::P3: {
+		PendControlPoint(Pos);
+		std::cout << "P3 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+		State = EditCurveState::P2;
+		break;
+	}
+	case EditCurveState::P2: {
+		glm::vec3 NewPos = AppliedTangentPos(Pended->GetPosition(), Pos, Tangent);
+		std::cout << "P2 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
+		Curve->AddControlPoint(NewPos);
+		Curve->AddControlPoint(std::move(*Pended));
+		Pended.reset();
+		State = EditCurveState::P1;
+		break;
 
-		default:
-			break;
-		}
 	}
+	default:
+		break;
+	}
+
+	//if (State) {
+	//	Curve->AddControlPoint(Pos);
+	//	std::cout << "P0 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+	//}
+	//else {
+	//	switch (Remainder) {
+	//	case 0: {
+	//		glm::vec3 NewPos = AppliedTangentPos(Curve->GetControlPoints().back().GetPosition(), Pos, Tangent);
+	//		std::cout << "P1 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
+	//		Curve->AddControlPoint(NewPos);
+	//		break;
+	//	}
+	//	case 1: {
+	//		//Curve->AddControlPoint(Pos);
+	//		PendControlPoint(Pos);
+	//		std::cout << "P3 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+	//		break;
+	//	}
+	//	case 2: {
+	//		glm::vec3 NewPos = AppliedTangentPos(Pended->GetPosition(), Pos, Tangent);
+	//		std::cout << "P2 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
+	//		Curve->AddControlPoint(NewPos);
+	//		Curve->AddControlPoint(std::move(*Pended));
+	//		Pended.reset();
+	//		break;
+	//	}
+
+	//	default:
+	//		break;
+	//	}
+	//}
 
 
 }
@@ -125,5 +169,29 @@ const glm::vec3 FeatureCurveManager::AppliedTangentPos(const glm::vec3 P0, const
 	P1.y = P0.y + yPos;
 
 	return P1;
+
+}
+
+void FeatureCurveManager::PendControlPoint(const glm::vec3& Pos) {
+	
+	Pended.emplace(Pos);
+	Pended->SetMesh();
+
+
+}
+
+void FeatureCurveManager::UploadPendedBuffer(BufferManager& BufferMgr) {
+
+	if (!Pended.has_value()) return;
+
+	ControlPointVisualMesh* mesh = Pended->GetMesh();
+	if (mesh) {
+		mesh->SetMeshID(BufferMgr.CreateMeshID());
+		BufferMgr.CreateBufferData(mesh->GetMeshID(), true);
+		BufferMgr.BindVertexBufferObjectByID(mesh->GetMeshID(), mesh->GetPosition().data(), mesh->GetPosition().size(),
+			mesh->GetColor().data(), mesh->GetColor().size(), mesh->GetNormal().data(), mesh->GetNormal().size());
+		BufferMgr.BindElementBufferObjectByID(mesh->GetMeshID(), mesh->GetIndex().data(), mesh->GetIndex().size());
+	}
+
 
 }

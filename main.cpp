@@ -372,6 +372,8 @@ GLvoid drawScene() {
 		}
 	}
 	
+	//if (FeatureCurveMgr.GetPendedControlPoint().GetMesh()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint().GetMesh());
+	if (FeatureCurveMgr.GetPendedControlPoint().has_value()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint()->GetMesh());
 	//draw(rectangles);
 
 	//RenderMgr.Draw(Surface);
@@ -612,6 +614,7 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 
 			FeatureCurveMgr.LeftClick(NodePos, InputTangent);
 			FeatureCurveMgr.UploadBuffers(BufferMgr);
+			FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
 
 			InputTangent = 0;
 

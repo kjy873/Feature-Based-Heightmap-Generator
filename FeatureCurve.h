@@ -3,7 +3,7 @@
 #include <vector>
 #include "Mesh.h"
 #include <glew.h>
-
+#include <optional>
 
 #include <glm.hpp>
 
@@ -20,13 +20,11 @@ namespace FC {
 
 		std::unique_ptr<ControlPointVisualMesh> Mesh;
 
-		int Index = -1;
-
 
 	public:
 
-		ControlPoint() : Position(glm::vec3(0.0f)), Index(-1), Mesh(nullptr) {}
-		ControlPoint(glm::vec3 pos, int Index) : Position(pos), Index(Index), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
+		ControlPoint() : Position(glm::vec3(0.0f)), Mesh(nullptr) {}
+		ControlPoint(glm::vec3 pos) : Position(pos), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 		~ControlPoint() = default;
 
 		ControlPoint(const ControlPoint&) = delete;
@@ -37,8 +35,6 @@ namespace FC {
 
 		void SetMesh();
 		ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
-
-		int GetIndex() const { return Index; }
 
 		glm::vec3 GetPosition() const { return Position; }
 
@@ -53,7 +49,6 @@ class FeatureCurve
 	std::vector<FC::ControlPoint> ControlPoints;
 
 	int CurveID = -1;
-
 
 
 
@@ -74,6 +69,7 @@ public:
 	int GetCurveID() const { return CurveID; }
 
 	void AddControlPoint(const glm::vec3& pos);
+	void AddControlPoint(FC::ControlPoint&& cp) { ControlPoints.push_back(std::move(cp)); }
 
 	const std::vector<FC::ControlPoint>& GetControlPoints() const { return ControlPoints; }
 
@@ -83,10 +79,11 @@ public:
 
 enum class EditCurveState
 {
-	Idle,
-	PlacingP1,
-	PlacingP3,
-	PlacingP2
+	P0,
+	P1,
+	P3,
+	P2
+
 };
 
 class FeatureCurveManager
@@ -97,7 +94,9 @@ class FeatureCurveManager
 
 	int NextCurveID = 0;
 
-	EditCurveState State = EditCurveState::Idle;
+	EditCurveState State = EditCurveState::P0;
+
+	std::optional<FC::ControlPoint> Pended;
 
 public:
 
@@ -124,6 +123,8 @@ public:
 
 	const glm::vec3 AppliedTangentPos(const glm::vec3 P0, const glm::vec3& Pos, int Tangent) const;
 
-
+	void PendControlPoint(const glm::vec3& Pos);
+	void UploadPendedBuffer(BufferManager& BufferMgr);
+	std::optional<FC::ControlPoint>& GetPendedControlPoint() { return Pended; }
 
 };
