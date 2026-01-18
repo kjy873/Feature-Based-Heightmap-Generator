@@ -46,6 +46,8 @@ bool DrawRightPanel = true;
 
 bool DragMode = false;
 
+int InputTangent = 0;
+
 bool WireFrame = false;
 
 int DrawCurveMode = 0;
@@ -116,7 +118,7 @@ B_SplineSurface SplineSurface_Modifier(0, 0);
 
 NoiseGenerator NoiseGen(0, 0);
 
-vector<FeatureCurve> FeatureCurves;
+FeatureCurveManager FeatureCurveMgr;
 
 
 // basis function 캐싱
@@ -362,16 +364,12 @@ GLvoid drawScene() {
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
-	for (const auto& fc : FeatureCurves) {
-		int count = 0;
+	for (const auto& fc : FeatureCurveMgr.GetCurves()) {
 		for (const auto& cp : fc.GetControlPoints()) {
 			if (cp.GetMesh()) {
 				RenderMgr.Draw(*cp.GetMesh());
-				count++;
 			}
 		}
-		if (count == 0) cout << "Count : 0" << endl;
-		else cout << "Count : " << count << endl;
 	}
 	
 	//draw(rectangles);
@@ -604,34 +602,19 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 
 		else if (EditVectorMode) {
 
-			FeatureCurve FC;
 			float t;
 
-			switch (DrawCurveMode) {
-				
-			case 0:
-				glm::vec3 dir = ray - camera[0];
-				t = -camera[0].y / dir.y;
-				glm::vec3 hit = camera[0] + dir * t;
+			glm::vec3 dir = ray - camera[0];
+			t = -camera[0].y / dir.y;
+			glm::vec3 hit = camera[0] + dir * t;
 
-				glm::vec3 NodePos = glm::vec3(hit.x, 0.0f, hit.z);
+			glm::vec3 NodePos = glm::vec3(hit.x, 0.0f, hit.z);
 
+			FeatureCurveMgr.LeftClick(NodePos, InputTangent);
+			FeatureCurveMgr.UploadBuffers(BufferMgr);
 
+			InputTangent = 0;
 
-				FC.AddControlPoint(NodePos, 0);
-
-				FC.UploadBuffer(BufferMgr);
-
-				FeatureCurves.push_back(FC);
-
-				break;
-
-			case 1:
-				break;
-
-			default:
-				break;
-			}
 		}
 		
 
@@ -694,7 +677,12 @@ void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset) {
 	if (MouseRightButtonPressed) {
 		if (yoffset > 0 && CameraSpeed < 10.0f) CameraSpeed += 0.01f;
 		else if (yoffset < 0 && CameraSpeed > 0.01f) CameraSpeed -= 0.01f;
-
+		return;
+	}
+	
+	else if (EditVectorMode) {
+		if (yoffset > 0 && InputTangent < 81) InputTangent += 1;
+		else if (yoffset < 0 && InputTangent > -80) InputTangent -= 1;
 	}
 }	
 
@@ -906,6 +894,8 @@ void DrawMouseOverlay(GLFWwindow* window) {
 	ImGui::Begin("##MouseOverlay", nullptr, flags);
 
 	ImGui::Text("(%f, %f)", hit.x, hit.z);
+
+	ImGui::Text("Tangent: %d", InputTangent);
 
 	ImGui::End();
 	
