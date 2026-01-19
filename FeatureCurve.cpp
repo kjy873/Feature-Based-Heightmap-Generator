@@ -77,6 +77,43 @@ void FeatureCurve::UploadBufferLine(BufferManager& BufferMgr) {
 
 }
 
+void FeatureCurve::UpdateBoundingBox() {
+
+	BoundingBox.Valid = false;
+
+	if (ControlPoints.empty()) return;
+
+	float MinX{ 0.0f }, MinZ{ 0.0f }, MaxX{ 0.0f }, MaxZ{ 0.0f };
+	
+	for (const auto& cp : ControlPoints) {
+		const glm::vec3 p = cp.GetPosition();
+
+		MinX = std::min(MinX, p.x);
+		MinZ = std::min(MinZ, p.z);
+		MaxX = std::max(MaxX, p.x);
+		MaxZ = std::max(MaxZ, p.z);
+	}
+
+	BoundingBox.Min = glm::vec2(MinX, MinZ);
+	BoundingBox.Max = glm::vec2(MaxX, MaxZ);
+
+	BoundingBox.Valid = true;
+
+}
+
+void FeatureCurve::UpdateBoundingBox(const glm::vec3 Point) {
+	if (!BoundingBox.Valid) {
+		BoundingBox.Min = glm::vec2(Point.x, Point.z);
+		BoundingBox.Max = glm::vec2(Point.x, Point.z);
+		BoundingBox.Valid = true;
+		return;
+	}
+	BoundingBox.Min.x = std::min(BoundingBox.Min.x, Point.x);
+	BoundingBox.Min.y = std::min(BoundingBox.Min.y, Point.z);
+	BoundingBox.Max.x = std::max(BoundingBox.Max.x, Point.x);
+	BoundingBox.Max.y = std::max(BoundingBox.Max.y, Point.z);
+}
+
 void FeatureCurveManager::AddFeatureCurve() {
 
 	int NewId = CreateCurveID();
@@ -104,6 +141,17 @@ FeatureCurve* FeatureCurveManager::GetFeatureCurve(int id) {
 
 void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 
+	if (SelectedID == -1) {
+		for (const auto& Curve : FeatureCurves) {
+			if (Curve.PointInBoundingBox(Pos)) {
+				SelectedID = Curve.GetCurveID();
+				State = EditCurveState::P1;
+				std::cout << "Selected Curve ID: " << SelectedID << std::endl;
+				return;
+			}
+		}
+	}
+
 	if (FeatureCurves.empty() || SelectedID == -1) AddFeatureCurve();
 
 	FeatureCurve* Curve = GetFeatureCurve(SelectedID);
@@ -120,9 +168,10 @@ void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 		break;
 	}
 	case EditCurveState::P1: {
-		glm::vec3 NewPos = AppliedTangentPos(Curve->GetControlPoints().back().GetPosition(), Pos, Tangent);
-		std::cout << "P1 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
-		Curve->AddControlPoint(NewPos);
+		/*glm::vec3 NewPos = AppliedTangentPos(Curve->GetControlPoints().back().GetPosition(), Pos, Tangent);
+		std::cout << "P1 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;*/
+		Curve->AddControlPoint(Pos);
+		std::cout << "P1 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		State = EditCurveState::P3;
 		break;
 	}
@@ -133,12 +182,15 @@ void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 		break;
 	}
 	case EditCurveState::P2: {
-		glm::vec3 NewPos = AppliedTangentPos(Pended->GetPosition(), Pos, Tangent);
-		std::cout << "P2 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
-		Curve->AddControlPoint(NewPos);
+		/*glm::vec3 NewPos = AppliedTangentPos(Pended->GetPosition(), Pos, Tangent);
+		std::cout << "P2 Pos: " << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;*/
+		Curve->AddControlPoint(Pos);
+		std::cout << "P2 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		Curve->AddControlPoint(std::move(*Pended));
 		Pended.reset();
 		Curve->BuildLines();
+		UpdateAllBoundingBoxes();
+		std::cout << Curve->GetCurveID() << std::endl;
 		State = EditCurveState::P1;
 		break;
 
@@ -207,6 +259,7 @@ void FeatureCurveManager::RightClick() {
 
 	int Count = GetFeatureCurve(SelectedID)->GetControlPoints().size();
 
+
 	switch (State) {
 	case EditCurveState::P0:
 		break;
@@ -255,4 +308,8 @@ void FeatureCurveManager::RightClick() {
 		break;
 
 	}
+}
+
+bool FeatureCurveManager::FindCurvesByPoint(const glm::vec3 Pos) {
+	
 }

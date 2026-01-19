@@ -46,6 +46,8 @@ bool DrawRightPanel = true;
 
 bool DragMode = false;
 
+bool ControlPressed = false;
+
 int InputTangent = 0;
 
 bool WireFrame = false;
@@ -169,7 +171,9 @@ int main() {
     }
 
     // 뷰포트 설정
-    glViewport(0, 0, windowWidth, windowHeight);
+	int fbw, fbh;
+	glfwGetFramebufferSize(window, &fbw, &fbh);
+    glViewport(0, 0, fbw, fbh);
 
 	ShaderMgr.InitShader();
 
@@ -409,9 +413,6 @@ GLvoid drawScene() {
 
 	}
 
-
-
-
 	view = glm::lookAt(camera[0], camera[0] + CameraForward, camera[2]);
 
 	
@@ -579,6 +580,10 @@ GLvoid Keyboard(GLFWwindow* window) {
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+
+	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) ControlPressed = true;
+
+	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_RELEASE) ControlPressed = false;
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
@@ -595,8 +600,16 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		glfwGetCursorPos(window, &mgl.x, &mgl.y);
+
+		int ww, wh;
+		glfwGetWindowSize(window, &ww, &wh);
+
 		glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
-		mgl = transformMouseToGL(mgl.x+0.5, mgl.y+0.5, FrameBufferWidth, FrameBufferHeight);
+
+		double sx = mgl.x * (static_cast<double>(FrameBufferWidth) / static_cast<double>(ww));
+		double sy = mgl.y * (static_cast<double>(FrameBufferHeight) / static_cast<double>(wh));
+
+		mgl = transformMouseToGL(sx, sy, FrameBufferWidth, FrameBufferHeight);
 		glm::vec3 point = RayfromMouse(mgl, projection, view);
 		glm::vec3 ray = camera[0] + point * 500.0f;
 

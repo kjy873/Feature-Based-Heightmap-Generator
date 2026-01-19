@@ -9,6 +9,12 @@
 
 #include "BufferManager.h"
 
+struct AABBXZ {
+	glm::vec2 Min;
+	glm::vec2 Max;
+	bool Valid = false;
+};
+
 namespace FC {
 
 	class ControlPoint {
@@ -56,6 +62,8 @@ class FeatureCurve
 
 	bool LineDirty = false;
 
+	AABBXZ BoundingBox;
+
 
 
 	int SamplePerSegment = 64;
@@ -92,6 +100,18 @@ public:
 	void BuildLines();
 
 	LineMesh* GetLineMesh() const { return Line.get(); }
+
+	void UpdateBoundingBox();
+	void UpdateBoundingBox(const glm::vec3 Point);
+
+	AABBXZ GetBoundingBox() const { return BoundingBox; }
+
+	bool PointInBoundingBox(const glm::vec3 Pos) const {
+		if (!BoundingBox.Valid) return false;
+		return (Pos.x >= BoundingBox.Min.x && Pos.x <= BoundingBox.Max.x &&
+			Pos.z >= BoundingBox.Min.y && Pos.z <= BoundingBox.Max.y);
+	}
+
 
 };
 
@@ -146,5 +166,9 @@ public:
 	std::optional<FC::ControlPoint>& GetPendedControlPoint() { return Pended; }
 
 	bool SegmentComplete(int Count) const{ return (Count >= 4) && ((Count - 1) % 3 == 0); }
+
+	bool FindCurvesByPoint(const glm::vec3 Pos);
+
+	void UpdateAllBoundingBoxes() { for (auto& Curve : FeatureCurves) Curve.UpdateBoundingBox(); }
 
 };
