@@ -114,6 +114,39 @@ void FeatureCurve::UpdateBoundingBox(const glm::vec3 Point) {
 	BoundingBox.Max.y = std::max(BoundingBox.Max.y, Point.z);
 }
 
+float FeatureCurve::DistancePointToLine(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const {
+
+	glm::vec3 AB = LineEnd - LineStart;
+
+	glm::vec3 AP = Point - LineStart;
+
+	float t = glm::dot(AP, AB) / glm::dot(AB, AB);
+
+	t = glm::clamp(t, 0.0f, 1.0f);
+
+	glm::vec3 ClosestPoint = LineStart + t * AB;
+
+	return glm::dot(Point - ClosestPoint, Point - ClosestPoint);
+	
+}
+
+float FeatureCurve::NearestDistance(const glm::vec3 Point) {
+
+	if(Vertices.size() < 2) return std::numeric_limits<float>::infinity();
+
+	float Nearest = std::numeric_limits<float>::max();
+
+	for (int i = 0; i < Vertices.size() - 1; i++) {
+		float Distance = DistancePointToLine(Point, Vertices[i], Vertices[i + 1]);
+		if (Distance < Nearest) {
+			Nearest = Distance;
+		}
+	}
+
+	return Nearest;
+
+}
+
 void FeatureCurveManager::AddFeatureCurve() {
 
 	int NewId = CreateCurveID();
@@ -142,13 +175,26 @@ FeatureCurve* FeatureCurveManager::GetFeatureCurve(int id) {
 void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
 
 	if (SelectedID == -1) {
-		for (const auto& Curve : FeatureCurves) {
-			if (Curve.PointInBoundingBox(Pos)) {
-				SelectedID = Curve.GetCurveID();
-				State = EditCurveState::P1;
-				std::cout << "Selected Curve ID: " << SelectedID << std::endl;
-				return;
+
+		int NearestCurveID = -1;
+		float NearestDistance = std::numeric_limits<float>::max();
+
+		for (auto& Curve : FeatureCurves) {
+			if (!Curve.PointInBoundingBox(Pos)) continue;
+
+			float Distance = Curve.NearestDistance(Pos);
+
+			if (Distance < NearestDistance) {
+				NearestDistance = Distance;
+				NearestCurveID = Curve.GetCurveID();
 			}
+				
+		}
+		if ((NearestDistance <= 0.05 * 0.05f) && (NearestCurveID != -1)) {
+			SelectedID = NearestCurveID;
+			State = EditCurveState::Selected;
+			std::cout << "Selected Curve ID: " << SelectedID << std::endl;
+			return;
 		}
 	}
 

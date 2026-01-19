@@ -112,6 +112,10 @@ public:
 			Pos.z >= BoundingBox.Min.y && Pos.z <= BoundingBox.Max.y);
 	}
 
+	float DistancePointToLine(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const;
+
+	float NearestDistance(const glm::vec3 Point);
+
 
 };
 
@@ -120,7 +124,8 @@ enum class EditCurveState
 	P0,
 	P1,
 	P3,
-	P2
+	P2,
+	Selected
 
 };
 
