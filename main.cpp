@@ -651,14 +651,14 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 			glm::vec3 NodePos = glm::vec3(hit.x, 0.0f, hit.z);
 
 			if (ControlPressed) {
-				FeatureCurveMgr.LeftClick(NodePos, InputMode::Ctrl);
+				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Ctrl);
 
 				FeatureCurveMgr.UploadBuffers(BufferMgr);
 				FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
 
 			}
 			else {
-				FeatureCurveMgr.LeftClick(NodePos, InputMode::Default);
+				FeatureCurveMgr.Click(NodePos, InputButton::Right, InputMode::Default);
 			}
 
 			

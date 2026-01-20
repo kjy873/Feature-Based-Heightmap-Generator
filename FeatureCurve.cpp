@@ -153,7 +153,7 @@ void FeatureCurveManager::AddFeatureCurve() {
 	
 	FeatureCurves.emplace_back(FeatureCurve(NewId));
 	SelectedID = NewId;
-	State = EditCurveState::Selected;
+	State = EditCurveState::CurveSelected;
 
 
 }
@@ -173,7 +173,7 @@ FeatureCurve* FeatureCurveManager::GetFeatureCurve(int id) {
 
 }
 
-void FeatureCurveManager::LeftClick(const glm::vec3& Pos, InputMode Mode) {
+void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputMode Mode) {
 
 	PickResult Picked = Pick(Pos);
 
@@ -401,4 +401,57 @@ PickResult FeatureCurveManager::PickCurve(const glm::vec3& Pos) {
 
 	return Result;
 
+}
+
+Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCurveState State, PickResult Picked) {
+
+	const bool NonePicked = (Picked.Type == PickType::None);
+	const bool CurvePicked = (Picked.Type == PickType::Curve);
+	const bool ControlPointPicked = (Picked.Type == PickType::ControlPoint);
+
+	if (Button != InputButton::Left) return Decision::None;
+
+	// 선택/해제
+	if (Mode == InputMode::Default) {
+		if (State == EditCurveState::None) {
+			if (CurvePicked) return Decision::SelectCurve;
+			return Decision::None;
+		}
+
+		if (State == EditCurveState::CurveSelected) {
+			if (NonePicked) return Decision::Deselect;
+			if (CurvePicked) return Decision::SelectCurve;
+			if (ControlPointPicked) return Decision::SelectControlPoint;
+			return Decision::None;
+		}
+
+		return Decision::None;
+	}
+
+	if (Mode == InputMode::Ctrl) {
+		if (State == EditCurveState::None) {
+			if (NonePicked) return Decision::AddCurve;
+			if (CurvePicked) return Decision::SelectCurve;
+			if (ControlPointPicked) return Decision::SelectControlPoint;
+			return Decision::None;
+		}
+
+		if(State == EditCurveState::CurveSelected) {
+			if (NonePicked) return Decision::ExtendCurve;
+			if (CurvePicked) return Decision::SelectCurve; // 커브 위에 CP가 또 있어도 상관은 없으므로 ExtendCurve로 가도 됨
+			if (ControlPointPicked) return Decision::None;
+			
+			return Decision::None;
+
+		}
+
+		return Decision::None;
+	}
+
+	return Decision::None;
+
+}
+
+void FeatureCurveManager::Execute(Decision DecidedResult) {
+	// 구현 필요
 }

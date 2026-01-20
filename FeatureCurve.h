@@ -9,6 +9,12 @@
 
 #include "BufferManager.h"
 
+enum class InputButton
+{
+	Left,
+	Right
+};;
+
 enum class InputMode
 {
 	Default,
@@ -135,14 +141,28 @@ enum class EditCurveState
 	P1,
 	P3,
 	P2,
-	Selected,
+	CurveSelected,
 	None
 
 };
 
 enum class PickType { Curve, ControlPoint, None };
 
-enum class Decision { None };
+enum class Decision { 
+	None,
+	SelectCurve,
+	SelectControlPoint,
+	Deselect,
+	AddCurve,
+	ExtendCurve,
+	AddControlPoint,
+	CommitSegment,
+	Cancel,
+	DeleteSelectedControlPoint,
+	DeleteSelectedCurve
+
+
+};
 
 struct PickResult
 {
@@ -181,7 +201,7 @@ public:
 	void SelectCurve(int id) { SelectedID = id; }
 	int GetSelectedCurveID() const { return SelectedID; }
 
-	void LeftClick(const glm::vec3& Pos, InputMode Mode);
+	void Click(const glm::vec3& Pos, InputButton Button, InputMode Mode);
 	void RightClick();
 
 	void UploadBuffers(BufferManager& BufferMgr);
@@ -202,7 +222,7 @@ public:
 	PickResult PickControlPoint(const glm::vec3& Pos);
 	PickResult PickCurve(const glm::vec3& Pos);
 
-	Decision Decide();
-	void Execute();
+	Decision Decide(InputButton Button, InputMode Mode, EditCurveState State, PickResult Picked);
+	void Execute(Decision DecidedResult);
 
 };
