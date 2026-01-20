@@ -9,6 +9,13 @@
 
 #include "BufferManager.h"
 
+enum class InputMode
+{
+	Default,
+	Ctrl,
+	Shift
+};
+
 struct AABBXZ {
 	glm::vec2 Min;
 	glm::vec2 Max;
@@ -25,6 +32,8 @@ namespace FC {
 		//ControlPointVisualMesh* Mesh;
 
 		std::unique_ptr<ControlPointVisualMesh> Mesh;
+
+		float half = 0.005f;
 
 
 	public:
@@ -43,6 +52,7 @@ namespace FC {
 		ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
 
 		glm::vec3 GetPosition() const { return Position; }
+		float GetHalf() const { return half; }
 
 
 	};
@@ -112,9 +122,9 @@ public:
 			Pos.z >= BoundingBox.Min.y && Pos.z <= BoundingBox.Max.y);
 	}
 
-	float DistancePointToLine(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const;
+	float DistancePointToLineSq(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const;
 
-	float NearestDistance(const glm::vec3 Point);
+	float NearestDistanceSq(const glm::vec3 Point);
 
 
 };
@@ -125,8 +135,20 @@ enum class EditCurveState
 	P1,
 	P3,
 	P2,
-	Selected
+	Selected,
+	None
 
+};
+
+enum class PickType { Curve, ControlPoint, None };
+
+enum class Decision { None };
+
+struct PickResult
+{
+	PickType Type = PickType::None;
+	int CurveID = -1;
+	int ControlPointIndex = -1;
 };
 
 class FeatureCurveManager
@@ -137,9 +159,11 @@ class FeatureCurveManager
 
 	int NextCurveID = 0;
 
-	EditCurveState State = EditCurveState::P0;
+	EditCurveState State = EditCurveState::None;
 
 	std::optional<FC::ControlPoint> Pended;
+
+	float r = 0.05f;
 
 public:
 
@@ -157,7 +181,7 @@ public:
 	void SelectCurve(int id) { SelectedID = id; }
 	int GetSelectedCurveID() const { return SelectedID; }
 
-	void LeftClick(const glm::vec3& Pos, int Tangent);
+	void LeftClick(const glm::vec3& Pos, InputMode Mode);
 	void RightClick();
 
 	void UploadBuffers(BufferManager& BufferMgr);
@@ -172,8 +196,13 @@ public:
 
 	bool SegmentComplete(int Count) const{ return (Count >= 4) && ((Count - 1) % 3 == 0); }
 
-	bool FindCurvesByPoint(const glm::vec3 Pos);
-
 	void UpdateAllBoundingBoxes() { for (auto& Curve : FeatureCurves) Curve.UpdateBoundingBox(); }
+
+	PickResult Pick(const glm::vec3& Pos);
+	PickResult PickControlPoint(const glm::vec3& Pos);
+	PickResult PickCurve(const glm::vec3& Pos);
+
+	Decision Decide();
+	void Execute();
 
 };

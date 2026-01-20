@@ -2,7 +2,7 @@
 
 void FC::ControlPoint::SetMesh() {
 
-	Mesh->SetHexahedron(Position, 0.005f, glm::vec3(1.0f, 0.0f, 1.0f));
+	Mesh->SetHexahedron(Position, half, glm::vec3(1.0f, 0.0f, 1.0f));
 
 }
 	
@@ -114,7 +114,7 @@ void FeatureCurve::UpdateBoundingBox(const glm::vec3 Point) {
 	BoundingBox.Max.y = std::max(BoundingBox.Max.y, Point.z);
 }
 
-float FeatureCurve::DistancePointToLine(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const {
+float FeatureCurve::DistancePointToLineSq(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const {
 
 	glm::vec3 AB = LineEnd - LineStart;
 
@@ -130,14 +130,14 @@ float FeatureCurve::DistancePointToLine(const glm::vec3 Point, const glm::vec3 L
 	
 }
 
-float FeatureCurve::NearestDistance(const glm::vec3 Point) {
+float FeatureCurve::NearestDistanceSq(const glm::vec3 Point) {
 
 	if(Vertices.size() < 2) return std::numeric_limits<float>::infinity();
 
 	float Nearest = std::numeric_limits<float>::max();
 
 	for (int i = 0; i < Vertices.size() - 1; i++) {
-		float Distance = DistancePointToLine(Point, Vertices[i], Vertices[i + 1]);
+		float Distance = DistancePointToLineSq(Point, Vertices[i], Vertices[i + 1]);
 		if (Distance < Nearest) {
 			Nearest = Distance;
 		}
@@ -153,6 +153,7 @@ void FeatureCurveManager::AddFeatureCurve() {
 	
 	FeatureCurves.emplace_back(FeatureCurve(NewId));
 	SelectedID = NewId;
+	State = EditCurveState::Selected;
 
 
 }
@@ -172,30 +173,17 @@ FeatureCurve* FeatureCurveManager::GetFeatureCurve(int id) {
 
 }
 
-void FeatureCurveManager::LeftClick(const glm::vec3& Pos, int Tangent) {
+void FeatureCurveManager::LeftClick(const glm::vec3& Pos, InputMode Mode) {
 
-	if (SelectedID == -1) {
+	PickResult Picked = Pick(Pos);
 
-		int NearestCurveID = -1;
-		float NearestDistance = std::numeric_limits<float>::max();
+	if (Picked.Type == PickType::ControlPoint) std::cout << "Pick ControlPoint" << std::endl;
+	else if (Picked.Type == PickType::Curve) std::cout << "Pick Curve" << std::endl;
+	else std::cout << "Pick None" << std::endl;
 
-		for (auto& Curve : FeatureCurves) {
-			if (!Curve.PointInBoundingBox(Pos)) continue;
-
-			float Distance = Curve.NearestDistance(Pos);
-
-			if (Distance < NearestDistance) {
-				NearestDistance = Distance;
-				NearestCurveID = Curve.GetCurveID();
-			}
-				
-		}
-		if ((NearestDistance <= 0.05 * 0.05f) && (NearestCurveID != -1)) {
-			SelectedID = NearestCurveID;
-			State = EditCurveState::Selected;
-			std::cout << "Selected Curve ID: " << SelectedID << std::endl;
-			return;
-		}
+	if (State == EditCurveState::None && Mode == InputMode::Ctrl && Picked.Type == PickType::None) {
+		AddFeatureCurve();
+		// 컨트롤 포인트 1개 추가
 	}
 
 	if (FeatureCurves.empty() || SelectedID == -1) AddFeatureCurve();
@@ -356,6 +344,61 @@ void FeatureCurveManager::RightClick() {
 	}
 }
 
-bool FeatureCurveManager::FindCurvesByPoint(const glm::vec3 Pos) {
-	
+PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
+
+	PickResult Result = PickControlPoint(Pos);
+	if (Result.Type != PickType::None) return Result;
+
+	Result = PickCurve(Pos);
+	return Result;
+
+
+}
+
+PickResult FeatureCurveManager::PickControlPoint(const glm::vec3& Pos) {
+
+	PickResult Result;
+
+	for (const auto& Curve : FeatureCurves) {
+		const auto& CPs = Curve.GetControlPoints();
+		for (int i = 0; i < CPs.size(); i++) {
+			glm::vec3 PosCP = CPs[i].GetPosition();
+			if (Pos.x >= PosCP.x - CPs[i].GetHalf() && Pos.x <= PosCP.x + CPs[i].GetHalf() && Pos.z >= PosCP.z - CPs[i].GetHalf() && Pos.z <= PosCP.z + CPs[i].GetHalf()) {
+				Result.Type = PickType::ControlPoint;
+				Result.CurveID = Curve.GetCurveID();
+				Result.ControlPointIndex = i;
+				return Result;
+			}
+		}
+	}
+	return Result;
+}
+
+PickResult FeatureCurveManager::PickCurve(const glm::vec3& Pos) {
+
+	PickResult Result;
+
+	int NearestCurveID = -1;
+	float NearestDistance = std::numeric_limits<float>::max();
+
+	for (auto& Curve : FeatureCurves) {
+		if (!Curve.PointInBoundingBox(Pos)) continue;
+
+		float Distance = Curve.NearestDistanceSq(Pos);
+
+		if (Distance < NearestDistance) {
+			NearestDistance = Distance;
+			NearestCurveID = Curve.GetCurveID();
+		}
+
+	}
+	if ((NearestDistance <= r * r) && (NearestCurveID != -1)) {
+
+		Result.Type = PickType::Curve;
+		Result.CurveID = NearestCurveID;
+		return Result;
+	}
+
+	return Result;
+
 }
