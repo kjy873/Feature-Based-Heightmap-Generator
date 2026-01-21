@@ -34,8 +34,8 @@ double LastMouseY = 0.0;
 
 bool ControlPointRender = true;
 
-double windowWidth = 1920;
-double windowHeight = 1080;
+double windowWidth = 1280;
+double windowHeight = 720;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
@@ -84,7 +84,6 @@ vector<vector<glm::vec3>> controlPoints;
 vector<vector<glm::vec3>> controlPoints_initial;
 vector<Shape> ControlLines;
 vector<glm::vec3> VerticesForControlLines;
-vector<ConstraintPoint> constraintPoints;
 vector<Shape> rectangles;						// render surface rectangles
 vector<ControlPointVisualMesh> v_ControlPoints;				// render control points
 ControlPointVisualMesh* PickedControlPoint{ NULL };	// picked control point
@@ -203,6 +202,7 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         // 입력 처리 (예: ESC 키)
 		Keyboard(window);
+		if (ControlPressed && EditVectorMode) HoveringWithCtrlInEditVector(window);
 		if(MouseRightButtonPressed)MouseMoveRightButton(window);
         // 렌더링
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -368,7 +368,7 @@ GLvoid drawScene() {
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
-
+	if (EditVectorMode && ControlPressed) RenderMgr.Draw(*FeatureCurveMgr.GetHoveringControlPoint().GetMesh());
 
 	for (auto& fc : FeatureCurveMgr.GetCurves()) {
 
@@ -658,7 +658,7 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 
 			}
 			else {
-				FeatureCurveMgr.Click(NodePos, InputButton::Right, InputMode::Default);
+				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Default);
 			}
 
 			
@@ -681,7 +681,7 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		}
 
 		else if (EditVectorMode) {
-			FeatureCurveMgr.RightClick();
+			FeatureCurveMgr.Click(glm::vec3(0.0f, 0.0f, 0.0f), InputButton::Right, InputMode::Default);
 		}
 	}
 	if( button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
@@ -715,6 +715,43 @@ void MouseMoveRightButton(GLFWwindow* window) {
 	CameraRight = glm::normalize(glm::cross(CameraForward, camera[2]));
 
 	preMousePosition = mgl;
+}
+
+void HoveringWithCtrlInEditVector(GLFWwindow* window){
+
+	if (FeatureCurveMgr.GetHoverDirty()) {
+		ControlPointVisualMesh* HoveringMesh = FeatureCurveMgr.GetHoveringControlPoint().GetMesh();
+		HoveringMesh->SetMeshID(BufferMgr.CreateMeshID());
+		BufferMgr.CreateBufferData(HoveringMesh->GetMeshID(), true);
+		BufferMgr.BindVertexBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetPosition().data(), HoveringMesh->GetPosition().size(),
+			HoveringMesh->GetColor().data(), HoveringMesh->GetColor().size(), nullptr, 0);
+		BufferMgr.BindElementBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetIndex().data(), HoveringMesh->GetIndex().size());
+		FeatureCurveMgr.SetHoverDirty(false);
+	}
+
+	glfwGetCursorPos(window, &mgl.x, &mgl.y);
+
+	int ww, wh;
+	glfwGetWindowSize(window, &ww, &wh);
+
+	glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
+
+	double sx = mgl.x * (static_cast<double>(FrameBufferWidth) / static_cast<double>(ww));
+	double sy = mgl.y * (static_cast<double>(FrameBufferHeight) / static_cast<double>(wh));
+
+	mgl = transformMouseToGL(sx, sy, FrameBufferWidth, FrameBufferHeight);
+	glm::vec3 point = RayfromMouse(mgl, projection, view);
+	glm::vec3 ray = camera[0] + point * 500.0f;
+
+	float t;
+
+	glm::vec3 dir = ray - camera[0];
+	t = -camera[0].y / dir.y;
+	glm::vec3 hit = camera[0] + dir * t;
+
+	glm::vec3 Pos = glm::vec3(hit.x, 0.0f, hit.z);
+
+	FeatureCurveMgr.HoverPressedCtrl(Pos);
 }
 
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {

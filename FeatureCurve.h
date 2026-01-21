@@ -9,6 +9,39 @@
 
 #include "BufferManager.h"
 
+enum class ConstraintMask
+{
+	None = 0,
+	Elevation = 1 << 0,
+	Gradient = 1 << 1,
+	Noise = 1 << 2,
+};
+
+struct ConstraintPoint
+{
+
+	int ID;
+
+	bool Cached = false;
+	glm::vec3 CachedPos; // FeatureCurve에서 u->position 변환 함수를 만들 것. 필요 시 여기서 캐싱 
+
+	float h = 0.0f;
+	float r = 0.0f;
+
+	float a = 0.0f;
+	float b = 0.0f;
+	float theta = 0.0f;
+	float phi = 0.0f;
+	
+	float Amplitude = 0.0f;
+	float Roughness = 0.0f;
+
+	float u = 0.0f;
+	
+	ConstraintMask Mask = ConstraintMask::None;
+
+};
+
 enum class InputButton
 {
 	Left,
@@ -44,7 +77,7 @@ namespace FC {
 
 	public:
 
-		ControlPoint() : Position(glm::vec3(0.0f)), Mesh(nullptr) {}
+		ControlPoint() : Position(glm::vec3(0.0f)), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 		ControlPoint(glm::vec3 pos) : Position(pos), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 		~ControlPoint() = default;
 
@@ -55,6 +88,7 @@ namespace FC {
 		ControlPoint& operator=(ControlPoint&&) noexcept = default;
 
 		void SetMesh();
+		void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
 		ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
 
 		glm::vec3 GetPosition() const { return Position; }
@@ -185,9 +219,14 @@ class FeatureCurveManager
 
 	float r = 0.05f;
 
+	int CommittedSegments = 0;
+
+	FC::ControlPoint HoveringControlPoint = FC::ControlPoint(glm::vec3(0.0f, 0.0f, 0.0f));
+	bool HoverIsDirty = false;
+
 public:
 
-	FeatureCurveManager() {}
+	FeatureCurveManager() { HoveringControlPoint.SetMesh(); HoverIsDirty = true; }
 	~FeatureCurveManager() {}
 
 	void AddFeatureCurve();
@@ -230,8 +269,14 @@ public:
 	void AddControlPoint(const glm::vec3& Pos);
 
 	void PrintState() const;
+	void PrintDecision(const Decision& Decision) const;
 
 	void DeselectCurve();
-	void CancelCreatingControlPoint();
+	void Cancel();
+
+	void HoverPressedCtrl(const glm::vec3& Pos);
+	bool GetHoverDirty() { return HoverIsDirty; }
+	void SetHoverDirty(bool Dirty) { HoverIsDirty = Dirty; }
+	const FC::ControlPoint& GetHoveringControlPoint() const { return HoveringControlPoint; }
 
 };

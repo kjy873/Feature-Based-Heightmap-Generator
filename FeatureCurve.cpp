@@ -171,7 +171,48 @@ void FeatureCurveManager::PrintState() const {
 	}
 }
 
+void FeatureCurveManager::PrintDecision(const Decision& Decision) const {
 
+	switch (Decision) {
+	case Decision::SelectCurve:
+		std::cout << "Decision: SelectCurve" << std::endl;
+		break;
+	case Decision::SelectControlPoint:
+		std::cout << "Decision: SelectControlPoint" << std::endl;
+		break;
+	case Decision::Deselect:
+		std::cout << "Decision: Deselect" << std::endl;
+		break;
+	case Decision::AddCurve:
+		std::cout << "Decision: AddCurve" << std::endl;
+		break;
+	case Decision::ExtendCurve:
+		std::cout << "Decision: ExtendCurve" << std::endl;
+		break;
+	case Decision::AddControlPoint:
+		std::cout << "Decision: AddControlPoint" << std::endl;
+		break;
+	case Decision::CommitSegment:
+		std::cout << "Decision: CommitSegment" << std::endl;
+		break;
+	case Decision::Cancel:
+		std::cout << "Decision: Cancel" << std::endl;
+		break;
+	case Decision::DeleteSelectedControlPoint:
+		std::cout << "Decision: DeleteSelectedControlPoint" << std::endl;
+		break;
+	case Decision::DeleteSelectedCurve:
+		std::cout << "Decision: DeleteSelectedCurve" << std::endl;
+		break;
+	case Decision::None:
+		std::cout << "Decision: None" << std::endl;
+		break;
+	default:
+		break;
+	}
+
+
+}
 
 int FeatureCurveManager::GetRemainder(FeatureCurve* Curve) const {
 	const int n = static_cast<int>(Curve->GetControlPoints().size());
@@ -190,7 +231,9 @@ FeatureCurve* FeatureCurveManager::GetFeatureCurve(int id) {
 
 void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputMode Mode) {
 
+	std::cout << "Previous State: ";
 	PrintState();
+	std::cout << std::endl;
 
 	PickResult Picked = Pick(Pos);
 
@@ -200,7 +243,15 @@ void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputM
 
 	Decision Dec = Decide(Button, Mode, State, Picked);
 
+	std::cout << "Decided Result: ";
+	PrintDecision(Dec);
+	std::cout << std::endl;
+
 	Execute(Dec, Picked, Pos);
+
+	std::cout << "Next State: ";
+	PrintState();
+	std::cout << std::endl;
 	
 
 }
@@ -259,59 +310,7 @@ void FeatureCurveManager::UploadPendedBuffer(BufferManager& BufferMgr) {
 
 void FeatureCurveManager::RightClick() {
 
-	if (SelectedID == -1) return;
-
-	int Count = GetFeatureCurve(SelectedID)->GetControlPoints().size();
-
-
-	switch (State) {
-	case EditCurveState::P0:
-		break;
-	case EditCurveState::P1:
-		if (Count >= 4) {
-			Pended.reset();
-			SelectedID = -1;
-			State = EditCurveState::P0;
-		}
-		else {
-			FeatureCurves.pop_back();
-			Pended.reset();
-			SelectedID = -1;
-			State = EditCurveState::P0;
-		}
-		break;
-
-	case EditCurveState::P3:
-		if (Count >= 4) {
-			GetFeatureCurve(SelectedID)->PopBack();
-			Pended.reset();
-			SelectedID = -1;
-			State = EditCurveState::P0;
-		}
-		else {
-			FeatureCurves.pop_back();
-			Pended.reset();
-			SelectedID = -1;
-			State = EditCurveState::P0;
-		}
-		break;
-
-	case EditCurveState::P2:
-		if (Count >= 4) {
-			GetFeatureCurve(SelectedID)->PopBack();
-			Pended.reset();
-			SelectedID = -1;
-			State = EditCurveState::P0;
-		}
-		else {
-			FeatureCurves.pop_back();
-			Pended.reset();
-			SelectedID = -1;
-			State = EditCurveState::P0;
-		}
-		break;
-
-	}
+	
 }
 
 PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
@@ -379,7 +378,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 	const bool CurvePicked = (Picked.Type == PickType::Curve);
 	const bool ControlPointPicked = (Picked.Type == PickType::ControlPoint);
 
-	if (Button != InputButton::Left) return Decision::None;
+	std::cout << "Curve Pick(" << CurvePicked << ")" << std::endl;
 
 	switch (State) {
 	case EditCurveState::P0:
@@ -387,12 +386,12 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 	case EditCurveState::P2:
 	case EditCurveState::P3:
 		if (Button == InputButton::Left) return Decision::AddControlPoint;
-		if (Button == InputButton::Right); // 추가
+		if (Button == InputButton::Right) return Decision::Cancel;
 		return Decision::None;
 		break;
 
 	case EditCurveState::CurveSelected:
-		if (Button == InputButton::Right); // 추가
+		if (Button == InputButton::Right) return Decision::Deselect;
 		if (Button != InputButton::Left) return Decision::None;
 
 		if (Mode == InputMode::Ctrl) return Decision::ExtendCurve;
@@ -454,7 +453,11 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 		break;
 
 	case Decision::Cancel:
+		Cancel();
+		break;
 	case Decision::Deselect:
+		DeselectCurve();
+		break;
 	case Decision::DeleteSelectedControlPoint:
 	case Decision::DeleteSelectedCurve:
 	case Decision::SelectControlPoint:
@@ -491,8 +494,6 @@ void FeatureCurveManager::AddFeatureCurve() {
 
 void FeatureCurveManager::ExtendCurve(const PickResult& Picked) {
 
-	SelectedID = Picked.CurveID;
-
 	State = EditCurveState::P1;
 }
 
@@ -527,6 +528,7 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 		Curve->AddControlPoint(Pos);
 		std::cout << "P2 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		Curve->AddControlPoint(std::move(*Pended));
+		CommittedSegments++;
 		Pended.reset();
 		Curve->BuildLines();
 		UpdateAllBoundingBoxes();
@@ -547,6 +549,59 @@ void FeatureCurveManager::DeselectCurve() {
 	State = EditCurveState::None;
 }
 
-void FeatureCurveManager::CancelCreatingControlPoint() {
-	Pended.reset();
+void FeatureCurveManager::Cancel() {
+
+	if (SelectedID == -1) return;
+
+	int Count = GetFeatureCurve(SelectedID)->GetControlPoints().size();
+
+	switch (State) {
+	case EditCurveState::P0:
+		break;
+	case EditCurveState::P1:
+		if (CommittedSegments > 0) {
+			Pended.reset();
+			State = EditCurveState::CurveSelected;
+		}
+		else {
+			FeatureCurves.pop_back();
+			Pended.reset();
+			State = EditCurveState::CurveSelected;
+		}
+		break;
+
+	case EditCurveState::P3:
+		if (CommittedSegments > 0) {
+			GetFeatureCurve(SelectedID)->PopBack();
+			Pended.reset();
+			State = EditCurveState::CurveSelected;
+		}
+		else {
+			FeatureCurves.pop_back();
+			Pended.reset();
+			State = EditCurveState::CurveSelected;
+		}
+		break;
+
+	case EditCurveState::P2:
+		if (CommittedSegments > 0) {
+			GetFeatureCurve(SelectedID)->PopBack();
+			Pended.reset();
+			State = EditCurveState::CurveSelected;
+		}
+		else {
+			FeatureCurves.pop_back();
+			Pended.reset();
+			State = EditCurveState::CurveSelected;
+		}
+		break;
+
+	}
+
+}
+
+void FeatureCurveManager::HoverPressedCtrl(const glm::vec3& Pos) {
+
+	HoveringControlPoint.GetMesh()->Translate(Pos);
+	
 }

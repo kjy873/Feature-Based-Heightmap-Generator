@@ -88,6 +88,8 @@ public:
 	const GLenum GetDrawMode() const { return DrawMode; }
 	const int GetVertexCount() const { return vertices; }
 
+	void Translate(const glm::vec3& t) { TSR = glm::translate(glm::mat4(1.0f), t); }
+
 
 	//void SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c);
 

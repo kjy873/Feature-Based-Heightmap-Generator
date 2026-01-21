@@ -58,21 +58,6 @@ enum class ToolType {
 	confirm
 };
 
-// Constraint point
-struct ConstraintPoint {
-	uint8_t flag;
-	float h, r, a, b, alpha, beta, u, A, R;
-	enum Flag {
-		HAS_H = 1 << 0,
-		HAS_R = 1 << 1,
-		HAS_A = 1 << 2,
-		HAS_B = 1 << 3,
-		HAS_ALPHA = 1 << 4,
-		HAS_BETA = 1 << 5,
-		HAS_AMPLITUDE = 1 << 6,
-		HAS_RESPONSE = 1 << 7
-	};
-};
 
 // shape struct
 struct Shape {
@@ -82,7 +67,6 @@ struct Shape {
 	vector<glm::vec3> color;										// vertex colors
 	int vertices = 0;												// number of vertices
 	glm::mat4 TSR = glm::mat4(1.0f);								// transform matrix
-	vector<ConstraintPoint> CP;										// constraint points
 
 	// 시각화된 제어점(hexahedron)에만 사용되는 변수들
 	glm::vec3* linkedPosition = nullptr;
@@ -479,6 +463,7 @@ void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset);
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods);
 void MouseMoveRightButton(GLFWwindow* window);
+void HoveringWithCtrlInEditVector(GLFWwindow* window);
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos);
 
 void DrawPanel();
