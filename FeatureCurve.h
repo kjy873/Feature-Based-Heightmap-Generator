@@ -222,7 +222,16 @@ public:
 	PickResult PickControlPoint(const glm::vec3& Pos);
 	PickResult PickCurve(const glm::vec3& Pos);
 
-	Decision Decide(InputButton Button, InputMode Mode, EditCurveState State, PickResult Picked);
-	void Execute(Decision DecidedResult);
+	Decision Decide(InputButton Button, InputMode Mode, EditCurveState State, const PickResult& Picked);
+	void Execute(Decision DecidedResult, const PickResult& Picked, const glm::vec3& Pos);
+
+	void SelectCurve(const PickResult& Picked);
+	void ExtendCurve(const PickResult& Picked);
+	void AddControlPoint(const glm::vec3& Pos);
+
+	void PrintState() const;
+
+	void DeselectCurve();
+	void CancelCreatingControlPoint();
 
 };
