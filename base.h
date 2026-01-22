@@ -464,6 +464,7 @@ void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset);
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods);
 void MouseMoveRightButton(GLFWwindow* window);
 void HoveringWithCtrlInEditVector(GLFWwindow* window);
+void HoveringWithShiftInEditVector(GLFWwindow* window);
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos);
 
 void DrawPanel();

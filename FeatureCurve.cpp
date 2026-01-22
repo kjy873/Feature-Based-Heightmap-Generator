@@ -7,14 +7,12 @@ void FC::ControlPoint::SetMesh() {
 }
 	
 void FeatureCurve::AddControlPoint(const glm::vec3& pos) {
-	
-	const int Index = ControlPoints.size();
 
 	FC::ControlPoint cp(pos);
 
 	cp.SetMesh();
 
-	ControlPoints.push_back(std::move(cp));
+	ControlPoints.emplace_back(std::move(cp));
 
 }
 
@@ -145,6 +143,12 @@ float FeatureCurve::NearestDistanceSq(const glm::vec3 Point) {
 
 	return Nearest;
 
+}
+
+void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos) {
+		
+	ConstraintPoints.emplace_back(Pos);
+	
 }
 
 void FeatureCurveManager::PrintState() const {
@@ -604,4 +608,9 @@ void FeatureCurveManager::HoverPressedCtrl(const glm::vec3& Pos) {
 
 	HoveringControlPoint.GetMesh()->Translate(Pos);
 	
+}
+
+void FeatureCurveManager::HoverPressedShift(const glm::vec3& Pos) {
+
+	HoveringControlPoint.GetMesh()->Translate(Pos);
 }

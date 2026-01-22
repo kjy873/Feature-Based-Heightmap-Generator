@@ -47,6 +47,7 @@ bool DrawRightPanel = true;
 bool DragMode = false;
 
 bool ControlPressed = false;
+bool ShiftPressed = false;
 
 int InputTangent = 0;
 
@@ -368,7 +369,10 @@ GLvoid drawScene() {
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
-	if (EditVectorMode && ControlPressed) RenderMgr.Draw(*FeatureCurveMgr.GetHoveringControlPoint().GetMesh());
+	if (EditVectorMode) {
+		if (ControlPressed) RenderMgr.Draw(*FeatureCurveMgr.GetHoveringControlPoint().GetMesh());
+		else if (ShiftPressed) RenderMgr.Draw(*FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh());
+	}
 
 	for (auto& fc : FeatureCurveMgr.GetCurves()) {
 
@@ -582,8 +586,10 @@ GLvoid Keyboard(GLFWwindow* window) {
 		glfwSetWindowShouldClose(window, true);
 
 	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) ControlPressed = true;
-
 	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_RELEASE) ControlPressed = false;
+
+	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) ShiftPressed = true;
+	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) ShiftPressed = false;
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
@@ -657,11 +663,14 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 				FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
 
 			}
+			
+			else if (ShiftPressed) {
+				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Shift);
+			}
+			
 			else {
 				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Default);
 			}
-
-			
 
 		}
 
@@ -719,14 +728,14 @@ void MouseMoveRightButton(GLFWwindow* window) {
 
 void HoveringWithCtrlInEditVector(GLFWwindow* window){
 
-	if (FeatureCurveMgr.GetHoverDirty()) {
+	if (FeatureCurveMgr.GetHoveringControlPointDirty()) {
 		ControlPointVisualMesh* HoveringMesh = FeatureCurveMgr.GetHoveringControlPoint().GetMesh();
 		HoveringMesh->SetMeshID(BufferMgr.CreateMeshID());
 		BufferMgr.CreateBufferData(HoveringMesh->GetMeshID(), true);
 		BufferMgr.BindVertexBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetPosition().data(), HoveringMesh->GetPosition().size(),
 			HoveringMesh->GetColor().data(), HoveringMesh->GetColor().size(), nullptr, 0);
 		BufferMgr.BindElementBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetIndex().data(), HoveringMesh->GetIndex().size());
-		FeatureCurveMgr.SetHoverDirty(false);
+		FeatureCurveMgr.SetHoveringControlPointDirty(false);
 	}
 
 	glfwGetCursorPos(window, &mgl.x, &mgl.y);
@@ -752,6 +761,46 @@ void HoveringWithCtrlInEditVector(GLFWwindow* window){
 	glm::vec3 Pos = glm::vec3(hit.x, 0.0f, hit.z);
 
 	FeatureCurveMgr.HoverPressedCtrl(Pos);
+}
+
+void HoveringWithShiftInEditVector(GLFWwindow* window) {
+
+	if (FeatureCurveMgr.GetHoveringConstraintPointDirty()) {
+		ControlPointVisualMesh* HoveringMesh = FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh();
+		
+		HoveringMesh->SetMeshID(BufferMgr.CreateMeshID());
+		//std::cout << HoveringMesh->GetMeshID() << std::endl;
+		BufferMgr.CreateBufferData(HoveringMesh->GetMeshID(), true);
+		BufferMgr.BindVertexBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetPosition().data(), HoveringMesh->GetPosition().size(),
+			HoveringMesh->GetColor().data(), HoveringMesh->GetColor().size(), nullptr, 0);
+		BufferMgr.BindElementBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetIndex().data(), HoveringMesh->GetIndex().size());
+		FeatureCurveMgr.SetHoveringConstraintPointDirty(false);
+	}
+
+	glfwGetCursorPos(window, &mgl.x, &mgl.y);
+
+	int ww, wh;
+	glfwGetWindowSize(window, &ww, &wh);
+
+	glfwGetFramebufferSize(window, &FrameBufferWidth, &FrameBufferHeight);
+
+	double sx = mgl.x * (static_cast<double>(FrameBufferWidth) / static_cast<double>(ww));
+	double sy = mgl.y * (static_cast<double>(FrameBufferHeight) / static_cast<double>(wh));
+
+	mgl = transformMouseToGL(sx, sy, FrameBufferWidth, FrameBufferHeight);
+	glm::vec3 point = RayfromMouse(mgl, projection, view);
+	glm::vec3 ray = camera[0] + point * 500.0f;
+
+	float t;
+
+	glm::vec3 dir = ray - camera[0];
+	t = -camera[0].y / dir.y;
+	glm::vec3 hit = camera[0] + dir * t;
+
+	glm::vec3 Pos = glm::vec3(hit.x, 0.0f, hit.z);
+
+	FeatureCurveMgr.HoverPressedShift(Pos);
+
 }
 
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {

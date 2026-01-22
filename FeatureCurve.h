@@ -20,10 +20,12 @@ enum class ConstraintMask
 struct ConstraintPoint
 {
 
-	int ID;
+	int ID = 0;
+
+	bool StartEndPoint = false; // 시작점, 끝점 여부
 
 	bool Cached = false;
-	glm::vec3 CachedPos; // FeatureCurve에서 u->position 변환 함수를 만들 것. 필요 시 여기서 캐싱 
+	glm::vec3 CachedPos = glm::vec3(0.0f, 0.0f, 0.0f); // FeatureCurve에서 u->position 변환 함수를 만들 것. 필요 시 여기서 캐싱 
 
 	float h = 0.0f;
 	float r = 0.0f;
@@ -39,6 +41,20 @@ struct ConstraintPoint
 	float u = 0.0f;
 	
 	ConstraintMask Mask = ConstraintMask::None;
+
+	std::unique_ptr<ControlPointVisualMesh> Mesh;
+
+	bool Uploaded = false;
+
+	float half = 0.002f;
+
+	ConstraintPoint() : Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
+	ConstraintPoint(const glm::vec3& Pos) : CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
+
+	void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
+	void SetMesh() { Mesh.get()->SetHexahedron(CachedPos, half, glm::vec3(0.0f, 0.0f, 1.0f)); }
+
+	ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
 
 };
 
@@ -66,9 +82,6 @@ namespace FC {
 	class ControlPoint {
 
 		glm::vec3 Position;
-
-
-		//ControlPointVisualMesh* Mesh;
 
 		std::unique_ptr<ControlPointVisualMesh> Mesh;
 
@@ -113,6 +126,8 @@ class FeatureCurve
 	bool LineDirty = false;
 
 	AABBXZ BoundingBox;
+
+	std::vector<ConstraintPoint> ConstraintPoints;
 
 
 
@@ -165,6 +180,8 @@ public:
 	float DistancePointToLineSq(const glm::vec3 Point, const glm::vec3 LineStart, const glm::vec3 LineEnd) const;
 
 	float NearestDistanceSq(const glm::vec3 Point);
+
+	void AddConstraintPoint(const glm::vec3 Pos);
 
 
 };
@@ -224,9 +241,18 @@ class FeatureCurveManager
 	FC::ControlPoint HoveringControlPoint = FC::ControlPoint(glm::vec3(0.0f, 0.0f, 0.0f));
 	bool HoverIsDirty = false;
 
+	ConstraintPoint HoveringConstraintPoint = ConstraintPoint();
+
 public:
 
-	FeatureCurveManager() { HoveringControlPoint.SetMesh(); HoverIsDirty = true; }
+	FeatureCurveManager() { 
+		HoveringControlPoint.SetMesh(); 
+		HoverIsDirty = true; 
+
+		HoveringConstraintPoint.CreateMesh();
+		HoveringConstraintPoint.SetMesh();
+		HoveringConstraintPoint.Cached = true;
+	}
 	~FeatureCurveManager() {}
 
 	void AddFeatureCurve();
@@ -275,8 +301,13 @@ public:
 	void Cancel();
 
 	void HoverPressedCtrl(const glm::vec3& Pos);
-	bool GetHoverDirty() { return HoverIsDirty; }
-	void SetHoverDirty(bool Dirty) { HoverIsDirty = Dirty; }
+	bool GetHoveringControlPointDirty() { return HoverIsDirty; }
+	void SetHoveringControlPointDirty(bool Dirty) { HoverIsDirty = Dirty; }
 	const FC::ControlPoint& GetHoveringControlPoint() const { return HoveringControlPoint; }
+
+	void HoverPressedShift(const glm::vec3& Pos);
+	bool GetHoveringConstraintPointDirty() { return HoveringConstraintPoint.Uploaded == false; }
+	void SetHoveringConstraintPointDirty(bool Dirty) { HoveringConstraintPoint.Uploaded = !Dirty; }
+	const ConstraintPoint& GetHoveringConstraintPoint() const { return HoveringConstraintPoint; }
 
 };
