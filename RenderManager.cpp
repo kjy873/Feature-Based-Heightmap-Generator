@@ -1,12 +1,13 @@
 #include "RenderManager.h"
 
 
-void RenderManager::Init(const char* view, const char* proj, const char* model, const char* light) {
+void RenderManager::Init(const char* view, const char* proj, const char* model, const char* light, const char* HighlightWeight) {
 
 	ViewLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), view);
 	ProjLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), proj);
 	ModelLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), model);
 	LightLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), light);
+	HighlightWeightLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), HighlightWeight);
 
 }
 

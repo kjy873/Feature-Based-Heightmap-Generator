@@ -32,10 +32,12 @@ void FeatureCurve::UploadBuffer(BufferManager& BufferMgr) {
 
 void FeatureCurve::BuildLines() {
 
-	Vertices.clear();
+	SamplePoints.clear();
 
 	int Count = ControlPoints.size();
 	if (Count < 4 || (Count - 1) % 3 != 0) return;
+
+	int SegmentCount = (Count - 1) / 3;
 
 	for (int i = 0; i + 3 < Count; i += 3) {
 		const glm::vec3& P0 = ControlPoints[i].GetPosition();
@@ -45,10 +47,15 @@ void FeatureCurve::BuildLines() {
 
 		int SamplingStart = (i == 0) ? 0 : 1;
 
+		int seg = i / 3;
+
 		for (int j = SamplingStart; j <= SamplePerSegment; j++) {
 			float t = (float)j / (float)SamplePerSegment;
 
-			Vertices.push_back(BezierCubic(P0, P1, P2, P3, t));
+			glm::vec3 Pos = BezierCubic(P0, P1, P2, P3, t);
+			float u = (seg + t) / (float)SegmentCount;
+
+			SamplePoints.emplace_back(Pos, u);
 		}
 	}
 
@@ -56,16 +63,22 @@ void FeatureCurve::BuildLines() {
 }
 
 void FeatureCurve::UploadBufferLine(BufferManager& BufferMgr) {
-	if (Vertices.empty()) return;
+	if (SamplePoints.empty()) return;
 	if (!LineDirty) return;
 
 	if (!Line) {
-		Line = std::make_unique<LineMesh>(Vertices.size());
+		Line = std::make_unique<LineMesh>(SamplePoints.size());
 		Line->SetMeshID(BufferMgr.CreateMeshID());
 		BufferMgr.CreateBufferData(Line->GetMeshID(), false);
 	}
 
-	Line->SetLines(Vertices, glm::vec3(1.0f, 1.0f, 1.0f));
+	std::vector<glm::vec3> Positions;
+
+	for (const auto& sp : SamplePoints) {
+		Positions.emplace_back(sp.Position);
+	}
+
+	Line->SetLines(Positions, glm::vec3(1.0f, 1.0f, 1.0f));
 
 	BufferMgr.BindVertexBufferObjectByID(Line->GetMeshID(), Line->GetPosition().data(), Line->GetPosition().size(),
 		Line->GetColor().data(), Line->GetColor().size(),
@@ -130,12 +143,12 @@ float FeatureCurve::DistancePointToLineSq(const glm::vec3 Point, const glm::vec3
 
 float FeatureCurve::NearestDistanceSq(const glm::vec3 Point) {
 
-	if(Vertices.size() < 2) return std::numeric_limits<float>::infinity();
+	if(SamplePoints.size() < 2) return std::numeric_limits<float>::infinity();
 
 	float Nearest = std::numeric_limits<float>::max();
 
-	for (int i = 0; i < Vertices.size() - 1; i++) {
-		float Distance = DistancePointToLineSq(Point, Vertices[i], Vertices[i + 1]);
+	for (int i = 0; i < SamplePoints.size() - 1; i++) {
+		float Distance = DistancePointToLineSq(Point, SamplePoints[i].Position, SamplePoints[i + 1].Position);
 		if (Distance < Nearest) {
 			Nearest = Distance;
 		}
@@ -149,6 +162,26 @@ void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos) {
 		
 	ConstraintPoints.emplace_back(Pos);
 	
+}
+
+int FeatureCurve::FindNearestCurvePoint(const glm::vec3 Pos) {
+
+	int BestIndex = -1;
+	float NearestDistSq = std::numeric_limits<float>::max();
+
+	for (int i = 0; i < SamplePoints.size(); i++) {
+		glm::vec3 a = SamplePoints[i].Position;
+		glm::vec3 b = Pos;
+		float DistSq = glm::dot(a - b, a - b);
+
+		if (DistSq < NearestDistSq) {
+			NearestDistSq = DistSq;
+			BestIndex = i;
+		}
+	}
+
+	return BestIndex;
+
 }
 
 void FeatureCurveManager::PrintState() const {
@@ -376,6 +409,18 @@ PickResult FeatureCurveManager::PickCurve(const glm::vec3& Pos) {
 
 }
 
+int FeatureCurveManager::FindNearestCurvePointInSelecting(const glm::vec3& Pos) {
+
+	if (SelectedID == -1) return -1;
+	if (State != EditCurveState::CurveSelected) return -1;
+
+	FeatureCurve* Curve = GetFeatureCurve(SelectedID);
+	int Index = Curve->FindNearestCurvePoint(Pos);
+
+	return Index;
+
+}
+
 Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCurveState State, const PickResult& Picked) {
 
 	const bool NonePicked = (Picked.Type == PickType::None);
@@ -389,7 +434,10 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 	case EditCurveState::P1:
 	case EditCurveState::P2:
 	case EditCurveState::P3:
-		if (Button == InputButton::Left) return Decision::AddControlPoint;
+		if (Button == InputButton::Left) {
+			if (Mode != InputMode::Ctrl) return Decision::Cancel;
+			return Decision::AddControlPoint;
+		}
 		if (Button == InputButton::Right) return Decision::Cancel;
 		return Decision::None;
 		break;
@@ -478,7 +526,7 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 void FeatureCurveManager::SelectCurve(const PickResult& Picked) {
 
 	SelectedID = Picked.CurveID;
-
+	GetFeatureCurve(SelectedID)->SetHighlightWeight(1.0f);
 	State = EditCurveState::CurveSelected;
 
 	return;
@@ -549,6 +597,7 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 
 void FeatureCurveManager::DeselectCurve() {
 	Pended.reset();
+	GetFeatureCurve(SelectedID)->SetHighlightWeight(0.0f);
 	SelectedID = -1;
 	State = EditCurveState::None;
 }
@@ -612,5 +661,15 @@ void FeatureCurveManager::HoverPressedCtrl(const glm::vec3& Pos) {
 
 void FeatureCurveManager::HoverPressedShift(const glm::vec3& Pos) {
 
-	HoveringControlPoint.GetMesh()->Translate(Pos);
+	if (SelectedID == -1) return;
+	if (State != EditCurveState::CurveSelected) return;
+
+	FeatureCurve* Curve = GetFeatureCurve(SelectedID);
+	
+	int Index = Curve->FindNearestCurvePoint(Pos);
+
+	glm::vec3 NewPos = Curve->GetSamplePoints()[Index].Position;
+
+	HoveringConstraintPoint.GetMesh()->Translate(NewPos);
 }
+

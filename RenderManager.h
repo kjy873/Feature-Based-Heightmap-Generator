@@ -25,17 +25,21 @@ private:
 	GLuint ModelLocation;
 	GLuint LightLocation;
 
+	GLuint HighlightWeightLocation;
+
 
 
 public:
 	RenderManager(const ShaderManager& ShaderMgr, const BufferManager& BufferMgr) : ShaderMgr(ShaderMgr), BufferMgr(BufferMgr) {};
 
-	void Init(const char* view, const char* proj, const char* model, const char* light);
+	void Init(const char* view, const char* proj, const char* model, const char* light, const char* Highlight);
 
 	void BeginFrame(const glm::mat4& View, const glm::mat4& Proj, const glm::vec3& LightPos);
 
 	void Draw(const Mesh& Mesh);
 
 	void DrawWireframe(const Mesh& Mesh);
+
+	void UploadHighlightWeight(float Weight) { glUniform1f(HighlightWeightLocation, Weight); }
 
 };

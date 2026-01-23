@@ -177,7 +177,7 @@ int main() {
 
 	ShaderMgr.InitShader();
 
-	RenderMgr.Init("viewTransform", "projectionTransform", "modelTransform", "lightPos");
+	RenderMgr.Init("viewTransform", "projectionTransform", "modelTransform", "lightPos", "HighlightWeight");
 
 	glUseProgram(ShaderMgr.GetShaderProgramID());
 
@@ -204,6 +204,7 @@ int main() {
         // 입력 처리 (예: ESC 키)
 		Keyboard(window);
 		if (ControlPressed && EditVectorMode) HoveringWithCtrlInEditVector(window);
+		if (ShiftPressed && EditVectorMode) HoveringWithShiftInEditVector(window);
 		if(MouseRightButtonPressed)MouseMoveRightButton(window);
         // 렌더링
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -264,6 +265,7 @@ void init() {
 	viewLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "viewTransform");
 	projectionLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "projectionTransform");
 	modelTransformLococation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "modelTransform");
+	
 
 	unsigned int lightSourceLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "lightPos");
 
@@ -370,18 +372,32 @@ GLvoid drawScene() {
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
 	if (EditVectorMode) {
-		if (ControlPressed) RenderMgr.Draw(*FeatureCurveMgr.GetHoveringControlPoint().GetMesh());
-		else if (ShiftPressed) RenderMgr.Draw(*FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh());
+		if (ControlPressed) {
+			if (!FeatureCurveMgr.GetHoveringControlPoint().GetMesh()) std::cout << "NULL Hovering Control Point Mesh" << std::endl;
+			else {
+				RenderMgr.UploadHighlightWeight(FeatureCurveMgr.GetHoveringControlPoint().GetHighlightWeight());
+				RenderMgr.Draw(*FeatureCurveMgr.GetHoveringControlPoint().GetMesh());
+			}
+		}
+		else if (ShiftPressed) {
+			if (!FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh()) std::cout << "NULL Hovering Constraint Point Mesh" << std::endl;
+			else {
+				RenderMgr.UploadHighlightWeight(FeatureCurveMgr.GetHoveringConstraintPoint().GetHighlightWeight());
+				RenderMgr.Draw(*FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh());
+			}
+		}
 	}
 
 	for (auto& fc : FeatureCurveMgr.GetCurves()) {
 
 		for (const auto& cp : fc.GetControlPoints()) {
 			if (cp.GetMesh()) {
+				RenderMgr.UploadHighlightWeight(cp.GetHighlightWeight());
 				RenderMgr.Draw(*cp.GetMesh());
 			}
 		}
 
+		RenderMgr.UploadHighlightWeight(fc.GetHighlightWeight());
 		const LineMesh* Line = fc.GetLineMesh();
 		if (!Line) continue;
 		if (Line->GetPosition().size() == 0) continue;
@@ -390,6 +406,7 @@ GLvoid drawScene() {
 
 
 	}
+
 	
 	//if (FeatureCurveMgr.GetPendedControlPoint().GetMesh()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint().GetMesh());
 	if (FeatureCurveMgr.GetPendedControlPoint().has_value()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint()->GetMesh());
@@ -400,6 +417,8 @@ GLvoid drawScene() {
 	//draw(ShaderMgr.GetShaderProgramID(), Surface);
 
 	//if (WireFrame) drawWireframe(ShaderMgr.GetShaderProgramID(), SurfaceWire);
+
+	RenderMgr.UploadHighlightWeight(0.0f);
 
 	if (WireFrame) RenderMgr.DrawWireframe(Surface);
 	else RenderMgr.Draw(Surface);
@@ -736,6 +755,7 @@ void HoveringWithCtrlInEditVector(GLFWwindow* window){
 			HoveringMesh->GetColor().data(), HoveringMesh->GetColor().size(), nullptr, 0);
 		BufferMgr.BindElementBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetIndex().data(), HoveringMesh->GetIndex().size());
 		FeatureCurveMgr.SetHoveringControlPointDirty(false);
+
 	}
 
 	glfwGetCursorPos(window, &mgl.x, &mgl.y);
@@ -767,9 +787,7 @@ void HoveringWithShiftInEditVector(GLFWwindow* window) {
 
 	if (FeatureCurveMgr.GetHoveringConstraintPointDirty()) {
 		ControlPointVisualMesh* HoveringMesh = FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh();
-		
 		HoveringMesh->SetMeshID(BufferMgr.CreateMeshID());
-		//std::cout << HoveringMesh->GetMeshID() << std::endl;
 		BufferMgr.CreateBufferData(HoveringMesh->GetMeshID(), true);
 		BufferMgr.BindVertexBufferObjectByID(HoveringMesh->GetMeshID(), HoveringMesh->GetPosition().data(), HoveringMesh->GetPosition().size(),
 			HoveringMesh->GetColor().data(), HoveringMesh->GetColor().size(), nullptr, 0);

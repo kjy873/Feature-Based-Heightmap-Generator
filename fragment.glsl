@@ -7,6 +7,8 @@ in vec3 normal;
 uniform vec3 lightPos;
 in vec4 fragPos;
 
+uniform float HighlightWeight;
+
 void main(){
 
 	float ambientLight = 0.8;
@@ -19,6 +21,8 @@ void main(){
 	vec3 diffuse = diffuseLight * lightColor;
 
 	vec3 result = (ambient + diffuse) * passColor;
+
+	result += HighlightWeight * vec3(0.0f, 1.0f, 0.0f);
 
 	FragColor = vec4(result, 1.0f);
 }

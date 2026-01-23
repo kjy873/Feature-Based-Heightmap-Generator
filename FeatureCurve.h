@@ -9,6 +9,15 @@
 
 #include "BufferManager.h"
 
+struct CurvePoint
+{
+	glm::vec3 Position;
+	float u = 0.0f;
+
+	CurvePoint() : Position(glm::vec3(0.0f)), u(0.0f) {};
+	CurvePoint(const glm::vec3& pos, float uu) : Position(pos), u(uu) {};
+};
+
 enum class ConstraintMask
 {
 	None = 0,
@@ -44,17 +53,22 @@ struct ConstraintPoint
 
 	std::unique_ptr<ControlPointVisualMesh> Mesh;
 
+	float HighlightWeight = 0.0f;
+
 	bool Uploaded = false;
 
-	float half = 0.002f;
+	float half = 0.005f;
 
 	ConstraintPoint() : Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 	ConstraintPoint(const glm::vec3& Pos) : CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 
 	void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
-	void SetMesh() { Mesh.get()->SetHexahedron(CachedPos, half, glm::vec3(0.0f, 0.0f, 1.0f)); }
+	void SetMesh() { Mesh->SetHexahedron(CachedPos, half, glm::vec3(1.0f, 0.0f, 1.0f)); }
 
 	ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
+
+	float GetHighlightWeight() const { return HighlightWeight; }
+	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
 };
 
@@ -85,6 +99,8 @@ namespace FC {
 
 		std::unique_ptr<ControlPointVisualMesh> Mesh;
 
+		float HighlightWeight = 0.0f;
+
 		float half = 0.005f;
 
 
@@ -107,6 +123,9 @@ namespace FC {
 		glm::vec3 GetPosition() const { return Position; }
 		float GetHalf() const { return half; }
 
+		float GetHighlightWeight() const { return HighlightWeight; }
+		void SetHighlightWeight(float weight) { HighlightWeight = weight; }
+
 
 	};
 
@@ -119,17 +138,16 @@ class FeatureCurve
 
 	int CurveID = -1;
 
-	std::vector<glm::vec3> Vertices;
+	std::vector<CurvePoint> SamplePoints;
 
 	std::unique_ptr<LineMesh> Line;
+	float HighlightWeight = 0.0f;
 
 	bool LineDirty = false;
 
 	AABBXZ BoundingBox;
 
 	std::vector<ConstraintPoint> ConstraintPoints;
-
-
 
 	int SamplePerSegment = 64;
 
@@ -183,6 +201,14 @@ public:
 
 	void AddConstraintPoint(const glm::vec3 Pos);
 
+	int FindNearestCurvePoint(const glm::vec3 Pos);
+
+	const std::vector<ConstraintPoint>& GetConstraintPoints() const { return ConstraintPoints; }
+
+	const std::vector<CurvePoint>& GetSamplePoints() const { return SamplePoints; }
+
+	float GetHighlightWeight() const { return HighlightWeight; }
+	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
 };
 
@@ -241,7 +267,7 @@ class FeatureCurveManager
 	FC::ControlPoint HoveringControlPoint = FC::ControlPoint(glm::vec3(0.0f, 0.0f, 0.0f));
 	bool HoverIsDirty = false;
 
-	ConstraintPoint HoveringConstraintPoint = ConstraintPoint();
+	ConstraintPoint HoveringConstraintPoint = ConstraintPoint(glm::vec3(0.0f, 0.0f, 0.0f));
 
 public:
 
@@ -249,9 +275,10 @@ public:
 		HoveringControlPoint.SetMesh(); 
 		HoverIsDirty = true; 
 
-		HoveringConstraintPoint.CreateMesh();
+		//HoveringConstraintPoint.CreateMesh();
 		HoveringConstraintPoint.SetMesh();
 		HoveringConstraintPoint.Cached = true;
+		HoveringConstraintPoint.Uploaded = true;
 	}
 	~FeatureCurveManager() {}
 
@@ -287,6 +314,7 @@ public:
 	PickResult PickControlPoint(const glm::vec3& Pos);
 	PickResult PickCurve(const glm::vec3& Pos);
 
+
 	Decision Decide(InputButton Button, InputMode Mode, EditCurveState State, const PickResult& Picked);
 	void Execute(Decision DecidedResult, const PickResult& Picked, const glm::vec3& Pos);
 
@@ -306,8 +334,10 @@ public:
 	const FC::ControlPoint& GetHoveringControlPoint() const { return HoveringControlPoint; }
 
 	void HoverPressedShift(const glm::vec3& Pos);
-	bool GetHoveringConstraintPointDirty() { return HoveringConstraintPoint.Uploaded == false; }
-	void SetHoveringConstraintPointDirty(bool Dirty) { HoveringConstraintPoint.Uploaded = !Dirty; }
+	bool GetHoveringConstraintPointDirty() { return HoveringConstraintPoint.Uploaded; }
+	void SetHoveringConstraintPointDirty(bool Dirty) { HoveringConstraintPoint.Uploaded = Dirty; }
 	const ConstraintPoint& GetHoveringConstraintPoint() const { return HoveringConstraintPoint; }
+
+	int FeatureCurveManager::FindNearestCurvePointInSelecting(const glm::vec3& Pos);
 
 };
