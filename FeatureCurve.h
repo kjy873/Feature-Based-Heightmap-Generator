@@ -172,6 +172,7 @@ public:
 
 	void UploadBuffer(BufferManager& BufferMgr);
 	void UploadBufferLine(BufferManager& BufferMgr);
+	void UploadBufferConstraintPoint(BufferManager& BufferMgr);
 
 	void PopBack() { ControlPoints.pop_back(); }
 
@@ -338,6 +339,10 @@ public:
 	void SetHoveringConstraintPointDirty(bool Dirty) { HoveringConstraintPoint.Uploaded = Dirty; }
 	const ConstraintPoint& GetHoveringConstraintPoint() const { return HoveringConstraintPoint; }
 
+	void UploadConstraintPoints(BufferManager& BufferMgr);				
+
 	int FeatureCurveManager::FindNearestCurvePointInSelecting(const glm::vec3& Pos);
+
+	void AddConstraintPoint(const glm::vec3& Pos);
 
 };

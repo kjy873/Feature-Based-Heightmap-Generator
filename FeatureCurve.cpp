@@ -88,6 +88,21 @@ void FeatureCurve::UploadBufferLine(BufferManager& BufferMgr) {
 
 }
 
+void FeatureCurve::UploadBufferConstraintPoint(BufferManager& BufferMgr) {
+	for (const auto& cp : ConstraintPoints) {
+		if (cp.GetMesh() == nullptr) continue;
+		ControlPointVisualMesh* mesh = cp.GetMesh();
+		if (mesh) {
+			mesh->SetMeshID(BufferMgr.CreateMeshID());
+			BufferMgr.CreateBufferData(mesh->GetMeshID(), true);
+			BufferMgr.BindVertexBufferObjectByID(mesh->GetMeshID(), mesh->GetPosition().data(), mesh->GetPosition().size(),
+				mesh->GetColor().data(), mesh->GetColor().size(), mesh->GetNormal().data(), mesh->GetNormal().size());
+			BufferMgr.BindElementBufferObjectByID(mesh->GetMeshID(), mesh->GetIndex().data(), mesh->GetIndex().size());
+		}
+
+	}
+}
+
 void FeatureCurve::UpdateBoundingBox() {
 
 	BoundingBox.Valid = false;
@@ -159,8 +174,12 @@ float FeatureCurve::NearestDistanceSq(const glm::vec3 Point) {
 }
 
 void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos) {
+
+	ConstraintPoint cp(Pos);
+
+	cp.SetMesh();
 		
-	ConstraintPoints.emplace_back(Pos);
+	ConstraintPoints.emplace_back(std::move(cp));
 	
 }
 
@@ -297,6 +316,7 @@ void FeatureCurveManager::UploadBuffers(BufferManager& BufferMgr) {
 	for (auto& curve : FeatureCurves) {
 		curve.UploadBuffer(BufferMgr);
 		curve.UploadBufferLine(BufferMgr);
+
 	}
 
 }
@@ -673,3 +693,17 @@ void FeatureCurveManager::HoverPressedShift(const glm::vec3& Pos) {
 	HoveringConstraintPoint.GetMesh()->Translate(NewPos);
 }
 
+void FeatureCurveManager::AddConstraintPoint(const glm::vec3& Pos) {
+	if (SelectedID == -1) return;
+	if (State != EditCurveState::CurveSelected) return;
+
+	FeatureCurve* Curve = GetFeatureCurve(SelectedID);
+
+	int Index = Curve->FindNearestCurvePoint(Pos);
+
+	glm::vec3 NewPos = Curve->GetSamplePoints()[Index].Position;
+
+	Curve->AddConstraintPoint(NewPos);
+
+
+}
