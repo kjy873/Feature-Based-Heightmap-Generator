@@ -70,6 +70,9 @@ struct ConstraintPoint
 
 	ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
 
+	const glm::vec3& GetPosition() const { return CachedPos; }
+	float GetHalf() const { return half; }
+
 	float GetHighlightWeight() const { return HighlightWeight; }
 	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
@@ -238,16 +241,19 @@ enum class EditCurveState
 	P3,
 	P2,
 	CurveSelected,
+	ControlPointSelected,
+	ConstraintPointSelected,
 	None
 
 };
 
-enum class PickType { Curve, ControlPoint, None };
+enum class PickType { Curve, ControlPoint, ConstraintPoint, None };
 
 enum class Decision { 
 	None,
 	SelectCurve,
 	SelectControlPoint,
+	SelectConstraintPoint,
 	Deselect,
 	AddCurve,
 	ExtendCurve,
@@ -265,7 +271,8 @@ struct PickResult
 {
 	PickType Type = PickType::None;
 	int CurveID = -1;
-	int ControlPointIndex = -1;
+	int ControlPointID = -1;
+	int ConstraintPointID = -1;
 };
 
 class FeatureCurveManager
@@ -336,6 +343,7 @@ public:
 
 	PickResult Pick(const glm::vec3& Pos);
 	PickResult PickControlPoint(const glm::vec3& Pos);
+	PickResult PickConstraintPoint(const glm::vec3& Pos);
 	PickResult PickCurve(const glm::vec3& Pos);
 
 
@@ -343,6 +351,8 @@ public:
 	void Execute(Decision DecidedResult, const PickResult& Picked, const glm::vec3& Pos);
 
 	void SelectCurve(const PickResult& Picked);
+	void SelectControlPoint(const PickResult& Picked);
+	void SelectConstraintPoint(const PickResult& Picked);
 	void ExtendCurve(const PickResult& Picked);
 	void AddControlPoint(const glm::vec3& Pos);
 
@@ -360,12 +370,11 @@ public:
 	void HoverPressedShift(const glm::vec3& Pos);
 	bool GetHoveringConstraintPointDirty() { return HoveringConstraintPoint.Uploaded; }
 	void SetHoveringConstraintPointDirty(bool Dirty) { HoveringConstraintPoint.Uploaded = Dirty; }
-	const ConstraintPoint& GetHoveringConstraintPoint() const { return HoveringConstraintPoint; }
-
-	void UploadConstraintPoints(BufferManager& BufferMgr);				
+	const ConstraintPoint& GetHoveringConstraintPoint() const { return HoveringConstraintPoint; }		
 
 	int FeatureCurveManager::FindNearestCurvePointInSelecting(const glm::vec3& Pos);
 
 	void AddConstraintPoint(const glm::vec3& Pos);
+
 
 };

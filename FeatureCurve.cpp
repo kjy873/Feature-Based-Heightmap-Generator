@@ -285,6 +285,9 @@ void FeatureCurveManager::PrintDecision(const Decision& Decision) const {
 	case Decision::AddConstraintPoint:
 		std::cout << "Decision: AddConstraintPoint" << std::endl;
 		break;
+	case Decision::SelectConstraintPoint:
+		std::cout << "Decision: SelectConstraintPoint" << std::endl;
+		break;
 	case Decision::None:
 		std::cout << "Decision: None" << std::endl;
 		break;
@@ -400,6 +403,9 @@ PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
 	PickResult Result = PickControlPoint(Pos);
 	if (Result.Type != PickType::None) return Result;
 
+	Result = PickConstraintPoint(Pos);
+	if (Result.Type != PickType::None) return Result;
+
 	Result = PickCurve(Pos);
 	return Result;
 
@@ -417,7 +423,24 @@ PickResult FeatureCurveManager::PickControlPoint(const glm::vec3& Pos) {
 			if (Pos.x >= PosCP.x - CPs[i].GetHalf() && Pos.x <= PosCP.x + CPs[i].GetHalf() && Pos.z >= PosCP.z - CPs[i].GetHalf() && Pos.z <= PosCP.z + CPs[i].GetHalf()) {
 				Result.Type = PickType::ControlPoint;
 				Result.CurveID = Curve.GetCurveID();
-				Result.ControlPointIndex = i;
+				Result.ControlPointID = i;
+				return Result;
+			}
+		}
+	}
+	return Result;
+}
+
+PickResult FeatureCurveManager::PickConstraintPoint(const glm::vec3& Pos) {
+	PickResult Result;
+	for (const auto& Curve : FeatureCurves) {
+		const auto& CPs = Curve.GetConstraintPoints();
+		for (int i = 0; i < CPs.size(); i++) {
+			glm::vec3 PosCP = CPs[i].GetPosition();
+			if (Pos.x >= PosCP.x - CPs[i].GetHalf() && Pos.x <= PosCP.x + CPs[i].GetHalf() && Pos.z >= PosCP.z - CPs[i].GetHalf() && Pos.z <= PosCP.z + CPs[i].GetHalf()) {
+				Result.Type = PickType::ConstraintPoint;
+				Result.CurveID = Curve.GetCurveID();
+				Result.ConstraintPointID = i;
 				return Result;
 			}
 		}
@@ -471,6 +494,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 	const bool NonePicked = (Picked.Type == PickType::None);
 	const bool CurvePicked = (Picked.Type == PickType::Curve);
 	const bool ControlPointPicked = (Picked.Type == PickType::ControlPoint);
+	const bool ConstraintPointPicked = (Picked.Type == PickType::ConstraintPoint);
 
 	//std::cout << "Curve Pick(" << CurvePicked << ")" << std::endl;
 
@@ -498,6 +522,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 			return Decision::AddConstraintPoint;
 		}
 		if (ControlPointPicked) return Decision::SelectControlPoint;
+		if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 		if (CurvePicked) return Decision::SelectCurve;
 		if (NonePicked) return Decision::Deselect;
 
@@ -513,11 +538,13 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 			if (NonePicked) return Decision::AddCurve;
 			if (CurvePicked) return Decision::ExtendCurve;
 			if (ControlPointPicked) return Decision::SelectControlPoint; // ¶Ç´Â ExtendCurve·Î ¹Ù²ãµµ µÊ
+			if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 			return Decision::None;
 		}
 
 		if (Mode == InputMode::Default) {
 			if (ControlPointPicked) return Decision::SelectControlPoint;
+			if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 			if (CurvePicked) return Decision::SelectCurve;
 			return Decision::None;
 		}
@@ -565,6 +592,11 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 	case Decision::DeleteSelectedControlPoint:
 	case Decision::DeleteSelectedCurve:
 	case Decision::SelectControlPoint:
+		SelectControlPoint(Picked);
+		break;
+	case Decision::SelectConstraintPoint:
+		SelectConstraintPoint(Picked);
+		break;
 	case Decision::CommitSegment:
 	case Decision::None:
 		break;
@@ -578,11 +610,34 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 void FeatureCurveManager::SelectCurve(const PickResult& Picked) {
 
 	SelectedCurveID = Picked.CurveID;
+	SelectedConstraintPointID = -1;
+	SelectedControlPointID = -1;
 	GetFeatureCurve(SelectedCurveID)->SetHighlightWeight(1.0f);
 	State = EditCurveState::CurveSelected;
 
 	return;
 
+}
+
+void FeatureCurveManager::SelectControlPoint(const PickResult& Picked) {
+
+	SelectedCurveID = Picked.CurveID;
+
+	SelectedConstraintPointID = -1;
+
+	SelectedControlPointID = Picked.ControlPointID;
+	
+	State = EditCurveState::ControlPointSelected;
+
+	return;
+}
+
+void FeatureCurveManager::SelectConstraintPoint(const PickResult& Picked) {
+	SelectedCurveID = Picked.CurveID;
+	SelectedControlPointID = -1;
+	SelectedConstraintPointID = Picked.ConstraintPointID;
+	State = EditCurveState::ConstraintPointSelected;
+	return;
 }
 
 void FeatureCurveManager::AddFeatureCurve() {
