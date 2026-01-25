@@ -29,7 +29,7 @@ enum class ConstraintMask
 struct ConstraintPoint
 {
 
-	int ID = 0;
+	int ID = -1;
 
 	bool StartEndPoint = false; // 시작점, 끝점 여부
 
@@ -60,7 +60,10 @@ struct ConstraintPoint
 	float half = 0.005f;
 
 	ConstraintPoint() : Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
+	ConstraintPoint(int id) : ID(id), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 	ConstraintPoint(const glm::vec3& Pos) : CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
+	ConstraintPoint(int id, const glm::vec3& Pos) : ID(id), CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
+
 
 	void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
 	void SetMesh() { Mesh->SetHexahedron(CachedPos, half, glm::vec3(1.0f, 0.0f, 1.0f)); }
@@ -69,6 +72,8 @@ struct ConstraintPoint
 
 	float GetHighlightWeight() const { return HighlightWeight; }
 	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
+
+	int GetID() const { return ID; }
 
 };
 
@@ -103,11 +108,15 @@ namespace FC {
 
 		float half = 0.005f;
 
+		int ID = -1;
+
 
 	public:
 
 		ControlPoint() : Position(glm::vec3(0.0f)), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
+		ControlPoint(int id) : ID(id), Position(glm::vec3(0.0f)), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 		ControlPoint(glm::vec3 pos) : Position(pos), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
+		ControlPoint(int id, glm::vec3 pos) : ID(id), Position(pos), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 		~ControlPoint() = default;
 
 		ControlPoint(const ControlPoint&) = delete;
@@ -126,7 +135,7 @@ namespace FC {
 		float GetHighlightWeight() const { return HighlightWeight; }
 		void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
-
+		int GetID() const { return ID; }
 	};
 
 }
@@ -150,6 +159,12 @@ class FeatureCurve
 	std::vector<ConstraintPoint> ConstraintPoints;
 
 	int SamplePerSegment = 64;
+
+	int NextControlPointID = 0;
+	int NextConstraintPointID = 0;
+
+	FC::ControlPoint* GetControlPointPtr(int ID);
+	ConstraintPoint* GetConstraintPointPtr(int ID);
 
 public:
 
@@ -211,6 +226,9 @@ public:
 	float GetHighlightWeight() const { return HighlightWeight; }
 	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
+	FC::ControlPoint& GetControlPoint(int id);
+	ConstraintPoint& GetConstraintPoint(int id);
+
 };
 
 enum class EditCurveState
@@ -237,7 +255,8 @@ enum class Decision {
 	CommitSegment,
 	Cancel,
 	DeleteSelectedControlPoint,
-	DeleteSelectedCurve
+	DeleteSelectedCurve,
+	AddConstraintPoint
 
 
 };
@@ -253,7 +272,9 @@ class FeatureCurveManager
 {
 	std::vector<FeatureCurve> FeatureCurves;
 
-	int SelectedID = -1;
+	int SelectedCurveID = -1;
+	int SelectedControlPointID = -1;
+	int SelectedConstraintPointID = -1;
 
 	int NextCurveID = 0;
 
@@ -269,6 +290,8 @@ class FeatureCurveManager
 	bool HoverIsDirty = false;
 
 	ConstraintPoint HoveringConstraintPoint = ConstraintPoint(glm::vec3(0.0f, 0.0f, 0.0f));
+
+
 
 public:
 
@@ -291,8 +314,8 @@ public:
 	int CreateCurveID() { return NextCurveID++; }
 	FeatureCurve* GetFeatureCurve(int id);
 
-	void SelectCurve(int id) { SelectedID = id; }
-	int GetSelectedCurveID() const { return SelectedID; }
+	void SelectCurve(int id) { SelectedCurveID = id; }
+	int GetSelectedCurveID() const { return SelectedCurveID; }
 
 	void Click(const glm::vec3& Pos, InputButton Button, InputMode Mode);
 	void RightClick();

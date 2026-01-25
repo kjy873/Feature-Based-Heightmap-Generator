@@ -396,6 +396,12 @@ GLvoid drawScene() {
 				RenderMgr.Draw(*cp.GetMesh());
 			}
 		}
+		for (const auto& csp : fc.GetConstraintPoints()) {
+			if (csp.GetMesh()) {
+				RenderMgr.UploadHighlightWeight(csp.GetHighlightWeight());
+				RenderMgr.Draw(*csp.GetMesh());
+			}
+		}
 
 		RenderMgr.UploadHighlightWeight(fc.GetHighlightWeight());
 		const LineMesh* Line = fc.GetLineMesh();
@@ -685,6 +691,8 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 			
 			else if (ShiftPressed) {
 				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Shift);
+				FeatureCurveMgr.UploadBuffers(BufferMgr);
+				FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
 			}
 			
 			else {
