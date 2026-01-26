@@ -166,8 +166,7 @@ class FeatureCurve
 	int NextControlPointID = 0;
 	int NextConstraintPointID = 0;
 
-	FC::ControlPoint* GetControlPointPtr(int ID);
-	ConstraintPoint* GetConstraintPointPtr(int ID);
+
 
 public:
 
@@ -228,6 +227,9 @@ public:
 
 	float GetHighlightWeight() const { return HighlightWeight; }
 	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
+
+	FC::ControlPoint* GetControlPointPtr(int ID);
+	ConstraintPoint* GetConstraintPointPtr(int ID);
 
 	FC::ControlPoint& GetControlPoint(int id);
 	ConstraintPoint& GetConstraintPoint(int id);
@@ -360,6 +362,9 @@ public:
 	void PrintDecision(const Decision& Decision) const;
 
 	void DeselectCurve();
+	void DeselectControlPoint();
+	void DeselectConstraintPoint();
+	void DeselectAll();
 	void Cancel();
 
 	void HoverPressedCtrl(const glm::vec3& Pos);
