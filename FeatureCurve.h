@@ -26,6 +26,20 @@ enum class ConstraintMask
 	Noise = 1 << 2,
 };
 
+struct Constraints {
+	float h = 0.0f;
+	float r = 0.0f;
+
+	float a = 0.0f;
+	float b = 0.0f;
+	float theta = 0.0f;
+	float phi = 0.0f;
+
+	float Amplitude = 0.0f;
+	float Roughness = 0.0f;
+
+};
+
 struct ConstraintPoint
 {
 
@@ -36,17 +50,7 @@ struct ConstraintPoint
 	bool Cached = false;
 	glm::vec3 CachedPos = glm::vec3(0.0f, 0.0f, 0.0f); // FeatureCurve에서 u->position 변환 함수를 만들 것. 필요 시 여기서 캐싱 
 
-	float h = 0.0f;
-	float r = 0.0f;
-
-	float a = 0.0f;
-	float b = 0.0f;
-	float theta = 0.0f;
-	float phi = 0.0f;
-	
-	float Amplitude = 0.0f;
-	float Roughness = 0.0f;
-
+	Constraints Data;
 	float u = 0.0f;
 	
 	ConstraintMask Mask = ConstraintMask::None;
@@ -63,6 +67,8 @@ struct ConstraintPoint
 	ConstraintPoint(int id) : ID(id), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 	ConstraintPoint(const glm::vec3& Pos) : CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 	ConstraintPoint(int id, const glm::vec3& Pos) : ID(id), CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
+	ConstraintPoint(int id, const glm::vec3& Pos, float uu) : ID(id), CachedPos(Pos), Cached(true), u(uu), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
+
 
 
 	void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
@@ -77,6 +83,10 @@ struct ConstraintPoint
 	void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
 	int GetID() const { return ID; }
+
+	const Constraints& GetConstraints() const { return Data; }
+
+	void SetConstraints(const Constraints& InputConstraints) { Data = InputConstraints; }
 
 };
 
@@ -217,7 +227,7 @@ public:
 
 	float NearestDistanceSq(const glm::vec3 Point);
 
-	void AddConstraintPoint(const glm::vec3 Pos);
+	void AddConstraintPoint(const glm::vec3 Pos, const float u);
 
 	int FindNearestCurvePoint(const glm::vec3 Pos);
 
@@ -233,6 +243,8 @@ public:
 
 	FC::ControlPoint& GetControlPoint(int id);
 	ConstraintPoint& GetConstraintPoint(int id);
+
+	int FindConstraintPointByU(float u) const;
 
 };
 
@@ -269,6 +281,16 @@ enum class Decision {
 
 };
 
+struct CurveManagerView {
+	
+	bool ConstraintPointPanelOpen = false;
+
+	int SelectedCurveID = -1;
+	int SelectedControlPointID = -1;
+	int SelectedConstraintPointID = -1;
+
+};
+
 struct PickResult
 {
 	PickType Type = PickType::None;
@@ -300,6 +322,7 @@ class FeatureCurveManager
 
 	ConstraintPoint HoveringConstraintPoint = ConstraintPoint(glm::vec3(0.0f, 0.0f, 0.0f));
 
+	CurveManagerView View;
 
 
 public:
@@ -381,5 +404,15 @@ public:
 
 	void AddConstraintPoint(const glm::vec3& Pos);
 
+	CurveManagerView& GetCurveManagerView() { 
+		View.SelectedCurveID = SelectedCurveID;
+		View.SelectedControlPointID = SelectedControlPointID;
+		View.SelectedConstraintPointID = SelectedConstraintPointID;
+		return View; 
+	};
+
+	void UpdateConstraintPointPosByU(int CurveID, int ConstraintPointID); // ConstraintPoint의 u값에 따라 위치를 업데이트
+	void UpdateLastConstraintByU(int CurveID); // 마지막 ConstraintPoint의 u값에 따라 위치를 업데이트
+	void UpdateConstraintPointsPosByU(int CurveID); // 모든 ConstraintPoint의 u값에 따라 위치를 업데이트
 
 };

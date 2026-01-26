@@ -173,9 +173,9 @@ float FeatureCurve::NearestDistanceSq(const glm::vec3 Point) {
 
 }
 
-void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos) {
+void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos, const float u) {
 
-	ConstraintPoint cp(NextConstraintPointID++, Pos);
+	ConstraintPoint cp(NextConstraintPointID++, Pos, u);
 
 	cp.SetMesh();
 		
@@ -223,6 +223,14 @@ ConstraintPoint& FeatureCurve::GetConstraintPoint(int id) {
 	ConstraintPoint* cp = GetConstraintPointPtr(id);
 	if (!cp) throw std::runtime_error("ConstraintPoint ID not found");
 	return *cp;
+}
+
+int FeatureCurve::FindConstraintPointByU(float u) const {
+
+	auto it = std::find_if(ConstraintPoints.begin(), ConstraintPoints.end(), [u](const ConstraintPoint& cp) { return glm::abs(cp.u - u) < 1e-6f; }); // 또는 a == b
+
+	return (it == ConstraintPoints.end()) ? -1 : it->u;
+
 }
 
 void FeatureCurveManager::PrintState() const {
@@ -406,7 +414,14 @@ void FeatureCurveManager::RightClick() {
 
 PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
 
-	PickResult Result = PickControlPoint(Pos);
+	PickResult Result;
+
+	if (State == EditCurveState::ControlPointSelected) {
+		Result = PickConstraintPoint(Pos);
+		if (Result.Type != PickType::None) return Result;
+	}
+
+	Result = PickControlPoint(Pos);
 	if (Result.Type != PickType::None) return Result;
 
 	Result = PickConstraintPoint(Pos);
@@ -619,6 +634,7 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 		Cancel();
 		break;
 	case Decision::Deselect:
+		//Cancel();
 		DeselectAll();
 		break;
 	case Decision::AddConstraintPoint:
@@ -682,6 +698,9 @@ void FeatureCurveManager::SelectConstraintPoint(const PickResult& Picked) {
 	GetFeatureCurve(SelectedCurveID)->GetConstraintPoint(SelectedConstraintPointID).SetHighlightWeight(1.0f);
 
 	State = EditCurveState::ConstraintPointSelected;
+
+	View.ConstraintPointPanelOpen = true;
+
 	return;
 }
 
@@ -732,10 +751,22 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 		Curve->AddControlPoint(Pos);
 		std::cout << "P2 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		Curve->AddControlPoint(std::move(*Pended));
+
+		if (CommittedSegments < 1) {
+			Curve->AddConstraintPoint(Curve->GetControlPoints().front().GetPosition(), 0.0f);
+			Curve->AddConstraintPoint(Pended->GetPosition(), 1.0f);
+		}
+		else {
+			UpdateLastConstraintByU(Curve->GetCurveID());
+		}
+
 		CommittedSegments++;
 		Pended.reset();
 		Curve->BuildLines();
 		UpdateAllBoundingBoxes();
+
+
+
 		std::cout << Curve->GetCurveID() << std::endl;
 		State = EditCurveState::P1;
 		break;
@@ -775,12 +806,18 @@ void FeatureCurveManager::DeselectConstraintPoint() {
 	SelectedConstraintPointID = -1;
 	State = EditCurveState::None;
 
+	View.ConstraintPointPanelOpen = false;
+
 }
 
 void FeatureCurveManager::DeselectAll() {
 	if (SelectedCurveID == -1) return;
 
 	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
+	if (!Curve) {
+		std::cout << "DeselectAll(): Curve not found!" << std::endl;
+		return;
+	}
 	FC::ControlPoint* ControlPoint = Curve->GetControlPointPtr(SelectedControlPointID);
 	ConstraintPoint* ConstraintPoint = Curve->GetConstraintPointPtr(SelectedConstraintPointID);
 
@@ -793,6 +830,8 @@ void FeatureCurveManager::DeselectAll() {
 	SelectedConstraintPointID = -1;
 
 	State = EditCurveState::None;
+
+	View.ConstraintPointPanelOpen = false;
 }
 
 void FeatureCurveManager::Cancel() {
@@ -812,7 +851,7 @@ void FeatureCurveManager::Cancel() {
 		else {
 			FeatureCurves.pop_back();
 			Pended.reset();
-			State = EditCurveState::CurveSelected;
+			State = EditCurveState::None;
 		}
 		break;
 
@@ -825,7 +864,7 @@ void FeatureCurveManager::Cancel() {
 		else {
 			FeatureCurves.pop_back();
 			Pended.reset();
-			State = EditCurveState::CurveSelected;
+			State = EditCurveState::None;
 		}
 		break;
 
@@ -838,7 +877,7 @@ void FeatureCurveManager::Cancel() {
 		else {
 			FeatureCurves.pop_back();
 			Pended.reset();
-			State = EditCurveState::CurveSelected;
+			State = EditCurveState::None;
 		}
 		break;
 
@@ -864,6 +903,8 @@ void FeatureCurveManager::HoverPressedShift(const glm::vec3& Pos) {
 	glm::vec3 NewPos = Curve->GetSamplePoints()[Index].Position;
 
 	HoveringConstraintPoint.GetMesh()->Translate(NewPos);
+
+
 }
 
 void FeatureCurveManager::AddConstraintPoint(const glm::vec3& Pos) {
@@ -875,8 +916,48 @@ void FeatureCurveManager::AddConstraintPoint(const glm::vec3& Pos) {
 	int Index = Curve->FindNearestCurvePoint(Pos);
 
 	glm::vec3 NewPos = Curve->GetSamplePoints()[Index].Position;
+	float u = Curve->GetSamplePoints()[Index].u;
 
-	Curve->AddConstraintPoint(NewPos);
+	Curve->AddConstraintPoint(NewPos, u);
 
 
+}
+
+void FeatureCurveManager::UpdateConstraintPointPosByU(int CurveID, int ConstraintPointID){
+
+	FeatureCurve* Curve = GetFeatureCurve(CurveID);
+
+	if (!Curve) return;
+
+	//glm::vec3 NewPos = Curve->GetSamplePoints().back().Position; // 이거 아님, u에 따라 바꿔야함
+	
+	//Curve->GetConstraintPoint(ConstraintPointID).CachedPos = NewPos;
+	//Curve->GetConstraintPoint(ConstraintPointID).Cached = true;
+	//Curve->GetConstraintPoint(ConstraintPointID).Uploaded = true;
+	
+	//Curve->GetConstraintPoint(ConstraintPointID).SetMesh();
+
+
+}
+
+void FeatureCurveManager::UpdateLastConstraintByU(int CurveID) {
+
+	FeatureCurve* Curve = GetFeatureCurve(CurveID);
+	if (!Curve) return;
+
+	int id = Curve->FindConstraintPointByU(1.0f);
+	if (id == -1) return;
+
+	glm::vec3 NewPos = Curve->GetSamplePoints().back().Position;
+
+	Curve->GetConstraintPoint(id).CachedPos = NewPos;
+	Curve->GetConstraintPoint(id).Cached = true;
+	Curve->GetConstraintPoint(id).Uploaded = true;
+	Curve->GetConstraintPoint(id).SetMesh();
+
+}
+
+void FeatureCurveManager::UpdateConstraintPointsPosByU(int CurveID) {
+
+	// u에 따라 위치 업데이트
 }

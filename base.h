@@ -31,6 +31,15 @@
 #include <chrono>
 #include <functional>
 
+#include "ShaderManager.h"
+#include "BufferManager.h"
+#include "Mesh.h"
+#include "RenderManager.h"
+#include "B_SplineSurface.h"
+#include "HeightMap.h"
+#include "NoiseGenerator.h"
+#include "FeatureCurve.h"
+
 using namespace std;
 using namespace glm;
 
@@ -466,6 +475,10 @@ void MouseMoveRightButton(GLFWwindow* window);
 void HoveringWithCtrlInEditVector(GLFWwindow* window);
 void HoveringWithShiftInEditVector(GLFWwindow* window);
 void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos);
+
+void CurveManagerViewer();
+
+void DrawConstraintPointPanel(const CurveManagerView& CurveViewer);
 
 void DrawPanel();
 void DrawMouseOverlay(GLFWwindow* window);

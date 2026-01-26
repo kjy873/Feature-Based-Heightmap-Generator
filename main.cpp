@@ -1,12 +1,5 @@
 ﻿#include "base.h"
-#include "ShaderManager.h"
-#include "BufferManager.h"
-#include "Mesh.h"
-#include "RenderManager.h"
-#include "B_SplineSurface.h"
-#include "HeightMap.h"
-#include "NoiseGenerator.h"
-#include "FeatureCurve.h"
+
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
@@ -32,7 +25,7 @@ bool MouseRightButtonPressed = false;
 double LastMouseX = 0.0;
 double LastMouseY = 0.0;
 
-bool ControlPointRender = true;
+bool ControlPointRender = false;
 
 double windowWidth = 1280;
 double windowHeight = 720;
@@ -54,6 +47,9 @@ int InputTangent = 0;
 bool WireFrame = false;
 
 int DrawCurveMode = 0;
+
+bool UiWantMouse = false;
+bool UiWantKeyboard = false;
 
 float SAMPLE_INTERVAL = 1.0f/2.0f;
 int sampleCount = 0.0f;
@@ -187,6 +183,9 @@ int main() {
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	//io.Fonts->AddFontFromFileTTF("fonts/NotoSansKR-Regular.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesKorean());
+
+	
+
 	(void)io;
 	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -201,11 +200,17 @@ int main() {
 	if(DragMode)glfwSetCursorPosCallback(window, CallbackMouseMove);
     // 루프
     while (!glfwWindowShouldClose(window)) {
+
+		UiWantMouse = io.WantCaptureMouse;
+		UiWantKeyboard = io.WantCaptureKeyboard;
+
+
         // 입력 처리 (예: ESC 키)
 		Keyboard(window);
 		if (ControlPressed && EditVectorMode) HoveringWithCtrlInEditVector(window);
 		if (ShiftPressed && EditVectorMode) HoveringWithShiftInEditVector(window);
 		if(MouseRightButtonPressed)MouseMoveRightButton(window);
+
         // 렌더링
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -222,6 +227,11 @@ int main() {
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
 		ImGuizmo::SetRect(0, 0, FrameBufferWidth, FrameBufferHeight);
+
+
+		if (EditVectorMode) CurveManagerViewer();
+
+
 		if (PickedControlPoint)
 		{
 			ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
@@ -595,6 +605,9 @@ void UpdateSplineSurface() {
 }
 
 GLvoid Keyboard(GLFWwindow* window) {
+
+	if (UiWantKeyboard)return;
+
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		camera[0] += CameraForward * CameraSpeed;
 
@@ -618,6 +631,9 @@ GLvoid Keyboard(GLFWwindow* window) {
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
+
+	if (UiWantMouse)return;
+
 	bool GizmoActive = false;
 	if(ImGuizmo::IsOver() && PickedControlPoint) {
 		GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
@@ -873,6 +889,54 @@ void CameraPerspective() {
 	CameraSpeed = 0.1f;
 }
 
+void CurveManagerViewer() {
+
+	CurveManagerView CurveView = FeatureCurveMgr.GetCurveManagerView();
+
+	if (CurveView.ConstraintPointPanelOpen) {
+
+		DrawConstraintPointPanel(CurveView);
+
+	}
+
+}
+
+void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
+
+	ImGuiIO& io = ImGui::GetIO();
+
+	ImVec2 pos = ImVec2(20.0f, io.DisplaySize.y / 4.0f);
+
+	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.9f);
+	ImGui::SetNextWindowSize(ImVec2(170.0f, io.DisplaySize.y / 2.0f), ImGuiCond_Always);
+	
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar;
+
+	Constraints InputConstraints;
+
+	ImGui::Begin("Constraint Point", nullptr, flags);
+
+	ImGui::InputFloat("h", &InputConstraints.h, 0.0f, 1.0f);
+	ImGui::InputFloat("r", &InputConstraints.r, 0.0f, 1.0f);
+	ImGui::InputFloat("a", &InputConstraints.a, 0.0f, 1.0f);
+	ImGui::InputFloat("b", &InputConstraints.b, 0.0f, 1.0f);
+	ImGui::InputFloat("theta", &InputConstraints.theta, 0.0f, 90.0f);
+	ImGui::InputFloat("phi", &InputConstraints.phi, 0.0f, 90.0f);
+	ImGui::InputFloat("Amplitude", &InputConstraints.Amplitude, 0.0f, 1.0f);
+	ImGui::InputFloat("Roughness", &InputConstraints.Roughness, 0.0f, 1.0f);
+
+	FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).SetConstraints(InputConstraints);
+
+	ImGui::End();
+
+	std::cout << "u: " << FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).u << std::endl;
+	std::cout << "h: " << FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).Data.h << std::endl;
+
+}
 
 void DrawPanel() {
 
