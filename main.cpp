@@ -1053,8 +1053,7 @@ void DrawPanel() {
 		}
 		if (ImGui::Button("Rasterize", ImVec2(-FLT_MIN, 30))) {
 			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
-
-			std::cout << heightmap(0, 500) << std::endl;
+			// x방향이 col임
 
 		}
 
