@@ -184,11 +184,6 @@ public:
 
 	void PopBack() { ControlPoints.pop_back(); }
 
-	glm::vec3 BezierCubic(const glm::vec3& P0, const glm::vec3& P1, const glm::vec3& P2, const glm::vec3& P3, float t) const {
-		float u = 1.0f - t;
-		return u * u * u * P0 + 3.0f * u * u * t * P1 + 3.0f * u * t * t * P2 + t * t * t * P3;
-	}
-
 	void BuildLines();
 	void BuildLinesLength();
 
@@ -229,6 +224,7 @@ public:
 	int FindConstraintPointByU(float u) const;
 
 	int CreateControlPointID() { return NextControlPointID++; }
+
 
 };
 

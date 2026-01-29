@@ -1053,9 +1053,13 @@ void DrawPanel() {
 		}
 		if (ImGui::Button("Rasterize", ImVec2(-FLT_MIN, 30))) {
 			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
+			RasterizerMgr.Initialize(1024, 1024);
+			RasterizerMgr.BuildPolyline();
+			RasterizerMgr.PrintPolylines();
 			// x방향이 col임
 
 		}
+
 
 		ImGui::EndChild();
 

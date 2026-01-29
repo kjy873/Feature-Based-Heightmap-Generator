@@ -48,9 +48,18 @@
 		ConstraintMask Mask;
 	};
 
+	struct LinearCoord {
+		glm::vec3 Pos;
+		glm::vec3 Normal;
+		glm::vec3 Tangent;
+		float u;
+	};
+
 	struct CurveData {
 		std::vector<glm::vec3> ControlPoints;
 		std::vector<Constraints> ConstraintPoints;
+		std::vector<LinearCoord> PolylineSamples;
+
 
 		CurveData() {};
 		CurveData(std::vector<glm::vec3> Control, std::vector<Constraints> Constraint) : ControlPoints(Control), ConstraintPoints(Constraint) {};
@@ -63,3 +72,8 @@
 			return *this;
 		}
 	};
+
+	inline glm::vec3 BezierCubic(const glm::vec3& P0, const glm::vec3& P1, const glm::vec3& P2, const glm::vec3& P3, float t) {
+		float u = 1.0f - t;
+		return (u * u * u * P0 + 3.0f * u * u * t * P1 + 3.0f * u * t * t * P2 + t * t * t * P3);
+	}
