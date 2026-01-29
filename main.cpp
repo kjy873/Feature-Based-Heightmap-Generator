@@ -27,8 +27,8 @@ double LastMouseY = 0.0;
 
 bool ControlPointRender = false;
 
-double windowWidth = 1280;
-double windowHeight = 720;
+double windowWidth = 1920;
+double windowHeight = 1080;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
@@ -932,9 +932,6 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 	FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).SetConstraints(InputConstraints);
 
 	ImGui::End();
-
-	std::cout << "u: " << FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).u << std::endl;
-	std::cout << "h: " << FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).Data.h << std::endl;
 
 }
 

@@ -62,6 +62,53 @@ void FeatureCurve::BuildLines() {
 	LineDirty = true;
 }
 
+void FeatureCurve::BuildLinesLength() {
+
+	SamplePoints.clear();
+
+	int Count = ControlPoints.size();
+	if (Count < 4 || (Count - 1) % 3 != 0) return;
+
+	int SegmentCount = (Count - 1) / 3;
+
+	for (int i = 0; i + 3 < Count; i += 3) {
+		const glm::vec3& P0 = ControlPoints[i].GetPosition();
+		const glm::vec3& P1 = ControlPoints[i + 1].GetPosition();
+		const glm::vec3& P2 = ControlPoints[i + 2].GetPosition();
+		const glm::vec3& P3 = ControlPoints[i + 3].GetPosition();
+
+		int SamplingStart = (i == 0) ? 0 : 1;
+
+		for (int j = SamplingStart; j <= SamplePerSegment; j++) {
+			float t = (float)j / (float)SamplePerSegment;
+
+			glm::vec3 Pos = BezierCubic(P0, P1, P2, P3, t);
+
+			SamplePoints.emplace_back(Pos, 0.0f);
+		}
+	}
+
+	if (SamplePoints.size() >= 2) {
+		float TotalLength = 0.0f;
+
+		SamplePoints[0].u = 0.0f;
+
+		for (int i = 1; i < SamplePoints.size(); i++) {
+			TotalLength += glm::length(SamplePoints[i].Position - SamplePoints[i - 1].Position);
+
+			SamplePoints[i].u = TotalLength;
+		}
+
+		if (TotalLength > 0) for (auto& sp : SamplePoints) sp.u /= TotalLength;
+		else for (auto& sp : SamplePoints) sp.u = 0.0f;
+
+		SamplePoints.back().u = 1.0f;
+
+	}
+	
+	LineDirty = true;
+}
+
 void FeatureCurve::UploadBufferLine(BufferManager& BufferMgr) {
 	if (SamplePoints.empty()) return;
 	if (!LineDirty) return;
@@ -335,6 +382,8 @@ void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputM
 
 	PickResult Picked = Pick(Pos);
 
+	PrintPickResult(Picked);
+
 	/*if (Picked.Type == PickType::ControlPoint) std::cout << "Pick ControlPoint" << std::endl;
 	else if (Picked.Type == PickType::Curve) std::cout << "Pick Curve" << std::endl;
 	else std::cout << "Pick None" << std::endl;*/
@@ -384,10 +433,14 @@ const glm::vec3 FeatureCurveManager::AppliedTangentPos(const glm::vec3 P0, const
 }
 
 void FeatureCurveManager::PendControlPoint(const glm::vec3& Pos) {
-	
-	Pended.emplace(Pos);
-	Pended->SetMesh();
 
+	if (SelectedCurveID == -1) {
+		std::cout << "PendControlPoint Error: No curve selected." << std::endl;
+		return;
+	}
+
+	Pended.emplace(GetFeatureCurve(SelectedCurveID)->CreateControlPointID(), Pos);
+	Pended->SetMesh();
 
 }
 
@@ -428,8 +481,29 @@ PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
 	if (Result.Type != PickType::None) return Result;
 
 	Result = PickCurve(Pos);
+
 	return Result;
 
+}
+
+void FeatureCurveManager::PrintPickResult(const PickResult& Result) const {
+
+	switch (Result.Type) {
+	case PickType::None:
+		std::cout << "PickResult: None" << std::endl;
+		break;
+	case PickType::Curve:
+		std::cout << "PickResult: Curve, CurveID = " << Result.CurveID << std::endl;
+		break;
+	case PickType::ControlPoint:
+		std::cout << "PickResult: ControlPoint = " << Result.CurveID << ", ControlPointID = " << Result.ControlPointID << std::endl;
+		break;
+	case PickType::ConstraintPoint:
+		std::cout << "PickResult: ConstraintPoint, CurveID = " << Result.CurveID << ", ConstraintPointID = " << Result.ConstraintPointID << std::endl;
+		break;
+	default:
+		break;
+	}
 
 }
 
@@ -752,18 +826,19 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 		std::cout << "P2 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		Curve->AddControlPoint(std::move(*Pended));
 
+		Pended.reset();
+		Curve->BuildLinesLength();
+		UpdateAllBoundingBoxes();
+
 		if (CommittedSegments < 1) {
 			Curve->AddConstraintPoint(Curve->GetControlPoints().front().GetPosition(), 0.0f);
 			Curve->AddConstraintPoint(Pended->GetPosition(), 1.0f);
 		}
 		else {
-			UpdateLastConstraintByU(Curve->GetCurveID());
+			UpdateLastConstraint(Curve->GetCurveID());
 		}
 
 		CommittedSegments++;
-		Pended.reset();
-		Curve->BuildLines();
-		UpdateAllBoundingBoxes();
 
 
 
@@ -908,9 +983,14 @@ void FeatureCurveManager::HoverPressedShift(const glm::vec3& Pos) {
 }
 
 void FeatureCurveManager::AddConstraintPoint(const glm::vec3& Pos) {
-	if (SelectedCurveID == -1) return;
-	if (State != EditCurveState::CurveSelected) return;
-
+	if (SelectedCurveID == -1) {
+		std::cout << "AddConstraintPoint(): No curve selected!" << std::endl;
+		return;
+	}
+	if ((State != EditCurveState::CurveSelected) && (State != EditCurveState::P2)) {
+		std::cout << "AddConstraintPoint(): Invalid state!" << std::endl;
+		return;
+	}
 	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
 
 	int Index = Curve->FindNearestCurvePoint(Pos);
@@ -940,7 +1020,7 @@ void FeatureCurveManager::UpdateConstraintPointPosByU(int CurveID, int Constrain
 
 }
 
-void FeatureCurveManager::UpdateLastConstraintByU(int CurveID) {
+void FeatureCurveManager::UpdateLastConstraint(int CurveID) {
 
 	FeatureCurve* Curve = GetFeatureCurve(CurveID);
 	if (!Curve) return;
@@ -950,6 +1030,8 @@ void FeatureCurveManager::UpdateLastConstraintByU(int CurveID) {
 
 	glm::vec3 NewPos = Curve->GetSamplePoints().back().Position;
 
+	std::cout << NewPos.x << ", " << NewPos.y << ", " << NewPos.z << std::endl;
+
 	Curve->GetConstraintPoint(id).CachedPos = NewPos;
 	Curve->GetConstraintPoint(id).Cached = true;
 	Curve->GetConstraintPoint(id).Uploaded = true;
@@ -957,7 +1039,26 @@ void FeatureCurveManager::UpdateLastConstraintByU(int CurveID) {
 
 }
 
-void FeatureCurveManager::UpdateConstraintPointsPosByU(int CurveID) {
+void FeatureCurveManager::UpdateConstraintPoints(int CurveID) {
+
+	FeatureCurve* Curve = GetFeatureCurve(CurveID);
+	if (!Curve) return;
+	
+	// Todo
+	/*SamplePoint or ConstraintPoint가 바뀌는 순간
+	= ControlPoint가 이동하거나 Segment가 추가되는 순간에
+	SamplePoint와 ConstraintPoint의 Pos, u값을 업데이트해야함*/
+
+
 
 	// u에 따라 위치 업데이트
+}
+
+const std::vector<CurveData>& FeatureCurveManager::ExtractCurveData(){
+	//std::vector<CurveData> Data;
+	//
+	//for (const auto& curve : FeatureCurves) {
+	//	//Data.emplace_back(curve.GetControlPoints(), curve.GetConstraintPoints());
+	//}
+
 }

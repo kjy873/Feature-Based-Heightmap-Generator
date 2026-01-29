@@ -8,6 +8,7 @@
 #include <glm.hpp>
 
 #include "BufferManager.h"
+#include "Rasterizer.h"
 
 struct CurvePoint
 {
@@ -52,6 +53,7 @@ struct ConstraintPoint
 
 	Constraints Data;
 	float u = 0.0f;
+	bool KeepU = false;
 	
 	ConstraintMask Mask = ConstraintMask::None;
 
@@ -171,7 +173,7 @@ class FeatureCurve
 
 	std::vector<ConstraintPoint> ConstraintPoints;
 
-	int SamplePerSegment = 64;
+	int SamplePerSegment = 128;
 
 	int NextControlPointID = 0;
 	int NextConstraintPointID = 0;
@@ -209,6 +211,7 @@ public:
 	}
 
 	void BuildLines();
+	void BuildLinesLength();
 
 	LineMesh* GetLineMesh() const { return Line.get(); }
 
@@ -245,6 +248,8 @@ public:
 	ConstraintPoint& GetConstraintPoint(int id);
 
 	int FindConstraintPointByU(float u) const;
+
+	int CreateControlPointID() { return NextControlPointID++; }
 
 };
 
@@ -412,7 +417,11 @@ public:
 	};
 
 	void UpdateConstraintPointPosByU(int CurveID, int ConstraintPointID); // ConstraintPoint의 u값에 따라 위치를 업데이트
-	void UpdateLastConstraintByU(int CurveID); // 마지막 ConstraintPoint의 u값에 따라 위치를 업데이트
-	void UpdateConstraintPointsPosByU(int CurveID); // 모든 ConstraintPoint의 u값에 따라 위치를 업데이트
+	void UpdateLastConstraint(int CurveID); // 마지막 ConstraintPoint의 u값에 따라 위치를 업데이트
+	void UpdateConstraintPoints(int CurveID); // 모든 ConstraintPoint의 u값에 따라 위치를 업데이트
+
+	void PrintPickResult(const PickResult& Picked) const;
+
+	const std::vector<CurveData>& ExtractCurveData();
 
 };
