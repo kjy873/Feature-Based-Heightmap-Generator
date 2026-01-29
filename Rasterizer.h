@@ -1,25 +1,31 @@
 #pragma once
 
-#include "FeatureCurve.h"
+#include "Features.h"
 
-struct CurveData {
-	std::vector<glm::vec3> ControlPoints;
-	std::vector<Constraints> ConstraintPoints;
-
-	CurveData(const std::vector<glm::vec3>& controlPoints, const std::vector<Constraints>& constraintPoints)
-		: ControlPoints(controlPoints), ConstraintPoints(constraintPoints) {};
+struct LinearCoord {
+	glm::vec3 Pos;
+	glm::vec3 Normal;
+	glm::vec3 Tangent;
+	float u;
 };
 
 class Rasterizer
 {
+	
 	std::vector<CurveData> Curves;
 
-public:
-	Rasterizer();
-	~Rasterizer();
+	std::vector<LinearCoord> PolylineSamples;
 
-	void Initialize(int width, int height);
+public:
+	Rasterizer() {};
+	Rasterizer(const std::vector<CurveData>& curves) : Curves(curves) {};
+	~Rasterizer() {};
+
+	void SetCurves(const std::vector<CurveData>& curves) { Curves = curves; }
+	void Initialize(int ResU, int ResV);
 	void UploadCurveData();
+
+	const std::vector<CurveData>& GetCurves() { return Curves; }
 
 };
 

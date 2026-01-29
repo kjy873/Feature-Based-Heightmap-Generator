@@ -274,9 +274,9 @@ ConstraintPoint& FeatureCurve::GetConstraintPoint(int id) {
 
 int FeatureCurve::FindConstraintPointByU(float u) const {
 
-	auto it = std::find_if(ConstraintPoints.begin(), ConstraintPoints.end(), [u](const ConstraintPoint& cp) { return glm::abs(cp.u - u) < 1e-6f; }); // 또는 a == b
+	auto it = std::find_if(ConstraintPoints.begin(), ConstraintPoints.end(), [u](const ConstraintPoint& cp) { return glm::abs(cp.Data.u - u) < 1e-6f; }); // 또는 a == b
 
-	return (it == ConstraintPoints.end()) ? -1 : it->u;
+	return (it == ConstraintPoints.end()) ? -1 : it->Data.u;
 
 }
 
@@ -1054,11 +1054,21 @@ void FeatureCurveManager::UpdateConstraintPoints(int CurveID) {
 	// u에 따라 위치 업데이트
 }
 
-const std::vector<CurveData>& FeatureCurveManager::ExtractCurveData(){
-	//std::vector<CurveData> Data;
-	//
-	//for (const auto& curve : FeatureCurves) {
-	//	//Data.emplace_back(curve.GetControlPoints(), curve.GetConstraintPoints());
-	//}
+const std::vector<CurveData> FeatureCurveManager::ExtractCurveData() {
+
+	std::vector<CurveData> Datas;
+
+	for (const auto& curve : FeatureCurves) {
+		CurveData Data;
+		for (const auto& control : curve.GetControlPoints()) {
+			Data.ControlPoints.emplace_back(control.GetPosition());
+		}
+		for(const auto& constraint : curve.GetConstraintPoints()) {
+			Data.ConstraintPoints.emplace_back(constraint.Data);
+		}
+		Datas.emplace_back(std::move(Data));
+	}
+
+	return Datas;
 
 }

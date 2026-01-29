@@ -39,6 +39,7 @@
 #include "HeightMap.h"
 #include "NoiseGenerator.h"
 #include "FeatureCurve.h"
+#include "Rasterizer.h"
 
 using namespace std;
 using namespace glm;

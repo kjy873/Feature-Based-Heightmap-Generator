@@ -118,6 +118,8 @@ NoiseGenerator NoiseGen(0, 0);
 
 FeatureCurveManager FeatureCurveMgr;
 
+Rasterizer RasterizerMgr;
+
 
 // basis function 캐싱
 int CachedRows = 0;
@@ -332,6 +334,8 @@ void init() {
 	heightmap.SetHeight(SplineSurface.GetHeightMap());
 
 	NoiseGen.SetRes(1024, 1024);
+
+	
 
 	controlPoints_initial = {
 		{glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1 / 3.0f, 0.0f, 0.0f), glm::vec3(2 / 3.0f, 0.0f, 0.0f) , glm::vec3(3 / 3.0f, 0.0f, 0.0f)},
@@ -907,6 +911,8 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 
 	ImVec2 pos = ImVec2(20.0f, io.DisplaySize.y / 4.0f);
 
+	auto& cp = FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID);
+
 	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.9f);
 	ImGui::SetNextWindowSize(ImVec2(170.0f, io.DisplaySize.y / 2.0f), ImGuiCond_Always);
@@ -920,16 +926,42 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 
 	ImGui::Begin("Constraint Point", nullptr, flags);
 
-	ImGui::InputFloat("h", &InputConstraints.h, 0.0f, 1.0f);
-	ImGui::InputFloat("r", &InputConstraints.r, 0.0f, 1.0f);
-	ImGui::InputFloat("a", &InputConstraints.a, 0.0f, 1.0f);
-	ImGui::InputFloat("b", &InputConstraints.b, 0.0f, 1.0f);
-	ImGui::InputFloat("theta", &InputConstraints.theta, 0.0f, 90.0f);
-	ImGui::InputFloat("phi", &InputConstraints.phi, 0.0f, 90.0f);
-	ImGui::InputFloat("Amplitude", &InputConstraints.Amplitude, 0.0f, 1.0f);
-	ImGui::InputFloat("Roughness", &InputConstraints.Roughness, 0.0f, 1.0f);
+	bool elevation = HasMask(cp.Data.Mask, ConstraintMask::Elevation);
+	if (ImGui::Checkbox("Elevation", &elevation)) {
+		if (elevation) cp.Data.Mask = cp.Data.Mask | ConstraintMask::Elevation;
+		else cp.Data.Mask = static_cast<ConstraintMask>(static_cast<int>(cp.Data.Mask) & ~static_cast<int>(ConstraintMask::Elevation));
+	}
 
-	FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID).SetConstraints(InputConstraints);
+	if (elevation) {
+		ImGui::InputFloat("h", &InputConstraints.h, 0.0f, 1.0f);
+		ImGui::InputFloat("r", &InputConstraints.r, 0.0f, 1.0f);
+	}
+
+	bool gradient = HasMask(cp.Data.Mask, ConstraintMask::Gradient);
+	if (ImGui::Checkbox("Gradient", &gradient)) {
+		if (gradient) cp.Data.Mask = cp.Data.Mask | ConstraintMask::Gradient;
+		else cp.Data.Mask = static_cast<ConstraintMask>(static_cast<int>(cp.Data.Mask) & ~static_cast<int>(ConstraintMask::Gradient));
+	}
+
+	if (gradient) {
+		ImGui::InputFloat("a", &InputConstraints.a, 0.0f, 1.0f);
+		ImGui::InputFloat("b", &InputConstraints.b, 0.0f, 1.0f);
+		ImGui::InputFloat("theta", &InputConstraints.theta, 0.0f, 90.0f);
+		ImGui::InputFloat("phi", &InputConstraints.phi, 0.0f, 90.0f);
+	}
+
+	bool noise = HasMask(cp.Data.Mask, ConstraintMask::Noise);
+	if (ImGui::Checkbox("Noise", &noise)) {
+		if (noise) cp.Data.Mask = cp.Data.Mask | ConstraintMask::Noise;
+		else cp.Data.Mask = static_cast<ConstraintMask>(static_cast<int>(cp.Data.Mask) & ~static_cast<int>(ConstraintMask::Noise));
+	}
+
+	if (noise) {
+		ImGui::InputFloat("Amplitude", &InputConstraints.Amplitude, 0.0f, 1.0f);
+		ImGui::InputFloat("Roughness", &InputConstraints.Roughness, 0.0f, 1.0f);
+	}
+
+	cp.SetConstraints(InputConstraints);
 
 	ImGui::End();
 
@@ -1018,6 +1050,12 @@ void DrawPanel() {
 		if (ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
 			if (LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.0f, 10.0f, 0.0f);
 			else LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
+		}
+		if (ImGui::Button("Rasterize", ImVec2(-FLT_MIN, 30))) {
+			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
+
+			std::cout << heightmap(0, 500) << std::endl;
+
 		}
 
 		ImGui::EndChild();

@@ -8,7 +8,7 @@
 #include <glm.hpp>
 
 #include "BufferManager.h"
-#include "Rasterizer.h"
+#include "Features.h"
 
 struct CurvePoint
 {
@@ -17,28 +17,6 @@ struct CurvePoint
 
 	CurvePoint() : Position(glm::vec3(0.0f)), u(0.0f) {};
 	CurvePoint(const glm::vec3& pos, float uu) : Position(pos), u(uu) {};
-};
-
-enum class ConstraintMask
-{
-	None = 0,
-	Elevation = 1 << 0,
-	Gradient = 1 << 1,
-	Noise = 1 << 2,
-};
-
-struct Constraints {
-	float h = 0.0f;
-	float r = 0.0f;
-
-	float a = 0.0f;
-	float b = 0.0f;
-	float theta = 0.0f;
-	float phi = 0.0f;
-
-	float Amplitude = 0.0f;
-	float Roughness = 0.0f;
-
 };
 
 struct ConstraintPoint
@@ -52,10 +30,8 @@ struct ConstraintPoint
 	glm::vec3 CachedPos = glm::vec3(0.0f, 0.0f, 0.0f); // FeatureCurve에서 u->position 변환 함수를 만들 것. 필요 시 여기서 캐싱 
 
 	Constraints Data;
-	float u = 0.0f;
+	//float u = 0.0f;
 	bool KeepU = false;
-	
-	ConstraintMask Mask = ConstraintMask::None;
 
 	std::unique_ptr<ControlPointVisualMesh> Mesh;
 
@@ -69,7 +45,10 @@ struct ConstraintPoint
 	ConstraintPoint(int id) : ID(id), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 	ConstraintPoint(const glm::vec3& Pos) : CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 	ConstraintPoint(int id, const glm::vec3& Pos) : ID(id), CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
-	ConstraintPoint(int id, const glm::vec3& Pos, float uu) : ID(id), CachedPos(Pos), Cached(true), u(uu), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
+	ConstraintPoint(int id, const glm::vec3& Pos, float uu) : ID(id), CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) 
+	{
+		Data.u = uu;
+	}
 
 
 
@@ -422,6 +401,5 @@ public:
 
 	void PrintPickResult(const PickResult& Picked) const;
 
-	const std::vector<CurveData>& ExtractCurveData();
-
+	const std::vector<CurveData> ExtractCurveData();
 };

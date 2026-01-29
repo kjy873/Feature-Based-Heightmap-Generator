@@ -176,6 +176,7 @@
     <ClInclude Include="BufferManager.h" />
     <ClInclude Include="B_SplineSurface.h" />
     <ClInclude Include="FeatureCurve.h" />
+    <ClInclude Include="Features.h" />
     <ClInclude Include="HeightMap.h" />
     <ClInclude Include="include\imguizmo\GraphEditor.h" />
     <ClInclude Include="include\imguizmo\ImCurveEdit.h" />
