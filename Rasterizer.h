@@ -2,7 +2,7 @@
 
 #include "Features.h"
 
-
+#include "iostream"
 
 class Rasterizer
 {
@@ -10,6 +10,8 @@ class Rasterizer
 	std::vector<CurveData> Curves;
 
 	float TexelSize = 0.0f;
+
+	std::vector<Quad> Quads;
 
 	float Width;
 	float Falloff;
@@ -27,19 +29,17 @@ public:
 
 	const std::vector<CurveData>& GetCurves() { return Curves; }
 
-	void PrintPolylines() const {
-		for (const auto& curve : Curves) {
-			printf("Polyline Samples:\n");
-			for (const auto& sample : curve.PolylineSamples) {
-				printf("Pos: (%.3f, %.3f, %.3f), Normal: (%.3f, %.3f, %.3f), Tangent: (%.3f, %.3f, %.3f), u: %.3f\n",
-					sample.Pos.x, sample.Pos.y, sample.Pos.z,
-					sample.Normal.x, sample.Normal.y, sample.Normal.z,
-					sample.Tangent.x, sample.Tangent.y, sample.Tangent.z,
-					sample.u);
-			}
-			printf("\n");
-		}
-	}
+	void PrintPolylines() const;
+	void PrintPolylineMasks() const;
 
+	float Lerp(float a, float b, float t) { return (1.0f - t) * a + t * b; };
+	float InterpolateCubic(float p0, float p1, float p2, float p3, float t);
+
+	void InterpolateConstraints(CurveData& Curve);
+	void InterpolateCurves();
+
+	bool BuildQuad(const LinearCoord& p0, const LinearCoord& p1, Quad& OutQuad);
+	void BuildQuads();
+	void PrintQuads() const;
 };
 

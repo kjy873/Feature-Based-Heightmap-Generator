@@ -26,6 +26,12 @@
 			);
 	}
 
+	inline ConstraintMask operator|=(ConstraintMask& a, ConstraintMask b)
+	{
+		a = a | b;
+		return a;
+	}
+
 	inline bool HasMask(ConstraintMask value, ConstraintMask flag)
 	{
 		return (value & flag) != ConstraintMask::None;
@@ -45,7 +51,7 @@
 
 		float u = 0.0f;
 
-		ConstraintMask Mask;
+		ConstraintMask Mask = ConstraintMask::None;
 	};
 
 	struct LinearCoord {
@@ -53,6 +59,8 @@
 		glm::vec3 Normal;
 		glm::vec3 Tangent;
 		float u;
+
+		Constraints Constraint;
 	};
 
 	struct CurveData {
@@ -71,6 +79,23 @@
 			}
 			return *this;
 		}
+	};
+
+	struct QuadVertex {
+		glm::vec3 Position;
+
+		Constraints Constraint;
+
+		glm::vec3 CurvePos;
+
+		glm::vec3 CurveNormal;
+	};
+	struct Quad {
+		// CCW
+		QuadVertex V0; // p0 - left
+		QuadVertex V1; // p1 - left
+		QuadVertex V2; // p1 - right
+		QuadVertex V3; // p0 - right
 	};
 
 	inline glm::vec3 BezierCubic(const glm::vec3& P0, const glm::vec3& P1, const glm::vec3& P2, const glm::vec3& P3, float t) {

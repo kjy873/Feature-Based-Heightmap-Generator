@@ -1066,6 +1066,9 @@ const std::vector<CurveData> FeatureCurveManager::ExtractCurveData() {
 		for(const auto& constraint : curve.GetConstraintPoints()) {
 			Data.ConstraintPoints.emplace_back(constraint.Data);
 		}
+		std::sort(Data.ConstraintPoints.begin(), Data.ConstraintPoints.end(), [](const Constraints& a, const Constraints& b) {
+			return a.u < b.u;
+			});
 		Datas.emplace_back(std::move(Data));
 	}
 

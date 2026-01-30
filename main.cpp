@@ -922,14 +922,15 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 		ImGuiWindowFlags_NoMove |
 		ImGuiWindowFlags_NoScrollbar;
 
-	Constraints InputConstraints;
+	Constraints InputConstraints = cp.GetConstraints();
+	ConstraintMask InputConstraintMask = cp.GetConstraintMask();
 
 	ImGui::Begin("Constraint Point", nullptr, flags);
 
-	bool elevation = HasMask(cp.Data.Mask, ConstraintMask::Elevation);
+	bool elevation = HasMask(InputConstraintMask, ConstraintMask::Elevation);
 	if (ImGui::Checkbox("Elevation", &elevation)) {
-		if (elevation) cp.Data.Mask = cp.Data.Mask | ConstraintMask::Elevation;
-		else cp.Data.Mask = static_cast<ConstraintMask>(static_cast<int>(cp.Data.Mask) & ~static_cast<int>(ConstraintMask::Elevation));
+		if (elevation) InputConstraintMask |= ConstraintMask::Elevation;
+		else InputConstraintMask = static_cast<ConstraintMask>(static_cast<int>(InputConstraintMask) & ~static_cast<int>(ConstraintMask::Elevation));
 	}
 
 	if (elevation) {
@@ -937,10 +938,10 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 		ImGui::InputFloat("r", &InputConstraints.r, 0.0f, 1.0f);
 	}
 
-	bool gradient = HasMask(cp.Data.Mask, ConstraintMask::Gradient);
+	bool gradient = HasMask(InputConstraintMask, ConstraintMask::Gradient);
 	if (ImGui::Checkbox("Gradient", &gradient)) {
-		if (gradient) cp.Data.Mask = cp.Data.Mask | ConstraintMask::Gradient;
-		else cp.Data.Mask = static_cast<ConstraintMask>(static_cast<int>(cp.Data.Mask) & ~static_cast<int>(ConstraintMask::Gradient));
+		if (gradient) InputConstraintMask |= ConstraintMask::Gradient;
+		else InputConstraintMask = static_cast<ConstraintMask>(static_cast<int>(InputConstraintMask) & ~static_cast<int>(ConstraintMask::Gradient));
 	}
 
 	if (gradient) {
@@ -950,10 +951,10 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 		ImGui::InputFloat("phi", &InputConstraints.phi, 0.0f, 90.0f);
 	}
 
-	bool noise = HasMask(cp.Data.Mask, ConstraintMask::Noise);
+	bool noise = HasMask(InputConstraintMask, ConstraintMask::Noise);
 	if (ImGui::Checkbox("Noise", &noise)) {
-		if (noise) cp.Data.Mask = cp.Data.Mask | ConstraintMask::Noise;
-		else cp.Data.Mask = static_cast<ConstraintMask>(static_cast<int>(cp.Data.Mask) & ~static_cast<int>(ConstraintMask::Noise));
+		if (noise) InputConstraintMask |= ConstraintMask::Noise;
+		else InputConstraintMask = static_cast<ConstraintMask>(static_cast<int>(InputConstraintMask) & ~static_cast<int>(ConstraintMask::Noise));
 	}
 
 	if (noise) {
@@ -962,6 +963,7 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 	}
 
 	cp.SetConstraints(InputConstraints);
+	cp.SetConstraintMask(InputConstraintMask);
 
 	ImGui::End();
 
@@ -1055,7 +1057,11 @@ void DrawPanel() {
 			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
 			RasterizerMgr.Initialize(1024, 1024);
 			RasterizerMgr.BuildPolyline();
-			RasterizerMgr.PrintPolylines();
+			//RasterizerMgr.PrintPolylines();
+			RasterizerMgr.InterpolateCurves();
+			RasterizerMgr.PrintPolylineMasks();
+			RasterizerMgr.BuildQuads();
+			//RasterizerMgr.PrintQuads();
 			// x방향이 col임
 
 		}

@@ -4,6 +4,7 @@
 #include "Mesh.h"
 #include <glew.h>
 #include <optional>
+#include <algorithm>
 
 #include <glm.hpp>
 
@@ -66,8 +67,10 @@ struct ConstraintPoint
 	int GetID() const { return ID; }
 
 	const Constraints& GetConstraints() const { return Data; }
+	const ConstraintMask& GetConstraintMask() const { return Data.Mask; }
 
 	void SetConstraints(const Constraints& InputConstraints) { Data = InputConstraints; }
+	void SetConstraintMask(const ConstraintMask& InputConstraintMask) { Data.Mask = InputConstraintMask; }
 
 };
 
