@@ -4,6 +4,11 @@
 
 #include "iostream"
 
+struct AABB {
+	glm::vec2 Min;
+	glm::vec2 Max;
+};
+
 class Rasterizer
 {
 	
@@ -12,6 +17,8 @@ class Rasterizer
 	float TexelSize = 0.0f;
 
 	std::vector<Quad> Quads;
+
+	Maps Map;
 
 	float Width;
 	float Falloff;
@@ -22,7 +29,13 @@ public:
 	~Rasterizer() {};
 
 	void SetCurves(const std::vector<CurveData>& curves) { Curves = curves; }
-	void Initialize(float ResU, float ResV) { TexelSize = std::min(1.0f / ResU, 1.0f / ResV); }; // *0.5f 가능
+	void Initialize(float ResU, float ResV) { 
+		TexelSize = std::min(1.0f / ResU, 1.0f / ResV); 
+		Map.ElevationMap.assign(ResU * ResV, 0.0f);
+		Map.GradientMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
+		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
+		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
+	}; // *0.5f 가능
 
 	void BuildPolyline();
 	const LinearCoord CreateLinearCoord(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t);
@@ -41,5 +54,11 @@ public:
 	bool BuildQuad(const LinearCoord& p0, const LinearCoord& p1, Quad& OutQuad);
 	void BuildQuads();
 	void PrintQuads() const;
+
+	void BuildConstraintMaps();
+
+	AABB ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const;
+
+
 };
 

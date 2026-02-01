@@ -271,3 +271,22 @@ void Rasterizer::PrintQuads() const{
 	}
 
 }
+
+void Rasterizer::BuildConstraintMaps() {
+
+	for(const auto& quad : Quads) {
+
+
+
+	}
+
+}
+
+AABB Rasterizer::ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const{
+	float MinX = std::min(std::min(v0.x, v1.x), std::min(v2.x, v3.x));
+	float MaxX = std::max(std::max(v0.x, v1.x), std::max(v2.x, v3.x));
+	float MinZ = std::min(std::min(v0.z, v1.z), std::min(v2.z, v3.z));
+	float MaxZ = std::max(std::max(v0.z, v1.z), std::max(v2.z, v3.z));
+
+	return AABB{ glm::vec2(MinX, MinZ), glm::vec2(MaxX, MaxZ) };
+}

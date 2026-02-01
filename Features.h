@@ -102,3 +102,11 @@
 		float u = 1.0f - t;
 		return (u * u * u * P0 + 3.0f * u * u * t * P1 + 3.0f * u * t * t * P2 + t * t * t * P3);
 	}
+
+	struct Maps {
+		std::vector<float> ElevationMap;
+		std::vector<glm::vec2> GradientMap;
+		std::vector<glm::vec2> NoiseMap;
+		std::vector<uint8_t> ConstraintMaskMap;
+	};
+
