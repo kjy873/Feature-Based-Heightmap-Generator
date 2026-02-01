@@ -140,7 +140,7 @@ int main() {
         return -1;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -191,8 +191,7 @@ int main() {
 	(void)io;
 	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330");
-
+	ImGui_ImplOpenGL3_Init("#version 430");
 
 	init();
 
@@ -259,6 +258,8 @@ int main() {
         // 버퍼 교환
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+		
     }
 
 	ImGui_ImplOpenGL3_Shutdown();
@@ -1062,6 +1063,7 @@ void DrawPanel() {
 			//RasterizerMgr.PrintPolylineMasks();
 			RasterizerMgr.BuildQuads();
 			RasterizerMgr.PrintQuads();
+			RasterizerMgr.BuildConstraintMaps();
 			// x방향이 col임
 
 		}

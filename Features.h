@@ -96,6 +96,10 @@
 		QuadVertex V1; // p1 - left
 		QuadVertex V2; // p1 - right
 		QuadVertex V3; // p0 - right
+
+		bool HasElevation = false;
+		bool HasGradient = false;
+		bool HasNoise = false;
 	};
 
 	inline glm::vec3 BezierCubic(const glm::vec3& P0, const glm::vec3& P1, const glm::vec3& P2, const glm::vec3& P3, float t) {
@@ -103,10 +107,21 @@
 		return (u * u * u * P0 + 3.0f * u * u * t * P1 + 3.0f * u * t * t * P2 + t * t * t * P3);
 	}
 
+	struct Gradient {
+		float nx = 0.0f;
+		float ny = 0.0f;
+		float norm = 0.0f;
+
+		Gradient() {};
+	};
+
 	struct Maps {
 		std::vector<float> ElevationMap;
 		std::vector<glm::vec2> GradientMap;
 		std::vector<glm::vec2> NoiseMap;
 		std::vector<uint8_t> ConstraintMaskMap;
+		std::vector<Gradient> Gradients;
+
 	};
 
+	

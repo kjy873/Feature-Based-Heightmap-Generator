@@ -20,8 +20,9 @@ class Rasterizer
 
 	Maps Map;
 
-	float Width;
 	float Falloff;
+
+	int Width, Height;
 
 public:
 	Rasterizer() {};
@@ -30,11 +31,14 @@ public:
 
 	void SetCurves(const std::vector<CurveData>& curves) { Curves = curves; }
 	void Initialize(float ResU, float ResV) { 
+		Width = ResU;
+		Height = ResV;
 		TexelSize = std::min(1.0f / ResU, 1.0f / ResV); 
 		Map.ElevationMap.assign(ResU * ResV, 0.0f);
 		Map.GradientMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
+		Map.Gradients.assign(ResU * ResV, Gradient());
 	}; // *0.5f °¡´É
 
 	void BuildPolyline();
@@ -59,6 +63,8 @@ public:
 
 	AABB ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const;
 
+	bool Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) const;
+	void InterpolateQuad(const glm::vec2& p, const Quad& quad, int r, int c);
 
 };
 

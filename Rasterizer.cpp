@@ -200,6 +200,7 @@ bool Rasterizer::BuildQuad(const LinearCoord& p0, const LinearCoord& p1, Quad& O
 
 	bool HasElevation = HasMask(p0.Constraint.Mask, ConstraintMask::Elevation) && HasMask(p1.Constraint.Mask, ConstraintMask::Elevation);
 	bool HasGradient = HasMask(p0.Constraint.Mask, ConstraintMask::Gradient) && HasMask(p1.Constraint.Mask, ConstraintMask::Gradient);
+	bool HasNoise = HasMask(p0.Constraint.Mask, ConstraintMask::Noise) && HasMask(p1.Constraint.Mask, ConstraintMask::Noise);
 
 	if (!HasElevation && !HasGradient) return false;
 
@@ -244,6 +245,10 @@ bool Rasterizer::BuildQuad(const LinearCoord& p0, const LinearCoord& p1, Quad& O
 	OutQuad.V2 = v3;
 	OutQuad.V3 = v2;
 
+	OutQuad.HasElevation = HasElevation;
+	OutQuad.HasGradient = HasGradient;
+	OutQuad.HasNoise = HasNoise;
+
 	return true;
 
 }
@@ -276,17 +281,156 @@ void Rasterizer::BuildConstraintMaps() {
 
 	for(const auto& quad : Quads) {
 
+		int MinC, MinR, MaxC, MaxR;
+
+		AABB aabb = ComputeAABB(quad.V0.Position, quad.V1.Position, quad.V2.Position, quad.V3.Position);
+
+		MinC = floor(aabb.Min.x * (Width - 1));
+		MaxC = ceil(aabb.Max.x * (Width - 1));
+		MinR = floor(aabb.Min.y * (Height - 1)); // vec2라 y지만 실제로는 z좌표임
+		MaxR = ceil(aabb.Max.y * (Height - 1));
+
+		MinC = glm::clamp(MinC, 0, Width - 1);
+		MaxC = glm::clamp(MaxC, 0, Width - 1);
+		MinR = glm::clamp(MinR, 0, Height - 1);
+		MaxR = glm::clamp(MaxR, 0, Height - 1);
+
+		for (int r = MinR; r <= MaxR; r++) {
+			for (int c = MinC; c <= MaxC; c++) {
+				glm::vec2 Pos = glm::vec2((float)c / (float)(Width - 1), (float)r / (float)(Height - 1));
+
+				InterpolateQuad(Pos, quad, r, c);
+
+			}
+		}
 
 
 	}
 
 }
 
-AABB Rasterizer::ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const{
+AABB Rasterizer::ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const {
 	float MinX = std::min(std::min(v0.x, v1.x), std::min(v2.x, v3.x));
 	float MaxX = std::max(std::max(v0.x, v1.x), std::max(v2.x, v3.x));
 	float MinZ = std::min(std::min(v0.z, v1.z), std::min(v2.z, v3.z));
 	float MaxZ = std::max(std::max(v0.z, v1.z), std::max(v2.z, v3.z));
 
 	return AABB{ glm::vec2(MinX, MinZ), glm::vec2(MaxX, MaxZ) };
+}
+
+bool Rasterizer::Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) const {
+
+	glm::vec2 v0 = b - a;
+	glm::vec2 v1 = c - a;
+	glm::vec2 v2 = p - a;
+
+	float d00 = glm::dot(v0, v0);
+	float d01 = glm::dot(v0, v1);
+	float d11 = glm::dot(v1, v1);
+	float d20 = glm::dot(v2, v0);
+	float d21 = glm::dot(v2, v1);
+
+	float denom = d00 * d11 - d01 * d01;
+	if (abs(denom) < 1e-8f) return false;
+
+	float v = (d11 * d20 - d01 * d21) / denom;
+	float w = (d00 * d21 - d01 * d20) / denom;
+	float u = 1.0f - v - w;
+
+	OutU = u;
+	OutV = v;
+	OutW = w;
+
+	return (u >= 0) && (v >= 0) && (w >= 0);
+
+
+
+}
+
+void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, int col) {
+
+	QuadVertex V0, V1, V2;
+
+	float u, v, w;
+
+	int index = row * Width + col;
+
+	if (Barycentric(p, glm::vec2(quad.V0.Position.x, quad.V0.Position.z),
+		glm::vec2(quad.V1.Position.x, quad.V1.Position.z),
+		glm::vec2(quad.V2.Position.x, quad.V2.Position.z),
+		u, v, w)) {
+		V0 = quad.V0;
+		V1 = quad.V1;
+		V2 = quad.V2;
+	}
+	else if (Barycentric(p, glm::vec2(quad.V0.Position.x, quad.V0.Position.z),
+		glm::vec2(quad.V2.Position.x, quad.V2.Position.z),
+		glm::vec2(quad.V3.Position.x, quad.V3.Position.z),
+		u, v, w)) {
+		V0 = quad.V0;
+		V1 = quad.V2;
+		V2 = quad.V3;
+	}
+	else return;
+
+	glm::vec3 InterpolatedCurvePos = u * V0.CurvePos + v * V1.CurvePos + w * V2.CurvePos;
+	glm::vec3 InterpolatedCurveNormal = glm::normalize(u * V0.CurveNormal + v * V1.CurveNormal + w * V2.CurveNormal);
+
+	float r = u * V0.Constraint.r + v * V1.Constraint.r + w * V2.Constraint.r;
+	float a = u * V0.Constraint.a + v * V1.Constraint.a + w * V2.Constraint.a;
+	float b = u * V0.Constraint.b + v * V1.Constraint.b + w * V2.Constraint.b;
+	float h = u * V0.Constraint.h + v * V1.Constraint.h + w * V2.Constraint.h;
+	float theta = u * V0.Constraint.theta + v * V1.Constraint.theta + w * V2.Constraint.theta;
+	float phi = u * V0.Constraint.phi + v * V1.Constraint.phi + w * V2.Constraint.phi;
+	float Amplitude = u * V0.Constraint.Amplitude + v * V1.Constraint.Amplitude + w * V2.Constraint.Amplitude;
+	float Roughness = u * V0.Constraint.Roughness + v * V1.Constraint.Roughness + w * V2.Constraint.Roughness;
+
+	float d = glm::dot(glm::vec2(p.x - InterpolatedCurvePos.x, p.y - InterpolatedCurvePos.z),
+		glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
+	float ad = abs(d);
+
+	bool ApplyElevation = false;
+	bool ApplyGradientA = false;
+	bool ApplyGradientB = false;
+
+	// 배타적, 우선순위 : Elevation > Gradient, r 내부에서는 gradient가 적용되지 않음
+	if (quad.HasElevation && (ad <= r)) ApplyElevation = true;
+	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
+	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;
+
+	if (ApplyElevation) {
+		Map.ElevationMap[index] = std::max(Map.ElevationMap[index], h);
+		Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Elevation;
+	}
+	if (ApplyGradientA || ApplyGradientB) {
+		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Gradient){
+			Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
+			Map.GradientMap[index] = glm::vec2(0.0f, 0.0f);
+			Map.Gradients[index] = Gradient();
+		}
+		else {
+			glm::vec2 n = glm::normalize(glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
+			if (ApplyGradientA) {
+				Map.GradientMap[index] = glm::vec2(theta, phi);
+				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
+				Map.Gradients[index].nx = n.x;
+				Map.Gradients[index].ny = n.y;
+				Map.Gradients[index].norm = glm::tan(glm::radians(theta));
+			}
+			else if (ApplyGradientB) {
+				Map.GradientMap[index] = glm::vec2(theta, phi);
+				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
+				Map.Gradients[index].nx = -n.x;
+				Map.Gradients[index].ny = -n.y;
+				Map.Gradients[index].norm = glm::tan(glm::radians(phi));
+			}
+
+		}
+	}
+	if (quad.HasNoise) {
+		Map.NoiseMap[index].x = std::max(Map.NoiseMap[index].x, Amplitude);
+		Map.NoiseMap[index].y = std::max(Map.NoiseMap[index].y, Roughness);
+		Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Noise;
+	}
+
 }
