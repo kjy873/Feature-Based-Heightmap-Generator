@@ -62,7 +62,9 @@ const LinearCoord Rasterizer::CreateLinearCoord(const glm::vec3& p0, const glm::
 }
 
 void Rasterizer::PrintPolylines() const {
+	int count = 0;
 	for (const auto& curve : Curves) {
+		count += curve.PolylineSamples.size();
 		printf("Polyline Samples:\n");
 		for (const auto& sample : curve.PolylineSamples) {
 			printf("Pos: (%.3f, %.3f, %.3f), Normal: (%.3f, %.3f, %.3f), Tangent: (%.3f, %.3f, %.3f), u: %.3f\n",
@@ -73,6 +75,7 @@ void Rasterizer::PrintPolylines() const {
 		}
 		printf("\n");
 	}
+	std::cout << "Total Polyline Samples: " << count << std::endl;
 }
 
 void Rasterizer::PrintPolylineMasks() const {

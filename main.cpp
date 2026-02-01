@@ -1057,11 +1057,11 @@ void DrawPanel() {
 			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
 			RasterizerMgr.Initialize(1024, 1024);
 			RasterizerMgr.BuildPolyline();
-			//RasterizerMgr.PrintPolylines();
+			RasterizerMgr.PrintPolylines();
 			RasterizerMgr.InterpolateCurves();
-			RasterizerMgr.PrintPolylineMasks();
+			//RasterizerMgr.PrintPolylineMasks();
 			RasterizerMgr.BuildQuads();
-			//RasterizerMgr.PrintQuads();
+			RasterizerMgr.PrintQuads();
 			// x방향이 col임
 
 		}
