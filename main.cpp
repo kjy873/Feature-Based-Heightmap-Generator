@@ -4,12 +4,16 @@
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
 RenderManager RenderMgr(ShaderMgr, BufferMgr);
+DiffuseManager DiffuseMgr;
 
 //float PI = 3.14159265358979323846f;
 
 static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
+
+int HeightMapU = 1024;
+int HeightMapV = 1024;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -143,7 +147,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
     // (MacOS의 경우 추가 필요)
     // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
@@ -158,6 +162,8 @@ int main() {
 	// 콜백 함수 등록
 	glfwSetMouseButtonCallback(window, CallbackMouseButton);
 
+
+
     // OpenGL context를 현재 쓰레드로 지정
     glfwMakeContextCurrent(window);
 
@@ -167,6 +173,10 @@ int main() {
         std::cerr << "Failed to initialize GLEW\n";
         return -1;
     }
+
+	glEnable(GL_DEBUG_OUTPUT);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // 에러 발생 즉시 콜백 호출 (디버깅 용이)
+	glDebugMessageCallback(MessageCallback, 0);
 
     // 뷰포트 설정
 	int fbw, fbh;
@@ -329,16 +339,17 @@ void init() {
 
 	// ㅡㅡ init heightmap and spline surface ㅡㅡ
 
-	heightmap.SetResolution(1024, 1024);
+	heightmap.SetResolution(HeightMapU, HeightMapV);
 	SplineSurface.SetResolution(heightmap.GetResU(), heightmap.GetResV());
 	SplineSurface.GenerateSurface();
 	heightmap.SetHeight(SplineSurface.GetHeightMap());
 
-	NoiseGen.SetRes(1024, 1024);
+	NoiseGen.SetRes(HeightMapU, HeightMapV);
+
 
 	ShaderMgr.InitComputePrograms("Gradient.comp", "Elevation.comp", "Noise.comp", "Multigrid.comp");
 
-	
+	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
 	controlPoints_initial = {
 		{glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1 / 3.0f, 0.0f, 0.0f), glm::vec3(2 / 3.0f, 0.0f, 0.0f) , glm::vec3(3 / 3.0f, 0.0f, 0.0f)},
@@ -1058,7 +1069,7 @@ void DrawPanel() {
 		}
 		if (ImGui::Button("Rasterize", ImVec2(-FLT_MIN, 30))) {
 			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
-			RasterizerMgr.Initialize(1024, 1024);
+			RasterizerMgr.Initialize(HeightMapU, HeightMapV);
 			RasterizerMgr.BuildPolyline();
 			//RasterizerMgr.PrintPolylines();
 			RasterizerMgr.InterpolateCurves();
@@ -1073,24 +1084,99 @@ void DrawPanel() {
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
 
-			BufferMgr.UploadElevationTexture(1024, 1024, ConstraintMap.ElevationMap.data());
-			BufferMgr.UploadGradientTexture(1024, 1024, ConstraintMap.Gradients);
-			BufferMgr.UploadNoiseTexture(1024, 1024, ConstraintMap.NoiseMap);
-			BufferMgr.UploadConstraintMaskTexture(1024, 1024, ConstraintMap.ConstraintMaskMap.data());
+			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV, ConstraintMap.ElevationMap.data());
+			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients);
+			BufferMgr.UploadNoiseTexture(HeightMapU, HeightMapV, ConstraintMap.NoiseMap);
+			BufferMgr.UploadConstraintMaskTexture(HeightMapU, HeightMapV, ConstraintMap.ConstraintMaskMap.data());
 
-			BufferMgr.BindElevationTexture(GL_READ_WRITE);
-			BufferMgr.BindGradientTexture(GL_READ_WRITE);
-			BufferMgr.BindNoiseTexture(GL_READ_WRITE);
-			BufferMgr.BindConstraintMaskTexture(GL_READ_ONLY);
+			// Diffuse Gradient
+			for (int i = 0; i < 100; i++) {
+				BufferMgr.BindGradientTexture();
+				ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
+				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+				BufferMgr.SwapGradient();
+			}
+			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV));
+			DiffuseMgr.NormalizeGradients();
+			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap());
+			BufferMgr.ResetGradientPingPong();
+			BufferMgr.BindGradientReadOnly();
 
-			ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+			
+			// Diffuse Elevation
+			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
+			//BufferMgr.BindGradientTexture();
+			for (int asd = 0; asd < 2; asd++) {
+				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+				BufferMgr.BindElevationTexture();
+				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+				BufferMgr.SwapElevation();
+			}
 
-			glDispatchCompute((1024 + 15) / 16, (1024 + 15) / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			//BufferMgr.UnbindElevationTexture();
+
+			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV));
+
+			heightmap.AddHeight(DiffuseMgr.GetElevationMap());
+			UpdateSplineSurface();
+
+
+			for (const auto& height : heightmap.GetHeightMap()) {
+				
+				//if (height != 0) std::cout << "not zero" << std::endl;
+			}
+
+			//BufferMgr.UnbindAllTextures();
+
+
+			//glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+
+			//// --- 이 코드를 추가해 보세요 ---
+			//glUseProgram(0); // 사용 중인 컴퓨트 셰이더 해제
+
+			//// 바인딩했던 이미지 유닛들을 명시적으로 해제 (특히 0번과 1번)
+			//for (int i = 0; i < 4; i++) {
+			//	glBindImageTexture(i, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+			//}
+
+			//// ImGui가 사용할 일반 텍스처 유닛도 초기화 (안전을 위해)
+			//glActiveTexture(GL_TEXTURE0);
+			//glBindTexture(GL_TEXTURE_2D, 0);
+			// -----------------------------
+
+			/*for (int i = 0; i < 5; i++) {
+				BufferMgr.BindElevationTexture();
+				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+				glDispatchCompute((1024 + 15) / 16, (1024 + 15) / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+				BufferMgr.SwapElevation();
+			}*/
+			//DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(1024, 1024));
+
+			//heightmap.SetHeight(DiffuseMgr.GetElevationMap());
+			//UpdateSplineSurface();
+			/*SplineSurface.GenerateSurface();
+			heightmap.AddHeight(SplineSurface.GetHeightMap());
+			heightmap.AddHeight(NoiseGen.GetHeightMap());
+			UpdateSplineSurface();*/
+
+
+
+
+
+			//BufferMgr.BindElevationTexture();
+			//BufferMgr.BindNoiseTexture();
+			//BufferMgr.BindConstraintMaskTexture();
+
+
 
 			std::vector<float> h(1024 * 1024);
 
-			h = BufferMgr.ReadbackElevationTexture(1024, 1024);
+			//h = BufferMgr.ReadbackElevationTexture(1024, 1024);
 			/*std::cout << "ReadBack(Elevation):" << std::endl;
 			for (const auto& height : h) {
 				std::cout << height << std::endl;

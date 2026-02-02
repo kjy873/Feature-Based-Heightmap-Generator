@@ -40,6 +40,7 @@
 #include "NoiseGenerator.h"
 #include "FeatureCurve.h"
 #include "Rasterizer.h"
+#include "DiffuseManager.h"
 
 using namespace std;
 using namespace glm;
@@ -489,3 +490,14 @@ void UpdateToolInteraction();
 vector<vector<glm::vec3>> MakeInitialControlPoints(const int& Rows, const int& Cols);
 
 void ExportHeightMap(const char* FileName);
+
+
+void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
+	GLsizei length, const GLchar* message, const void* userParam) {
+	// 너무 자잘한 정보성 메시지는 무시하고 에러/경고 위주로 출력
+	if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
+
+	std::cerr << "GL CALLBACK: " << (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "")
+		<< " type = " << type << ", severity = " << severity
+		<< ", message = " << message << std::endl;
+}

@@ -21,13 +21,24 @@ struct GradientRGBA {
 	float pad = 0.0f;
 };
 
-struct GPUTextures {
-	GLuint Elevation = 0;
-	GLuint Gradient = 0;
-	GLuint Noise = 0;
-	GLuint Multigrid = 0;
-	GLuint ConstraintMask = 0;
+struct PingPongTexture {
+	GLuint Texture[2] = { 0,0 };
+	int ping = 0;
+
+	GLuint GetReadTexture() const { return Texture[ping]; }
+	GLuint GetWriteTexture() const { return Texture[1 - ping]; }
+	void Swap() { ping = 1 - ping; }
 };
+
+struct GPUTextures {
+	PingPongTexture Elevation;
+	PingPongTexture Gradient;
+	PingPongTexture Noise;
+	PingPongTexture Multigrid;
+	GLuint ConstraintMask;
+};
+
+
 
 struct BufferData {
 	GLuint VBO_Position;
@@ -74,13 +85,27 @@ public:
 	void UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap);
 	void UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap);
 	void UploadEmptyTextures(int ResU, int ResV);
-	void BindElevationTexture(GLuint Access);
-	void BindGradientTexture(GLuint Access);
-	void BindNoiseTexture(GLuint Access);
-	void BindConstraintMaskTexture(GLuint Access);
+	void BindElevationTexture();
+	void BindGradientTexture();
+	void BindNoiseTexture();
+	void BindConstraintMaskTexture();
 	void BindTexturesDefault();
 
+	void SwapElevation() { Textures.Elevation.Swap(); }
+	void SwapGradient() { Textures.Gradient.Swap(); }
+	void SwapNoise() { Textures.Noise.Swap(); }
+
+	void ResetGradientPingPong() { Textures.Gradient.ping = 0; }
+	void BindGradientReadOnly();
+
+	const GLuint& GetElevationTextureWrite() { return Textures.Elevation.GetWriteTexture(); }
+
+	void UnbindAllTextures();
+	void UnbindElevationTexture();
+
+
 	std::vector<float> ReadbackElevationTexture(int ResU, int ResV);
+	std::vector<glm::vec3> ReadbackGradientTexture(int ResU, int ResV);
 
 
 	const GLuint& GetVAOByID(unsigned int ID) const{

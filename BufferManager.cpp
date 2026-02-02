@@ -132,10 +132,21 @@ void BufferManager::UploadHeightByID(unsigned int ID, const float* HeightMap, in
 
 void BufferManager::UploadElevationTexture(int ResU, int ResV, const float* ElevationMap) {
 
-	if (Textures.Elevation) glDeleteTextures(1, &Textures.Elevation);
+	if (Textures.Elevation.Texture[0]) glDeleteTextures(1, &Textures.Elevation.Texture[0]);
+	if (Textures.Elevation.Texture[1]) glDeleteTextures(1, &Textures.Elevation.Texture[1]);
 
-	glGenTextures(1, &Textures.Elevation);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
+	glGenTextures(1, &Textures.Elevation.Texture[0]);
+	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.Texture[0]);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, ElevationMap);
+
+	glGenTextures(1, &Textures.Elevation.Texture[1]);
+	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.Texture[1]);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -148,10 +159,11 @@ void BufferManager::UploadElevationTexture(int ResU, int ResV, const float* Elev
 
 void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap) {
 
-	if (Textures.Gradient) glDeleteTextures(1, &Textures.Gradient);
+	if (Textures.Gradient.Texture[0]) glDeleteTextures(1, &Textures.Gradient.Texture[0]);
+	if (Textures.Gradient.Texture[1]) glDeleteTextures(1, &Textures.Gradient.Texture[1]);
 
-	glGenTextures(1, &Textures.Gradient);
-	glBindTexture(GL_TEXTURE_2D, Textures.Gradient);
+	glGenTextures(1, &Textures.Gradient.Texture[0]);
+	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.Texture[0]);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -170,13 +182,24 @@ void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, GradientMapRGBA.data());
 
+	glGenTextures(1, &Textures.Gradient.Texture[1]);
+	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.Texture[1]);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, GradientMapRGBA.data());
+
 }
 void BufferManager::UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap) {
 
-	if (Textures.Noise) glDeleteTextures(1, &Textures.Noise);
+	if (Textures.Noise.Texture[0]) glDeleteTextures(1, &Textures.Noise.Texture[0]);
+	if (Textures.Noise.Texture[1]) glDeleteTextures(1, &Textures.Noise.Texture[1]);
 
-	glGenTextures(1, &Textures.Noise);
-	glBindTexture(GL_TEXTURE_2D, Textures.Noise);
+	glGenTextures(1, &Textures.Noise.Texture[0]);
+	glBindTexture(GL_TEXTURE_2D, Textures.Noise.Texture[0]);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -184,6 +207,18 @@ void BufferManager::UploadNoiseTexture(int ResU, int ResV, const std::vector<glm
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
+
+	glGenTextures(1, &Textures.Noise.Texture[1]);
+	glBindTexture(GL_TEXTURE_2D, Textures.Noise.Texture[1]);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
+
+	
 
 }
 
@@ -204,91 +239,140 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
-void BufferManager::UploadEmptyTextures(int ResU, int ResV) {
+//void BufferManager::UploadEmptyTextures(int ResU, int ResV) {
+//
+//	if (Textures.Elevation.Texture[0]) glDeleteTextures(1, &Textures.Elevation.Texture[0]);
+//	if (Textures.Elevation.Texture[1]) glDeleteTextures(1, &Textures.Elevation.Texture[1]);
+//	if (Textures.Gradient.Texture[0]) glDeleteTextures(1, &Textures.Gradient.Texture[0]);
+//	if (Textures.Gradient.Texture[1]) glDeleteTextures(1, &Textures.Gradient.Texture[1]);
+//	if (Textures.Noise.Texture[0]) glDeleteTextures(1, &Textures.Noise.Texture[0]);
+//	if (Textures.Noise.Texture[1]) glDeleteTextures(1, &Textures.Noise.Texture[1]);
+//	if (Textures.ConstraintMask.Texture[0]) glDeleteTextures(1, &Textures.ConstraintMask.Texture[0]);
+//	if (Textures.ConstraintMask.Texture[1]) glDeleteTextures(1, &Textures.ConstraintMask.Texture[1]);
+//
+//	glGenTextures(1, &Textures.Elevation);
+//	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, nullptr);
+//
+//	glGenTextures(1, &Textures.Gradient);
+//	glBindTexture(GL_TEXTURE_2D, Textures.Gradient);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, nullptr);
+//
+//	glGenTextures(1, &Textures.Noise);
+//	glBindTexture(GL_TEXTURE_2D, Textures.Noise);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, nullptr);
+//
+//	glGenTextures(1, &Textures.ConstraintMask);
+//	glBindTexture(GL_TEXTURE_2D, Textures.ConstraintMask);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+//
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
+//
+//	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+//
+//
+//}
 
-	if (Textures.Elevation) glDeleteTextures(1, &Textures.Elevation);
-	if (Textures.Gradient) glDeleteTextures(1, &Textures.Gradient);
-	if (Textures.Noise) glDeleteTextures(1, &Textures.Noise);
-	if (Textures.ConstraintMask) glDeleteTextures(1, &Textures.ConstraintMask);
+void BufferManager::BindElevationTexture() {
+	/*glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+	glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);*/
 
-	glGenTextures(1, &Textures.Elevation);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, nullptr);
-
-	glGenTextures(1, &Textures.Gradient);
-	glBindTexture(GL_TEXTURE_2D, Textures.Gradient);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, nullptr);
-
-	glGenTextures(1, &Textures.Noise);
-	glBindTexture(GL_TEXTURE_2D, Textures.Noise);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, nullptr);
-
-	glGenTextures(1, &Textures.ConstraintMask);
-	glBindTexture(GL_TEXTURE_2D, Textures.ConstraintMask);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-
-
+	glBindImageTexture(0, Textures.Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+	glBindImageTexture(1, Textures.Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+}
+void BufferManager::BindGradientTexture() {
+	glBindImageTexture(2, Textures.Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(3, Textures.Gradient.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+void BufferManager::BindNoiseTexture() {
+	glBindImageTexture(4, Textures.Noise.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+	glBindImageTexture(5, Textures.Noise.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+}
+void BufferManager::BindConstraintMaskTexture() {
+	glBindImageTexture(6, Textures.ConstraintMask, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+}
+void BufferManager::BindGradientReadOnly() {
+	glBindImageTexture(2, Textures.Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 }
 
-void BufferManager::BindElevationTexture(GLuint Access) {
-	glBindImageTexture(0, Textures.Elevation, 0, GL_FALSE, 0, Access, GL_R32F);
-}
-void BufferManager::BindGradientTexture(GLuint Access) {
-	glBindImageTexture(1, Textures.Gradient, 0, GL_FALSE, 0, Access, GL_RGBA32F);
-}
-void BufferManager::BindNoiseTexture(GLuint Access) {
-	glBindImageTexture(2, Textures.Noise, 0, GL_FALSE, 0, Access, GL_RG32F);
-}
-void BufferManager::BindConstraintMaskTexture(GLuint Access) {
-	glBindImageTexture(3, Textures.ConstraintMask, 0, GL_FALSE, 0, Access, GL_R8UI);
-}
-
-void BufferManager::BindTexturesDefault() {
-
-	glBindImageTexture(0, Textures.Elevation, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
-
-	glBindImageTexture(1, Textures.Gradient, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-
-	glBindImageTexture(2, Textures.Noise, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32F);
-
-	glBindImageTexture(3, Textures.ConstraintMask, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
-
-}
+//void BufferManager::BindTexturesDefault() {
+//
+//	glBindImageTexture(0, Textures.Elevation, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
+//
+//	glBindImageTexture(1, Textures.Gradient, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+//
+//	glBindImageTexture(2, Textures.Noise, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32F);
+//
+//	glBindImageTexture(3, Textures.ConstraintMask, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+//
+//}
 
 std::vector<float> BufferManager::ReadbackElevationTexture(int ResU, int ResV) {
 	std::vector<float> ElevationData(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
+	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.GetReadTexture());
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, ElevationData.data());
 	/*for (const auto& height : ElevationData) {
 		std::cout << height << std::endl;
 	}*/
 	return ElevationData;
+}
+
+std::vector<glm::vec3> BufferManager::ReadbackGradientTexture(int ResU, int ResV) {
+	std::vector<GradientRGBA> GradientDataRGBA(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.GetReadTexture());
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, GradientDataRGBA.data());
+
+	std::vector<glm::vec3> GradientData(ResU * ResV);
+	for (int i = 0; i < ResU * ResV; i++) {
+		GradientData[i] = glm::vec3(GradientDataRGBA[i].nx, GradientDataRGBA[i].ny, GradientDataRGBA[i].norm);
+	}
+	return GradientData;
+}
+
+void BufferManager::UnbindAllTextures() {
+
+	GLint maxUnits = 0;
+	glGetIntegerv(GL_MAX_IMAGE_UNITS, &maxUnits);
+
+	for (int i = 0; i < maxUnits; ++i)
+	{
+		glBindImageTexture(
+			i,
+			0,          // texture
+			0,
+			GL_FALSE,
+			0,
+			GL_READ_ONLY,
+			GL_R32F     // format은 아무거나 OK
+		);
+	}
+}
+
+void BufferManager::UnbindElevationTexture(){
+	glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+	glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 }

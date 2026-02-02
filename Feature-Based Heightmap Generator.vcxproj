@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="BufferManager.cpp" />
     <ClCompile Include="B_SplineSurface.cpp" />
+    <ClCompile Include="DiffuseManager.cpp" />
     <ClCompile Include="FeatureCurve.cpp" />
     <ClCompile Include="HeightMap.cpp" />
     <ClCompile Include="include\imguizmo\GraphEditor.cpp" />
@@ -179,6 +180,7 @@
     <ClInclude Include="base.h" />
     <ClInclude Include="BufferManager.h" />
     <ClInclude Include="B_SplineSurface.h" />
+    <ClInclude Include="DiffuseManager.h" />
     <ClInclude Include="FeatureCurve.h" />
     <ClInclude Include="Features.h" />
     <ClInclude Include="HeightMap.h" />

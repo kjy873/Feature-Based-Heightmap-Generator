@@ -2,9 +2,9 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (rg32f, binding = 2) uniform image2D NoiseImage;
-layout (r8ui, binding = 3) readonly uniform uimage2D ConstraintMaskImage;
-
+layout (rg32f, binding = 4) readonly uniform image2D NoiseRead;
+layout (rg32f, binding = 5) writeonly uniform image2D NoiseWrite;
+layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 void main(){
 
 }

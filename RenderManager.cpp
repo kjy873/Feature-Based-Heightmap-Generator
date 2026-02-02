@@ -40,6 +40,8 @@ void RenderManager::Draw(const Mesh& mesh) {
 	if (!HasIndex.empty()) glDrawElements(mesh.GetDrawMode(), HasIndex.size(), GL_UNSIGNED_INT, 0);
 	else glDrawArrays(mesh.GetDrawMode(), 0, mesh.GetPosition().size());
 
+	glBindVertexArray(0);
+
 	//std::cout << "End Draw" << std::endl;
 
 }

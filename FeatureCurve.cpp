@@ -376,13 +376,13 @@ FeatureCurve* FeatureCurveManager::GetFeatureCurve(int id) {
 
 void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputMode Mode) {
 
-	std::cout << "Previous State: ";
+	/*std::cout << "Previous State: ";
 	PrintState();
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 
 	PickResult Picked = Pick(Pos);
 
-	PrintPickResult(Picked);
+	//PrintPickResult(Picked);
 
 	/*if (Picked.Type == PickType::ControlPoint) std::cout << "Pick ControlPoint" << std::endl;
 	else if (Picked.Type == PickType::Curve) std::cout << "Pick Curve" << std::endl;
@@ -390,15 +390,15 @@ void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputM
 
 	Decision Dec = Decide(Button, Mode, State, Picked);
 
-	std::cout << "Decided Result: ";
+	/*std::cout << "Decided Result: ";
 	PrintDecision(Dec);
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 
 	Execute(Dec, Picked, Pos);
 
-	std::cout << "Next State: ";
-	PrintState();
-	std::cout << std::endl;
+	//std::cout << "Next State: ";
+	//PrintState();
+	//std::cout << std::endl;
 	
 
 }
@@ -613,7 +613,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 		if (Mode == InputMode::Ctrl) return Decision::ExtendCurve;
 
 		if (Mode == InputMode::Shift) {
-			std::cout << "Add Constraint Point" << std::endl;
+			//std::cout << "Add Constraint Point" << std::endl;
 			return Decision::AddConstraintPoint;
 		}
 		if (ControlPointPicked) return Decision::SelectControlPoint;
@@ -805,25 +805,25 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 	switch (State) {
 	case EditCurveState::CurveSelected: {
 		Curve->AddControlPoint(Pos);
-		std::cout << "P0 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+		//std::cout << "P0 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		State = EditCurveState::P1;
 		break;
 	}
 	case EditCurveState::P1: {
 		Curve->AddControlPoint(Pos);
-		std::cout << "P1 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+		//std::cout << "P1 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		State = EditCurveState::P3;
 		break;
 	}
 	case EditCurveState::P3: {
 		PendControlPoint(Pos);
-		std::cout << "P3 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+		//std::cout << "P3 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		State = EditCurveState::P2;
 		break;
 	}
 	case EditCurveState::P2: {
 		Curve->AddControlPoint(Pos);
-		std::cout << "P2 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+		//std::cout << "P2 Pos: " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
 		Curve->AddControlPoint(std::move(*Pended));
 
 		Pended.reset();

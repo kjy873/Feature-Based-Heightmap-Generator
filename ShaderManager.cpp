@@ -146,6 +146,8 @@ GLvoid ShaderManager::InitComputePrograms(const char* GradientName, const char* 
 	if(!Make_ComputeShaders(MultigridProgram.ComputeShader, MultigridName)) return;
 	if(!Make_ComputeProgram(MultigridProgram.Program, MultigridProgram.ComputeShader)) return;
 
+	std::cout << "성공성공" << std::endl;
+
 	ComputeShaders.insert({ ComputeType::Gradient, GradientProgram });
 	ComputeShaders.insert({ ComputeType::Elevation, ElevationProgram });
 	ComputeShaders.insert({ ComputeType::Noise, NoiseProgram });

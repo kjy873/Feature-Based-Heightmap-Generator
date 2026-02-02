@@ -2,22 +2,50 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (r32f, binding = 0) uniform image2D ElevationImage;
-layout (rgba32f, binding = 1) readonly uniform image2D GradientImage;
-layout (r8ui, binding = 3) readonly uniform uimage2D ConstraintMaskImage;
+layout (r32f, binding = 0) readonly uniform image2D ElevationRead;
+layout (r32f, binding = 1) writeonly uniform image2D ElevationWrite;
+layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
+layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
 void main(){
 
 	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
 
-	if(p.x >= imageSize(ElevationImage).x || p.y >= imageSize(ElevationImage).y){
+	if(p.x >= imageSize(ElevationRead).x || p.y >= imageSize(ElevationRead).y){
 		return;
 	}
 
-	float h = imageLoad(ElevationImage, p).r;
+	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & 1u) != 0u;
 
-	float hNew = h + 10.0f;
+	if(HasElevationMask){
+		imageStore(ElevationWrite, p, imageLoad(ElevationRead, p));	
+		return;
+	}
 
-	imageStore(ElevationImage, p, vec4(42.0f, 0.0f, 0.0f, 0.0f));
+	ivec2 Left = p + ivec2(-1,  0);
+	if(Left.x < 0) Left.x = 0;
+	ivec2 Right= p + ivec2( 1,  0);
+	if(Right.x >= imageSize(GradientRead).x) Right.x = imageSize(GradientRead).x - 1;
+	ivec2 Down = p + ivec2( 0, -1);
+	if(Down.y < 0) Down.y = 0;
+	ivec2 Up   = p + ivec2( 0,  1);
+	if(Up.y >= imageSize(GradientRead).y) Up.y = imageSize(GradientRead).y - 1;
+
+	float LeftHeight = imageLoad(ElevationRead, Left).r;
+	float RightHeight = imageLoad(ElevationRead, Right).r;
+	float DownHeight = imageLoad(ElevationRead, Down).r;
+	float UpHeight = imageLoad(ElevationRead, Up).r;
+
+	float LaplacianHeight = 0.25 * (LeftHeight + RightHeight + DownHeight + UpHeight);
+
+	vec3 Gradient = imageLoad(GradientRead, p).rgb;
+
+	vec2 GuideGradient = Gradient.xy * Gradient.z;
+
+	float GuidedHeight = 0.25 * (GuideGradient.x * (RightHeight - LeftHeight) + GuideGradient.y * (UpHeight - DownHeight));
+
+	float NewHeight = LaplacianHeight + GuidedHeight;
+
+	imageStore(ElevationWrite, p, vec4(NewHeight) );
 
 }

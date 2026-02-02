@@ -2,8 +2,9 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (rgba32f, binding = 1) uniform image2D GradientImage;
-layout (r8ui, binding = 3) readonly uniform uimage2D ConstraintMaskImage;
+layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
+layout (rgba32f, binding = 3) writeonly uniform image2D GradientWrite;
+layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
 const uint MASK_ELEVATION = 1u << 0;
 const uint MASK_GRADIENT  = 1u << 1;
@@ -12,33 +13,35 @@ const uint MASK_NOISE     = 1u << 2;
 void main(){
 
 	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-	if(p.x >= imageSize(GradientImage).x || p.y >= imageSize(GradientImage).y){
+	if(p.x >= imageSize(GradientRead).x || p.y >= imageSize(GradientRead).y){
 		return;
 	}
 
 	ivec2 Left = p + ivec2(-1,  0);
+	if(Left.x < 0) Left.x = 0;
 	ivec2 Right= p + ivec2( 1,  0);
+	if(Right.x >= imageSize(GradientRead).x) Right.x = imageSize(GradientRead).x - 1;
 	ivec2 Down = p + ivec2( 0, -1);
+	if(Down.y < 0) Down.y = 0;
 	ivec2 Up   = p + ivec2( 0,  1);
+	if(Up.y >= imageSize(GradientRead).y) Up.y = imageSize(GradientRead).y - 1;
 
 	uint mask = imageLoad(ConstraintMaskImage, p).r;
 
 	bool HasGradientConstraint = (mask & MASK_GRADIENT) != 0u;
 
 	if(HasGradientConstraint) {
-		imageStore(GradientImage, p, imageLoad(GradientImage, p));
+		imageStore(GradientWrite, p, imageLoad(GradientRead, p));
 		return;
 	}
 
-	float nx = imageLoad(GradientImage, p).r;
-	float ny = imageLoad(GradientImage, p).g;
-	float norm = imageLoad(GradientImage, p).b;
-
-	vec4 LeftGradient = imageLoad(GradientImage, Left);
-	vec4 RightGradient= imageLoad(GradientImage, Right);
-	vec4 DownGradient = imageLoad(GradientImage, Down);
-	vec4 UpGradient   = imageLoad(GradientImage, Up);
+	vec4 LeftGradient = imageLoad(GradientRead, Left);
+	vec4 RightGradient= imageLoad(GradientRead, Right);
+	vec4 DownGradient = imageLoad(GradientRead, Down);
+	vec4 UpGradient   = imageLoad(GradientRead, Up);
 
 	vec4 AvgGradient = 0.25f * (LeftGradient + RightGradient + DownGradient + UpGradient);
+
+	imageStore(GradientWrite, p, AvgGradient);
 
 }
