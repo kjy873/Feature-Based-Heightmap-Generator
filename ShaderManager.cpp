@@ -57,6 +57,46 @@ void ShaderManager::make_fragmentShaders(GLuint& fragmentShader, const char* fra
 	}
 }
 
+void ShaderManager::Make_ComputeShaders(GLuint& computeShader, const char* computeName) {
+	GLchar* ComputeSource;
+
+	ComputeSource = filetobuf(computeName);
+
+	computeShader = glCreateShader(GL_COMPUTE_SHADER);
+	glShaderSource(computeShader, 1, &ComputeSource, NULL);
+	glCompileShader(computeShader);
+
+	GLint result;
+	GLchar errorLog[512];
+	glGetShaderiv(computeShader, GL_COMPILE_STATUS, &result);
+	if (!result) {
+		glGetShaderInfoLog(computeShader, 512, NULL, errorLog);
+		std::cerr << "ERROR: compute shader error\n" << errorLog << std::endl;
+		return;
+	}
+
+}
+
+void ShaderManager::Make_ComputeProgram(GLuint& shaderProgramID, GLuint& computeShader) {
+	shaderProgramID = glCreateProgram();
+
+	glAttachShader(shaderProgramID, computeShader);
+
+	glLinkProgram(shaderProgramID);
+
+	glDeleteShader(computeShader);
+
+	GLint result;
+	GLchar errorLog[512];
+	glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
+	if (!result) {
+		glGetProgramInfoLog(shaderProgramID, 512, NULL, errorLog);
+		std::cerr << "ERROR: compute shader program 연결 실패\n" << errorLog << std::endl;
+		return;
+	}
+	
+}
+
 void ShaderManager::make_shaderProgram(GLuint& shaderProgramID, GLuint& vertexShader, GLuint& fragmentShader) {
 	shaderProgramID = glCreateProgram();
 

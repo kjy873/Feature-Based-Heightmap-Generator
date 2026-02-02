@@ -13,6 +13,20 @@
 
 #include <glfw3.h>
 
+enum class ComputeType {
+	Gradient,
+	Height,
+	Noise,
+	Multigrid
+};
+
+struct ComputeProgram {
+	GLuint Program = 0;
+	GLuint ComputeShader = 0;
+
+	void Use() const { glUseProgram(Program); }
+};
+
 class ShaderManager
 {
 
@@ -22,6 +36,9 @@ private:
 	GLuint ShaderProgramID = 0;
 	GLuint VertexShader = 0;
 	GLuint FragmentShader = 0;
+
+
+	std::unordered_map<ComputeType, ComputeProgram> ComputeShaders;
 
 	const char* VertexName = NULL;
 	const char* FragmentName = NULL;
@@ -40,12 +57,20 @@ public:
 
 	void make_shaderProgram(GLuint& shaderProgramID, GLuint& vertexShader, GLuint& fragmentShader);
 
+	void Make_ComputeShaders(GLuint& computeShader, const char* computeName);
+
+	void Make_ComputeProgram(GLuint& shaderProgramID, GLuint& computeShader);
+
 	GLvoid InitShader();
 	// init buffer
 
 	const GLuint& GetShaderProgramID() const{ return ShaderProgramID; }
 	const GLuint& GetVertexShader() { return VertexShader; }
 	const GLuint& GetFragmentShader() { return FragmentShader; }
+
+	ComputeProgram& FindComputeProgram(ComputeType Type) {
+		return ComputeShaders.at(Type);
+	}
 };
 
 
