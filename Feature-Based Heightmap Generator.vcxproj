@@ -143,8 +143,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="Compute.comp" />
+    <None Include="Elevation.comp" />
     <None Include="fragment.glsl" />
+    <None Include="Gradient.comp" />
+    <None Include="Multigrid.comp" />
+    <None Include="Noise.comp" />
     <None Include="vertex.glsl" />
   </ItemGroup>
   <ItemGroup>

@@ -1,0 +1,10 @@
+#version 430 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (r32f, binding = 0) uniform image2D ElevationImage;
+layout (rgba32f, binding = 1) readonly uniform image2D GradientImage;
+layout (r8ui, binding = 3) readonly uniform image2D ConstraintMaskImage;
+
+void main(){
+}

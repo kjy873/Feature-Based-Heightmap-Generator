@@ -336,6 +336,11 @@ void init() {
 
 	NoiseGen.SetRes(1024, 1024);
 
+	ShaderMgr.InitComputePrograms("Gradient.comp", "Elevation.comp", "Noise.comp", "Multigrid.comp");
+	ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
+	ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+	ShaderMgr.FindComputeProgram(ComputeType::Noise).Use();
+	ShaderMgr.FindComputeProgram(ComputeType::Multigrid).Use();
 	
 
 	controlPoints_initial = {

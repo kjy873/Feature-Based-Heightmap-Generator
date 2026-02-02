@@ -12,6 +12,16 @@
 
 #include <glfw3.h>
 
+#include "Features.h"
+
+struct GPUTextures {
+	GLuint Elevation = 0;
+	GLuint Gradient = 0;
+	GLuint Noise = 0;
+	GLuint Multigrid = 0;
+	GLuint ConstraintMask = 0;
+};
+
 struct BufferData {
 	GLuint VBO_Position;
 	GLuint VBO_Height;
@@ -29,6 +39,8 @@ class BufferManager
 {
 private:
 	std::unordered_map<unsigned int, BufferData> BufferMap;
+
+	GPUTextures Textures;
 	
 	unsigned int BufferID = 0;
 
@@ -49,6 +61,9 @@ public:
 	void BindElementBufferObjectByID(unsigned int ID, const int* Index, int IndexSize);
 
 	void UploadHeightByID(unsigned int ID, const float* HeightMap, int Size);
+
+	void UploadTextures(int ResU, int ResV, const float* ElevationMap, const uint8_t* ConstraintMaskMap);
+	void BindTextures();
 
 
 	const GLuint& GetVAOByID(unsigned int ID) const{

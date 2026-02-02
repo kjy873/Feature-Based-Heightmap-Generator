@@ -11,11 +11,13 @@
 #include <ext.hpp>
 #include <gtc/matrix_transform.hpp>
 
+#include <unordered_map>
+
 #include <glfw3.h>
 
 enum class ComputeType {
 	Gradient,
-	Height,
+	Elevation,
 	Noise,
 	Multigrid
 };
@@ -49,7 +51,7 @@ public:
 	~ShaderManager() {}
 
 	// init shader
-	GLchar* filetobuf(const char* filepath);
+	std::string FileToBuf(const char* filepath);
 
 	void make_vertexShaders(GLuint& vertexShader, const char* vertexName);
 
@@ -57,16 +59,19 @@ public:
 
 	void make_shaderProgram(GLuint& shaderProgramID, GLuint& vertexShader, GLuint& fragmentShader);
 
-	void Make_ComputeShaders(GLuint& computeShader, const char* computeName);
+	bool Make_ComputeShaders(GLuint& computeShader, const char* computeName);
 
-	void Make_ComputeProgram(GLuint& shaderProgramID, GLuint& computeShader);
+	bool Make_ComputeProgram(GLuint& shaderProgramID, GLuint& computeShader);
 
 	GLvoid InitShader();
+	GLvoid InitComputePrograms(const char* GradientName, const char* ElevationName, const char* NoiseName, const char* MultigridName);
 	// init buffer
 
 	const GLuint& GetShaderProgramID() const{ return ShaderProgramID; }
 	const GLuint& GetVertexShader() { return VertexShader; }
 	const GLuint& GetFragmentShader() { return FragmentShader; }
+
+
 
 	ComputeProgram& FindComputeProgram(ComputeType Type) {
 		return ComputeShaders.at(Type);

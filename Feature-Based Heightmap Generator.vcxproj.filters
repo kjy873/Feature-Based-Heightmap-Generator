@@ -33,7 +33,16 @@
     <None Include="fragment.glsl">
       <Filter>소스 파일</Filter>
     </None>
-    <None Include="Compute.comp">
+    <None Include="Noise.comp">
+      <Filter>소스 파일</Filter>
+    </None>
+    <None Include="Elevation.comp">
+      <Filter>소스 파일</Filter>
+    </None>
+    <None Include="Gradient.comp">
+      <Filter>소스 파일</Filter>
+    </None>
+    <None Include="Multigrid.comp">
       <Filter>소스 파일</Filter>
     </None>
   </ItemGroup>
