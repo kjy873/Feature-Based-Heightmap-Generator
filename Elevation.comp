@@ -7,6 +7,10 @@ layout (r32f, binding = 1) writeonly uniform image2D ElevationWrite;
 layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
 layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
+const uint MASK_ELEVATION = 1u << 0;
+const uint MASK_GRADIENT  = 1u << 1;
+const uint MASK_NOISE     = 1u << 2;
+
 void main(){
 
 	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
@@ -15,7 +19,7 @@ void main(){
 		return;
 	}
 
-	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & 1u) != 0u;
+	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & MASK_ELEVATION) != 0u;
 
 	if(HasElevationMask){
 		imageStore(ElevationWrite, p, imageLoad(ElevationRead, p));	
