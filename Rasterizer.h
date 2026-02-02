@@ -38,7 +38,7 @@ public:
 		Map.GradientMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
-		Map.Gradients.assign(ResU * ResV, Gradient());
+		Map.Gradients.assign(ResU * ResV, glm::vec3(0.0f, 0.0f, 0.0f));
 	}; // *0.5f °¡´É
 
 	void BuildPolyline();
@@ -65,6 +65,8 @@ public:
 
 	bool Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) const;
 	void InterpolateQuad(const glm::vec2& p, const Quad& quad, int r, int c);
+
+	const Maps& GetMaps() const { return Map; }
 
 };
 

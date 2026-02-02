@@ -130,7 +130,81 @@ void BufferManager::UploadHeightByID(unsigned int ID, const float* HeightMap, in
 
 }
 
-void BufferManager::UploadTextures(int ResU, int ResV, const float* ElevationMap, const uint8_t* ConstraintMaskMap) {
+void BufferManager::UploadElevationTexture(int ResU, int ResV, const float* ElevationMap) {
+
+	if (Textures.Elevation) glDeleteTextures(1, &Textures.Elevation);
+
+	glGenTextures(1, &Textures.Elevation);
+	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, ElevationMap);
+
+}
+
+void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap) {
+
+	if (Textures.Gradient) glDeleteTextures(1, &Textures.Gradient);
+
+	glGenTextures(1, &Textures.Gradient);
+	glBindTexture(GL_TEXTURE_2D, Textures.Gradient);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+	std::vector<GradientRGBA> GradientMapRGBA(ResU * ResV);
+	for (int i = 0; i < ResU * ResV; i++) {
+		GradientMapRGBA[i].nx = GradientMap[i].x;
+		GradientMapRGBA[i].ny = GradientMap[i].y;
+		GradientMapRGBA[i].norm = GradientMap[i].z;
+		GradientMapRGBA[i].pad = 0.0f;
+	}
+
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, GradientMapRGBA.data());
+
+}
+void BufferManager::UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap) {
+
+	if (Textures.Noise) glDeleteTextures(1, &Textures.Noise);
+
+	glGenTextures(1, &Textures.Noise);
+	glBindTexture(GL_TEXTURE_2D, Textures.Noise);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
+
+}
+
+void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap) {
+
+	if (Textures.ConstraintMask) glDeleteTextures(1, &Textures.ConstraintMask);
+
+	glGenTextures(1, &Textures.ConstraintMask);
+	glBindTexture(GL_TEXTURE_2D, Textures.ConstraintMask);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, ConstraintMaskMap);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+}
+
+void BufferManager::UploadEmptyTextures(int ResU, int ResV) {
 
 	if (Textures.Elevation) glDeleteTextures(1, &Textures.Elevation);
 	if (Textures.Gradient) glDeleteTextures(1, &Textures.Gradient);
@@ -145,7 +219,7 @@ void BufferManager::UploadTextures(int ResU, int ResV, const float* ElevationMap
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, ElevationMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, nullptr);
 
 	glGenTextures(1, &Textures.Gradient);
 	glBindTexture(GL_TEXTURE_2D, Textures.Gradient);
@@ -177,13 +251,27 @@ void BufferManager::UploadTextures(int ResU, int ResV, const float* ElevationMap
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, ConstraintMaskMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
+
 }
 
-void BufferManager::BindTextures() {
+void BufferManager::BindElevationTexture(GLuint Access) {
+	glBindImageTexture(0, Textures.Elevation, 0, GL_FALSE, 0, Access, GL_R32F);
+}
+void BufferManager::BindGradientTexture(GLuint Access) {
+	glBindImageTexture(1, Textures.Gradient, 0, GL_FALSE, 0, Access, GL_RGBA32F);
+}
+void BufferManager::BindNoiseTexture(GLuint Access) {
+	glBindImageTexture(2, Textures.Noise, 0, GL_FALSE, 0, Access, GL_RG32F);
+}
+void BufferManager::BindConstraintMaskTexture(GLuint Access) {
+	glBindImageTexture(3, Textures.ConstraintMask, 0, GL_FALSE, 0, Access, GL_R8UI);
+}
+
+void BufferManager::BindTexturesDefault() {
 
 	glBindImageTexture(0, Textures.Elevation, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
 
@@ -193,4 +281,14 @@ void BufferManager::BindTextures() {
 
 	glBindImageTexture(3, Textures.ConstraintMask, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
 
+}
+
+std::vector<float> BufferManager::ReadbackElevationTexture(int ResU, int ResV) {
+	std::vector<float> ElevationData(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, ElevationData.data());
+	/*for (const auto& height : ElevationData) {
+		std::cout << height << std::endl;
+	}*/
+	return ElevationData;
 }

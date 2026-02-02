@@ -120,7 +120,7 @@
 		std::vector<glm::vec2> GradientMap;
 		std::vector<glm::vec2> NoiseMap;
 		std::vector<uint8_t> ConstraintMaskMap;
-		std::vector<Gradient> Gradients;
+		std::vector<glm::vec3> Gradients;
 
 	};
 

@@ -337,10 +337,7 @@ void init() {
 	NoiseGen.SetRes(1024, 1024);
 
 	ShaderMgr.InitComputePrograms("Gradient.comp", "Elevation.comp", "Noise.comp", "Multigrid.comp");
-	ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
-	ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-	ShaderMgr.FindComputeProgram(ComputeType::Noise).Use();
-	ShaderMgr.FindComputeProgram(ComputeType::Multigrid).Use();
+
 	
 
 	controlPoints_initial = {
@@ -1063,14 +1060,41 @@ void DrawPanel() {
 			RasterizerMgr.SetCurves(FeatureCurveMgr.ExtractCurveData());
 			RasterizerMgr.Initialize(1024, 1024);
 			RasterizerMgr.BuildPolyline();
-			RasterizerMgr.PrintPolylines();
+			//RasterizerMgr.PrintPolylines();
 			RasterizerMgr.InterpolateCurves();
 			//RasterizerMgr.PrintPolylineMasks();
 			RasterizerMgr.BuildQuads();
-			RasterizerMgr.PrintQuads();
+			//RasterizerMgr.PrintQuads();
 			RasterizerMgr.BuildConstraintMaps();
 			// x방향이 col임
 
+		}
+
+		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
+			Maps ConstraintMap = RasterizerMgr.GetMaps();
+
+			BufferMgr.UploadElevationTexture(1024, 1024, ConstraintMap.ElevationMap.data());
+			BufferMgr.UploadGradientTexture(1024, 1024, ConstraintMap.Gradients);
+			BufferMgr.UploadNoiseTexture(1024, 1024, ConstraintMap.NoiseMap);
+			BufferMgr.UploadConstraintMaskTexture(1024, 1024, ConstraintMap.ConstraintMaskMap.data());
+
+			BufferMgr.BindElevationTexture(GL_READ_WRITE);
+			BufferMgr.BindGradientTexture(GL_READ_WRITE);
+			BufferMgr.BindNoiseTexture(GL_READ_WRITE);
+			BufferMgr.BindConstraintMaskTexture(GL_READ_ONLY);
+
+			ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+
+			glDispatchCompute((1024 + 15) / 16, (1024 + 15) / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			std::vector<float> h(1024 * 1024);
+
+			h = BufferMgr.ReadbackElevationTexture(1024, 1024);
+			/*std::cout << "ReadBack(Elevation):" << std::endl;
+			for (const auto& height : h) {
+				std::cout << height << std::endl;
+			}*/
 		}
 
 

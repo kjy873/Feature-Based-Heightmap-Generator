@@ -14,6 +14,13 @@
 
 #include "Features.h"
 
+struct GradientRGBA {
+	float nx;
+	float ny;
+	float norm;
+	float pad = 0.0f;
+};
+
 struct GPUTextures {
 	GLuint Elevation = 0;
 	GLuint Gradient = 0;
@@ -62,8 +69,18 @@ public:
 
 	void UploadHeightByID(unsigned int ID, const float* HeightMap, int Size);
 
-	void UploadTextures(int ResU, int ResV, const float* ElevationMap, const uint8_t* ConstraintMaskMap);
-	void BindTextures();
+	void UploadElevationTexture(int ResU, int ResV, const float* ElevationMap);
+	void UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap);
+	void UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap);
+	void UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap);
+	void UploadEmptyTextures(int ResU, int ResV);
+	void BindElevationTexture(GLuint Access);
+	void BindGradientTexture(GLuint Access);
+	void BindNoiseTexture(GLuint Access);
+	void BindConstraintMaskTexture(GLuint Access);
+	void BindTexturesDefault();
+
+	std::vector<float> ReadbackElevationTexture(int ResU, int ResV);
 
 
 	const GLuint& GetVAOByID(unsigned int ID) const{

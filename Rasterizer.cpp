@@ -406,23 +406,23 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Gradient){
 			Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
 			Map.GradientMap[index] = glm::vec2(0.0f, 0.0f);
-			Map.Gradients[index] = Gradient();
+			Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
 		}
 		else {
 			glm::vec2 n = glm::normalize(glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
 			if (ApplyGradientA) {
 				Map.GradientMap[index] = glm::vec2(theta, phi);
 				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
-				Map.Gradients[index].nx = n.x;
-				Map.Gradients[index].ny = n.y;
-				Map.Gradients[index].norm = glm::tan(glm::radians(theta));
+				Map.Gradients[index].x = n.x;
+				Map.Gradients[index].y = n.y;
+				Map.Gradients[index].z = glm::tan(glm::radians(theta)); // == norm
 			}
 			else if (ApplyGradientB) {
 				Map.GradientMap[index] = glm::vec2(theta, phi);
 				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
-				Map.Gradients[index].nx = -n.x;
-				Map.Gradients[index].ny = -n.y;
-				Map.Gradients[index].norm = glm::tan(glm::radians(phi));
+				Map.Gradients[index].x = -n.x;
+				Map.Gradients[index].y = -n.y;
+				Map.Gradients[index].z = glm::tan(glm::radians(phi));
 			}
 
 		}
