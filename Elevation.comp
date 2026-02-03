@@ -38,8 +38,8 @@ void main(){
 		Beta = 0.0f;
 	}
 	else if(HasGradientMask){
-		Alpha = 0.5f;
-		Beta = 0.5f;
+		Alpha = 0.1f;
+		Beta = 0.9f;
 
 	}
 	else{
@@ -69,6 +69,12 @@ void main(){
 	float GradientNorm = Gradient.z;
 	if(GradientNorm > 1e-6f) n = normalize(Gradient.xy);
 
+	ivec2 dir;
+	if (abs(n.x) > abs(n.y)) dir = ivec2(sign(n.x), 0);
+	else dir = ivec2(0, sign(n.y));
+
+	ivec2 q = clamp(p - dir, ivec2(0), imageSize(ElevationRead) - 1);
+
 	ivec2 px = p - ivec2(sign(n.x), 0);
 	ivec2 py = p - ivec2(0, sign(n.y));
 
@@ -78,7 +84,7 @@ void main(){
 	float FN = n.x * n.x * (abs(n.x) > 0.0 ? imageLoad(ElevationRead, px).r : 0) +
 		       n.y * n.y * (abs(n.y) > 0.0 ? imageLoad(ElevationRead, py).r : 0);
 
-	float FG = FN + GradientNorm;
+	float FG = imageLoad(ElevationRead, q).r + GradientNorm;
 	
 	float NewHeight = Alpha * LaplacianHeight + Beta * FG + (1.0f - Alpha - Beta) * imageLoad(ElevationRead, p).r;
 
@@ -87,10 +93,10 @@ void main(){
 	}
 
 	if(p == DebugPixel0){
-		DebugData[0] = vec4(imageLoad(ElevationRead, p).r, FN, FG, NewHeight);
+		DebugData[0] = vec4(float(imageLoad(ConstraintMaskImage, p).r), Alpha, Beta, 0.0f);
 	}
 	if(p == DebugPixel1){
-		DebugData[1] = vec4(imageLoad(ElevationRead, p).r, FN, FG, NewHeight);
+		DebugData[1] = vec4(float(imageLoad(ConstraintMaskImage, p).r), Alpha, Beta, 0.0f);
 	}
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );

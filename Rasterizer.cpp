@@ -498,6 +498,10 @@ glm::ivec4 Rasterizer::GetBorderPixels2() {
 	std::cout << "Border Pixel 0: (" << Pixel0.x << ", " << Pixel0.y << "), Pos: (" << Pos0.x << ", " << Pos0.y << ")" << std::endl;
 	std::cout << "Border Pixel 1: (" << Pixel1.x << ", " << Pixel1.y << "), Pos: (" << Pos1.x << ", " << Pos1.y << ")" << std::endl;
 
+	int idx1 = Pixel1.y * Width + Pixel1.x;
+	printf("P0 mask = %u\n", Map.ConstraintMaskMap[idx0]);
+	printf("P1 mask = %u\n", Map.ConstraintMaskMap[idx1]);
+
 	return glm::ivec4(Pixel0.x, Pixel0.y, Pixel1.x, Pixel1.y);
 
 }

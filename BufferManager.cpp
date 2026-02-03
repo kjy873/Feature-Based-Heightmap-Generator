@@ -236,6 +236,10 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, ConstraintMaskMap);
+	glMemoryBarrier(
+		GL_TEXTURE_UPDATE_BARRIER_BIT |
+		GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+	);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
@@ -298,8 +302,10 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 //}
 
 void BufferManager::BindElevationTexture() {
-	/*glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-	glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);*/
+
+	printf("Bind ReadTex = %u, WriteTex = %u\n",
+		Textures.Elevation.GetReadTexture(),
+		Textures.Elevation.GetWriteTexture());
 
 	glBindImageTexture(0, Textures.Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 	glBindImageTexture(1, Textures.Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
