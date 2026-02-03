@@ -1103,6 +1103,11 @@ void DrawPanel() {
 			BufferMgr.ResetGradientPingPong();
 			BufferMgr.BindGradientReadOnly();
 
+
+			/*for (const auto& grad : DiffuseMgr.GetGradientMap()){
+				if ((grad.x != 0 || grad.y != 0) && grad.z != 0) cout << "not zero grad: " << grad.x << ", " << grad.y << ", " << grad.z << endl;
+			}*/
+
 			
 			// Diffuse Elevation
 			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());

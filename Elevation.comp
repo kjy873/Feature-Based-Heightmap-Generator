@@ -20,11 +20,25 @@ void main(){
 	}
 
 	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & MASK_ELEVATION) != 0u;
+	bool HasGradientMask  = (imageLoad(ConstraintMaskImage, p).r & MASK_GRADIENT)  != 0u;
+
+	float Alpha, Beta;
 
 	if(HasElevationMask){
-		imageStore(ElevationWrite, p, imageLoad(ElevationRead, p));	
-		return;
+		Alpha = 0.0f;
+		Beta = 0.0f;
 	}
+	else if(HasGradientMask){
+		Alpha = 0.5f;
+		Beta = 0.5f;
+
+	}
+	else{
+		Alpha = 1.0f;
+		Beta = 0.0f;
+	}
+	Alpha = 0.5f;
+	Beta = 0.5f;
 
 	ivec2 Left = p + ivec2(-1,  0);
 	if(Left.x < 0) Left.x = 0;
@@ -37,18 +51,29 @@ void main(){
 
 	float LeftHeight = imageLoad(ElevationRead, Left).r;
 	float RightHeight = imageLoad(ElevationRead, Right).r;
-	float DownHeight = imageLoad(ElevationRead, Down).r;
+	float DownHeight = imageLoad(ElevationRead, Down).r; 
 	float UpHeight = imageLoad(ElevationRead, Up).r;
 
 	float LaplacianHeight = 0.25 * (LeftHeight + RightHeight + DownHeight + UpHeight);
 
 	vec3 Gradient = imageLoad(GradientRead, p).rgb;
 
-	vec2 GuideGradient = Gradient.xy * Gradient.z;
+	vec2 n = vec2(0.0f, 0.0f);
+	float GradientNorm = Gradient.z;
+	if(GradientNorm > 1e-6f) n = normalize(Gradient.xy);
 
-	float GuidedHeight = 0.25 * (GuideGradient.x * (RightHeight - LeftHeight) + GuideGradient.y * (UpHeight - DownHeight));
+	ivec2 px = p - ivec2(sign(n.x), 0);
+	ivec2 py = p - ivec2(0, sign(n.y));
 
-	float NewHeight = LaplacianHeight + GuidedHeight;
+	px = clamp(px, ivec2(0,0), imageSize(ElevationRead) - 1);
+	py = clamp(py, ivec2(0,0), imageSize(ElevationRead) - 1);
+
+	float FN = n.x * n.x * imageLoad(ElevationRead, px).r +
+		       n.y * n.y * imageLoad(ElevationRead, py).r;
+
+	float FG = FN + GradientNorm;
+	
+	float NewHeight = Alpha * LaplacianHeight + Beta * FG + (1.0f - Alpha - Beta) * imageLoad(ElevationRead, p).r;
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );
 
