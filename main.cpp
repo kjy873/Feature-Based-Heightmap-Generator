@@ -12,8 +12,8 @@ static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
-int HeightMapU = 1024;
-int HeightMapV = 1024;
+int HeightMapU = 256;
+int HeightMapV = 256;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -1092,8 +1092,9 @@ void DrawPanel() {
 
 			BufferMgr.CreateSSBO();
 
+			// 단일 그리드로 반복시 매우 많은 횟수를 반복해야 함. 256x256 기준 5000회 이상
 			// Diffuse Gradient
-			for (int i = 0; i < 50; i++) {
+			for (int i = 0; i < 200; i++) {
 				
 				BufferMgr.BindGradientTexture();
 				BufferMgr.BindConstraintMaskTexture();
@@ -1117,7 +1118,7 @@ void DrawPanel() {
 			// Diffuse Elevation
 			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
 			//BufferMgr.BindGradientTexture();
-			for (int asd = 0; asd < 50; asd++) {
+			for (int asd = 0; asd < 100; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				BufferMgr.BindElevationTexture();
 				BufferMgr.BindGradientReadOnly();
@@ -1222,7 +1223,7 @@ void DrawPanel() {
 
 		ImGui::Separator();
 		if (ImGui::Button("Export", ImVec2((panel_width), button_height))) {
-			ExportHeightMap("heightmap..r16");
+			ExportHeightMap("heightmap.r16");
 			cout << "Exported heightmap.r16" << endl;
 		}
 
@@ -1332,14 +1333,21 @@ void ExportHeightMap(const char* FileName) {
 
 	ofstream file(FileName, ios::binary);
 
-	for (int x = 0; x < sampleCount; x++) {
-		for (int z = 0; z < sampleCount; z++) {
-			float height = SurfacePoints[x * sampleCount + z].y;
-			height = glm::clamp(height, 0.0f, 1.0f);
-			uint16_t height16 = static_cast<uint16_t>(height * 65535.0f);
-			file.write(reinterpret_cast<const char*>(&height16), sizeof(height16));
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col++) {
+			float height = heightmap(Col, Row);
+			file.write(reinterpret_cast<const char*>(&height), sizeof(float));
 		}
 	}
+
+	//for (int x = 0; x < sampleCount; x++) {
+	//	for (int z = 0; z < sampleCount; z++) {
+	//		float height = SurfacePoints[x * sampleCount + z].y;
+	//		height = glm::clamp(height, 0.0f, 1.0f);
+	//		uint16_t height16 = static_cast<uint16_t>(height * 65535.0f);
+	//		file.write(reinterpret_cast<const char*>(&height16), sizeof(height16));
+	//	}
+	//}
 
 	file.close();
 }

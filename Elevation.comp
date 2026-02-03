@@ -31,72 +31,41 @@ void main(){
 	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & MASK_ELEVATION) != 0u;
 	bool HasGradientMask  = (imageLoad(ConstraintMaskImage, p).r & MASK_GRADIENT)  != 0u;
 
-	float Alpha, Beta;
-
-	if(HasElevationMask){
-		Alpha = 0.0f;
-		Beta = 0.0f;
-	}
-	else if(HasGradientMask){
-		Alpha = 0.1f;
-		Beta = 0.9f;
-
-	}
-	else{
-		Alpha = 1.0f;
-		Beta = 0.0f;
-	}
-
-	ivec2 Left = p + ivec2(-1,  0);
-	if(Left.x < 0) Left.x = 0;
-	ivec2 Right= p + ivec2( 1,  0);
-	if(Right.x >= imageSize(GradientRead).x) Right.x = imageSize(GradientRead).x - 1;
-	ivec2 Down = p + ivec2( 0, -1);
-	if(Down.y < 0) Down.y = 0;
-	ivec2 Up   = p + ivec2( 0,  1);
-	if(Up.y >= imageSize(GradientRead).y) Up.y = imageSize(GradientRead).y - 1;
-
-	float LeftHeight = imageLoad(ElevationRead, Left).r;
-	float RightHeight = imageLoad(ElevationRead, Right).r;
-	float DownHeight = imageLoad(ElevationRead, Down).r; 
-	float UpHeight = imageLoad(ElevationRead, Up).r;
-
-	float LaplacianHeight = 0.25 * (LeftHeight + RightHeight + DownHeight + UpHeight);
-
-	vec3 Gradient = imageLoad(GradientRead, p).rgb;
-
-	vec2 n = vec2(0.0f, 0.0f);
-	float GradientNorm = Gradient.z;
-	if(GradientNorm > 1e-6f) n = normalize(Gradient.xy);
-
-	ivec2 dir;
-	if (abs(n.x) > abs(n.y)) dir = ivec2(sign(n.x), 0);
-	else dir = ivec2(0, sign(n.y));
-
-	ivec2 q = clamp(p - dir, ivec2(0), imageSize(ElevationRead) - 1);
-
-	ivec2 px = p - ivec2(sign(n.x), 0);
-	ivec2 py = p - ivec2(0, sign(n.y));
-
-	px = clamp(px, ivec2(0,0), imageSize(ElevationRead) - 1);
-	py = clamp(py, ivec2(0,0), imageSize(ElevationRead) - 1);
-
-	float FN = n.x * n.x * (abs(n.x) > 0.0 ? imageLoad(ElevationRead, px).r : 0) +
-		       n.y * n.y * (abs(n.y) > 0.0 ? imageLoad(ElevationRead, py).r : 0);
-
-	float FG = imageLoad(ElevationRead, q).r + GradientNorm;
 	
-	float NewHeight = Alpha * LaplacianHeight + Beta * FG + (1.0f - Alpha - Beta) * imageLoad(ElevationRead, p).r;
+	ivec2 Offsets[4] = ivec2[](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+
+	float Sum = 0.0f;
+
+	for(int i = 0; i < 4; i++){
+		ivec2 NeighborPixel = clamp(p + Offsets[i], ivec2(0), imageSize(ElevationRead) - ivec2(1));
+
+		float NeighborHeight = imageLoad(ElevationRead, NeighborPixel).r;
+
+		vec3 NeighborGradient = imageLoad(GradientRead, NeighborPixel).rgb;
+		vec2 Gradient = NeighborGradient.xy * NeighborGradient.z;
+
+		vec2 Direction = vec2(-Offsets[i]);
+
+		Sum += (NeighborHeight + dot(Gradient, Direction));
+	}
+
+	float NewHeight = 0.25f * Sum;
+
+
 
 	if(!IsValidFloat(NewHeight)){
 		NewHeight = imageLoad(ElevationRead, p).r;
 	}
 
 	if(p == DebugPixel0){
-		DebugData[0] = vec4(float(imageLoad(ConstraintMaskImage, p).r), Alpha, Beta, 0.0f);
+		DebugData[0] = vec4(float(imageLoad(ConstraintMaskImage, p).r), 0.0f, 0.0f, 0.0f);
 	}
 	if(p == DebugPixel1){
-		DebugData[1] = vec4(float(imageLoad(ConstraintMaskImage, p).r), Alpha, Beta, 0.0f);
+		DebugData[1] = vec4(float(imageLoad(ConstraintMaskImage, p).r), 0.0f, 0.0f, 0.0f);
+	}
+
+	if(HasElevationMask){
+		NewHeight = imageLoad(ElevationRead, p).r;
 	}
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );

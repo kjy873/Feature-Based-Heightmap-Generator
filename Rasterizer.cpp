@@ -402,11 +402,11 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		Map.ElevationMap[index] = std::max(Map.ElevationMap[index], h);
 		Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Elevation;
 	}
-	if (ApplyGradientA || ApplyGradientB) {
+	if (ApplyGradientA || ApplyGradientB) {  // 동일 곡선 간의 gradient 재연산 = 덮어쓰기 or max, 다른 곡선 간의 gradient 충돌 = 제거
 		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Gradient) {
-			Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
-			Map.GradientMap[index] = glm::vec2(0.0f, 0.0f);
-			Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
+			//Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
+			//Map.GradientMap[index] = glm::vec2(0.0f, 0.0f);
+			//Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
 		}
 		else {
 			glm::vec2 n = glm::normalize(glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
