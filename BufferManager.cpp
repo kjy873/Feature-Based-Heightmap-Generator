@@ -341,6 +341,19 @@ std::vector<float> BufferManager::ReadbackElevationTexture(int ResU, int ResV) {
 	return ElevationData;
 }
 
+std::vector<glm::vec3> BufferManager::ReadbackElevationTextureVec3(int ResU, int ResV) {
+	std::vector<glm::vec4> ElevationDataVec4(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.GetReadTexture());
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, ElevationDataVec4.data());
+	std::vector<glm::vec3> ElevationData(ResU * ResV);
+	for (int i = 0; i < ResU * ResV; i++) {
+		ElevationData[i] = glm::vec3(ElevationDataVec4[i].x, ElevationDataVec4[i].y, ElevationDataVec4[i].z);
+	}
+	return ElevationData;
+}
+
+
+
 std::vector<glm::vec3> BufferManager::ReadbackGradientTexture(int ResU, int ResV) {
 	std::vector<GradientRGBA> GradientDataRGBA(ResU * ResV);
 	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.GetReadTexture());
@@ -375,4 +388,54 @@ void BufferManager::UnbindAllTextures() {
 void BufferManager::UnbindElevationTexture(){
 	glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 	glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+}
+
+void BufferManager::CreateSSBO() {
+	glGenBuffers(1, &Textures.SSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, Textures.SSBO);
+
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * 4 * 2, nullptr, GL_DYNAMIC_READ);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+}
+
+void BufferManager::BindSSBO() {
+
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, Textures.SSBO);
+
+}
+
+void BufferManager::UploadDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1) {
+	glUniform2i(glGetUniformLocation(ProgramID, "DebugPixel0"), p0.x, p0.y);
+	glUniform2i(glGetUniformLocation(ProgramID, "DebugPixel1"), p1.x, p1.y);
+
+}
+
+void BufferManager::AskDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1) {
+	BindSSBO();
+	UploadDebugPixel2(ProgramID, p0, p1);
+}
+
+void BufferManager::ReadPrintSSBO() {
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, Textures.SSBO);
+
+	float* data = (float*)glMapBuffer(
+		GL_SHADER_STORAGE_BUFFER,
+		GL_READ_ONLY
+	);
+
+	// debugData[0]
+	printf("P0: Old=%f FN=%f FG=%f New=%f\n",
+		data[0], data[1], data[2], data[3]
+	);
+
+	// debugData[1]
+	printf("P1: Old=%f FN=%f FG=%f New=%f\n",
+		data[4], data[5], data[6], data[7]
+	);
+
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }

@@ -36,6 +36,8 @@ struct GPUTextures {
 	PingPongTexture Noise;
 	PingPongTexture Multigrid;
 	GLuint ConstraintMask;
+
+	GLuint SSBO = 0;
 };
 
 
@@ -105,7 +107,16 @@ public:
 
 
 	std::vector<float> ReadbackElevationTexture(int ResU, int ResV);
+	std::vector<glm::vec3> ReadbackElevationTextureVec3(int ResU, int ResV);
 	std::vector<glm::vec3> ReadbackGradientTexture(int ResU, int ResV);
+
+	void CreateSSBO();
+	void BindSSBO();
+
+	void UploadDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1);
+	void AskDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1);
+
+	void ReadPrintSSBO();
 
 
 	const GLuint& GetVAOByID(unsigned int ID) const{
@@ -117,4 +128,3 @@ public:
 		return it->second.VAO;
 	}
 };
-

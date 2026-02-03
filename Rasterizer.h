@@ -68,5 +68,7 @@ public:
 
 	const Maps& GetMaps() const { return Map; }
 
+	glm::ivec4 GetBorderPixels2();
+
 };
 

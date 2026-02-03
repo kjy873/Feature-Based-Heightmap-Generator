@@ -7,9 +7,18 @@ layout (r32f, binding = 1) writeonly uniform image2D ElevationWrite;
 layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
 layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
+uniform ivec2 DebugPixel0;
+uniform ivec2 DebugPixel1;
+
+layout (std430, binding = 10) buffer DebugBuffer{ vec4 DebugData[]; };
+
 const uint MASK_ELEVATION = 1u << 0;
 const uint MASK_GRADIENT  = 1u << 1;
 const uint MASK_NOISE     = 1u << 2;
+
+bool IsValidFloat(float x) {
+    return (x == x) && (abs(x) < 1e20);
+}
 
 void main(){
 
@@ -37,8 +46,6 @@ void main(){
 		Alpha = 1.0f;
 		Beta = 0.0f;
 	}
-	Alpha = 0.5f;
-	Beta = 0.5f;
 
 	ivec2 Left = p + ivec2(-1,  0);
 	if(Left.x < 0) Left.x = 0;
@@ -68,12 +75,23 @@ void main(){
 	px = clamp(px, ivec2(0,0), imageSize(ElevationRead) - 1);
 	py = clamp(py, ivec2(0,0), imageSize(ElevationRead) - 1);
 
-	float FN = n.x * n.x * imageLoad(ElevationRead, px).r +
-		       n.y * n.y * imageLoad(ElevationRead, py).r;
+	float FN = n.x * n.x * (abs(n.x) > 0.0 ? imageLoad(ElevationRead, px).r : 0) +
+		       n.y * n.y * (abs(n.y) > 0.0 ? imageLoad(ElevationRead, py).r : 0);
 
 	float FG = FN + GradientNorm;
 	
 	float NewHeight = Alpha * LaplacianHeight + Beta * FG + (1.0f - Alpha - Beta) * imageLoad(ElevationRead, p).r;
+
+	if(!IsValidFloat(NewHeight)){
+		NewHeight = imageLoad(ElevationRead, p).r;
+	}
+
+	if(p == DebugPixel0){
+		DebugData[0] = vec4(imageLoad(ElevationRead, p).r, FN, FG, NewHeight);
+	}
+	if(p == DebugPixel1){
+		DebugData[1] = vec4(imageLoad(ElevationRead, p).r, FN, FG, NewHeight);
+	}
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );
 

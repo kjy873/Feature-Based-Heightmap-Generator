@@ -1081,6 +1081,7 @@ void DrawPanel() {
 
 		}
 
+
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
 
@@ -1088,9 +1089,10 @@ void DrawPanel() {
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients);
 			BufferMgr.UploadNoiseTexture(HeightMapU, HeightMapV, ConstraintMap.NoiseMap);
 			BufferMgr.UploadConstraintMaskTexture(HeightMapU, HeightMapV, ConstraintMap.ConstraintMaskMap.data());
+			BufferMgr.CreateSSBO();
 
 			// Diffuse Gradient
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 5; i++) {
 				BufferMgr.BindGradientTexture();
 				ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
@@ -1112,12 +1114,16 @@ void DrawPanel() {
 			// Diffuse Elevation
 			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
 			//BufferMgr.BindGradientTexture();
-			for (int asd = 0; asd < 100; asd++) {
+			for (int asd = 0; asd < 5; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				BufferMgr.BindElevationTexture();
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+				glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
+				
+				BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, glm::ivec2(BorderPixels2.r, BorderPixels2.g), glm::ivec2(BorderPixels2.b, BorderPixels2.a));
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+				BufferMgr.ReadPrintSSBO();
 				BufferMgr.SwapElevation();
 			}
 
@@ -1125,7 +1131,7 @@ void DrawPanel() {
 
 			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV));
 
-			heightmap.AddHeight(DiffuseMgr.GetElevationMap());
+			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 			UpdateSplineSurface();
 
 

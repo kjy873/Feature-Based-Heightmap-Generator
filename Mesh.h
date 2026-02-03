@@ -103,6 +103,11 @@ public:
 		const std::vector<glm::vec3>& normals, const glm::vec3& c);
 	void SetSurfaceNormalized(const std::vector<float>& HeightMap, const int Rows, const int Cols, const glm::vec3& color);
 
+	void SetColor(const std::vector<glm::vec3>& colors) {
+		Color = colors;
+		dirty = true;
+	}
+
 	
 
 };

@@ -403,7 +403,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Elevation;
 	}
 	if (ApplyGradientA || ApplyGradientB) {
-		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Gradient){
+		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Gradient) {
 			Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
 			Map.GradientMap[index] = glm::vec2(0.0f, 0.0f);
 			Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -432,5 +432,72 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		Map.NoiseMap[index].y = std::max(Map.NoiseMap[index].y, Roughness);
 		Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Noise;
 	}
+
+}
+
+glm::ivec4 Rasterizer::GetBorderPixels2() {
+
+	glm::ivec2 Pixel0(0, 0);
+	glm::ivec2 Pixel1(0, 0);
+
+
+
+	for (int row = 0; row < Height; ++row) {
+		bool found = false;
+		for (int col = 0; col < Width; ++col) {
+			int Index = row * Width + col;
+			using MaskT = uint8_t;
+			MaskT Mask = (Map.ConstraintMaskMap[Index]);
+
+			auto hasElevationAt = [&](int r, int c) {
+				if (r < 0 || r >= Height || c < 0 || c >= Width)
+					return false;
+				return (Map.ConstraintMaskMap[r * Width + c] &
+					static_cast<MaskT>(ConstraintMask::Elevation)) != 0;
+				};
+
+			bool hasElevation = (Mask & static_cast<MaskT>(ConstraintMask::Elevation)) != 0;
+			bool hasGradient = (Mask & static_cast<MaskT>(ConstraintMask::Gradient)) != 0;
+			bool nearREdge =
+				hasElevationAt(row, col - 1) ||
+				hasElevationAt(row, col + 1) ||
+				hasElevationAt(row - 1, col) ||
+				hasElevationAt(row + 1, col);
+			if (!hasElevation && hasGradient && nearREdge) {
+				Pixel0 = glm::ivec2(col, row);
+				found = true;
+				break;
+			}
+		}
+
+		if (found) break;
+
+	}
+
+	int idx0 = Pixel0.y * Width + Pixel0.x;
+	glm::vec2 n = glm::normalize(glm::vec2(
+		Map.Gradients[idx0].x,
+		Map.Gradients[idx0].y
+	));
+
+	glm::ivec2 dir;
+	if (std::abs(n.x) > std::abs(n.y))
+		dir = glm::ivec2(n.x > 0 ? 1 : -1, 0);
+	else
+		dir = glm::ivec2(0, n.y > 0 ? 1 : -1);
+
+	Pixel1 = Pixel0 + dir;
+
+	// 안전 클램프
+	Pixel1.x = glm::clamp(Pixel1.x, 0, Width - 1);
+	Pixel1.y = glm::clamp(Pixel1.y, 0, Height - 1);
+
+	glm::vec2 Pos0 = glm::vec2((float)Pixel0.x / (float)(Width - 1), (float)Pixel0.y / (float)(Height - 1));
+	glm::vec2 Pos1 = glm::vec2((float)Pixel1.x / (float)(Width - 1), (float)Pixel1.y / (float)(Height - 1));
+
+	std::cout << "Border Pixel 0: (" << Pixel0.x << ", " << Pixel0.y << "), Pos: (" << Pos0.x << ", " << Pos0.y << ")" << std::endl;
+	std::cout << "Border Pixel 1: (" << Pixel1.x << ", " << Pixel1.y << "), Pos: (" << Pos1.x << ", " << Pos1.y << ")" << std::endl;
+
+	return glm::ivec4(Pixel0.x, Pixel0.y, Pixel1.x, Pixel1.y);
 
 }
