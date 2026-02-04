@@ -303,9 +303,9 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 
 void BufferManager::BindElevationTexture() {
 
-	printf("Bind ReadTex = %u, WriteTex = %u\n",
-		Textures.Elevation.GetReadTexture(),
-		Textures.Elevation.GetWriteTexture());
+	//printf("Bind ReadTex = %u, WriteTex = %u\n",
+	//	Textures.Elevation.GetReadTexture(),
+	//	Textures.Elevation.GetWriteTexture());
 
 	glBindImageTexture(0, Textures.Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 	glBindImageTexture(1, Textures.Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);

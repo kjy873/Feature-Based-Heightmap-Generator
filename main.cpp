@@ -1,5 +1,7 @@
 ﻿#include "base.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 ShaderManager ShaderMgr("vertex.glsl", "fragment.glsl");
 BufferManager BufferMgr;
@@ -12,8 +14,8 @@ static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
-int HeightMapU = 256;
-int HeightMapV = 256;
+int HeightMapU = 128;
+int HeightMapV = 128;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -1094,7 +1096,7 @@ void DrawPanel() {
 
 			// 단일 그리드로 반복시 매우 많은 횟수를 반복해야 함. 256x256 기준 5000회 이상
 			// Diffuse Gradient
-			for (int i = 0; i < 200; i++) {
+			for (int i = 0; i < 2000; i++) {
 				
 				BufferMgr.BindGradientTexture();
 				BufferMgr.BindConstraintMaskTexture();
@@ -1118,18 +1120,18 @@ void DrawPanel() {
 			// Diffuse Elevation
 			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
 			//BufferMgr.BindGradientTexture();
-			for (int asd = 0; asd < 100; asd++) {
+			for (int asd = 0; asd < 2000; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				BufferMgr.BindElevationTexture();
 				BufferMgr.BindGradientReadOnly();
 				BufferMgr.BindConstraintMaskTexture();
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-				glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
+				//glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
 				
-				BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, glm::ivec2(BorderPixels2.r, BorderPixels2.g), glm::ivec2(BorderPixels2.b, BorderPixels2.a));
+				//BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, glm::ivec2(BorderPixels2.r, BorderPixels2.g), glm::ivec2(BorderPixels2.b, BorderPixels2.a));
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.ReadPrintSSBO();
+				//BufferMgr.ReadPrintSSBO();
 				BufferMgr.SwapElevation();
 			}
 
@@ -1200,6 +1202,13 @@ void DrawPanel() {
 			}*/
 		}
 
+		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
+			ExportGradientImage("gradient.png", DiffuseMgr.GetGradientMap(), true);
+			ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
+			ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
+			cout << "Exported constraint maps" << endl;
+		}
+
 
 		ImGui::EndChild();
 
@@ -1223,7 +1232,7 @@ void DrawPanel() {
 
 		ImGui::Separator();
 		if (ImGui::Button("Export", ImVec2((panel_width), button_height))) {
-			ExportHeightMap("heightmap.r16");
+			ExportHeightMap("heightmap.txt");
 			cout << "Exported heightmap.r16" << endl;
 		}
 
@@ -1335,9 +1344,12 @@ void ExportHeightMap(const char* FileName) {
 
 	for (int Row = 0; Row < HeightMapV; Row++) {
 		for (int Col = 0; Col < HeightMapU; Col++) {
+			//uint8_t mask = RasterizerMgr.GetMaps().ConstraintMaskMap[Row * HeightMapU + Col];
 			float height = heightmap(Col, Row);
 			file.write(reinterpret_cast<const char*>(&height), sizeof(float));
+			//file << (int)mask << " ";
 		}
+		//file << "\n";
 	}
 
 	//for (int x = 0; x < sampleCount; x++) {
@@ -1352,3 +1364,49 @@ void ExportHeightMap(const char* FileName) {
 	file.close();
 }
 
+void ExportGradientImage(const char* FileName, const std::vector<glm::vec3>& Map, bool ExportNorm) {
+
+	std::vector<uint8_t> image(HeightMapU * HeightMapV * 3);
+
+	for(int Row = 0; Row < HeightMapV; Row++) {
+		for(int Col = 0; Col < HeightMapU; Col++) {
+			float x = Map[Row * HeightMapU + Col].x;
+			float y = Map[Row * HeightMapU + Col].y;
+			float norm = Map[Row * HeightMapU + Col].z;
+
+			uint8_t r = (uint8_t)((x * 0.5f + 0.5f) * 255.0f);
+			uint8_t g = (uint8_t)((y * 0.5f + 0.5f) * 255.0f);
+ 			uint8_t b = 128;
+			if(ExportNorm) b = (uint8_t)(norm * 255.0f);
+
+			image[(Row * HeightMapU + Col) * 3 + 0] = r;
+			image[(Row * HeightMapU + Col) * 3 + 1] = g;
+			image[(Row * HeightMapU + Col) * 3 + 2] = b;
+		}	
+	}
+	stbi_write_png(FileName, HeightMapU, HeightMapV, 3, image.data(), HeightMapU * 3);
+
+}
+
+void ExportHeightmapImage(const char* FileName, const std::vector<float>& Map) {
+	std::vector<uint8_t> image(HeightMapU * HeightMapV);
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col++) {
+			float h = Map[Row * HeightMapU + Col];
+			uint8_t value = (uint8_t)(h * 255.0f);
+			image[Row * HeightMapU + Col] = value;
+		}
+	}
+	stbi_write_png(FileName, HeightMapU, HeightMapV, 1, image.data(), HeightMapU);
+}
+
+void ExportConstraintMaskImage(const char* FileName, const std::vector<uint8_t>& Map) {
+	std::vector<uint8_t> image(HeightMapU * HeightMapV);
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col++) {
+			uint8_t mask = Map[Row * HeightMapU + Col];
+			image[Row * HeightMapU + Col] = mask;
+		}
+	}
+	stbi_write_png(FileName, HeightMapU, HeightMapV, 1, image.data(), HeightMapU);
+}

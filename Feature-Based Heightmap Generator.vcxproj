@@ -205,6 +205,7 @@
     <ClInclude Include="Rasterizer.h" />
     <ClInclude Include="RenderManager.h" />
     <ClInclude Include="ShaderManager.h" />
+    <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="TerrainObject.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

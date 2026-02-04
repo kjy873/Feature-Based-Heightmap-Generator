@@ -51,8 +51,6 @@ void main(){
 
 	float NewHeight = 0.25f * Sum;
 
-
-
 	if(!IsValidFloat(NewHeight)){
 		NewHeight = imageLoad(ElevationRead, p).r;
 	}
