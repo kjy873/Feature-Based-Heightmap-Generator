@@ -389,6 +389,9 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
 	float ad = abs(d);
 
+	float GradientAttenuation;  //  쿼드 끝에서 경사 제약 크기가 0이 되도록 선형 감쇠
+	
+
 	bool ApplyElevation = false;
 	bool ApplyGradientA = false;
 	bool ApplyGradientB = false;
@@ -411,18 +414,20 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		else {
 			glm::vec2 n = glm::normalize(glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
 			if (ApplyGradientA) {
+				GradientAttenuation = glm::clamp(1.0f - ad / a, 0.0f, 1.0f);
 				Map.GradientMap[index] = glm::vec2(theta, phi);
 				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
 				Map.Gradients[index].x = n.x;
 				Map.Gradients[index].y = n.y;
-				Map.Gradients[index].z = glm::tan(glm::radians(theta)); // == norm
+				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(theta)); // == norm
 			}
 			else if (ApplyGradientB) {
+				GradientAttenuation = glm::clamp(1.0f - ad / b, 0.0f, 1.0f);
 				Map.GradientMap[index] = glm::vec2(theta, phi);
 				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
 				Map.Gradients[index].x = -n.x;
 				Map.Gradients[index].y = -n.y;
-				Map.Gradients[index].z = glm::tan(glm::radians(phi));
+				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(phi));
 			}
 
 		}
@@ -503,5 +508,12 @@ glm::ivec4 Rasterizer::GetBorderPixels2() {
 	printf("P1 mask = %u\n", Map.ConstraintMaskMap[idx1]);
 
 	return glm::ivec4(Pixel0.x, Pixel0.y, Pixel1.x, Pixel1.y);
+
+}
+
+float Rasterizer::GradientAttenuation(glm::vec3& DstGradient, const glm::vec2& Pos, const glm::vec2& CurvePos, const glm::vec2& CurveNormal, 
+									  const float SignedDistance, const float GradientRadius, float GradientMagnitude) {
+
+
 
 }

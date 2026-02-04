@@ -31,25 +31,53 @@ void main(){
 	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & MASK_ELEVATION) != 0u;
 	bool HasGradientMask  = (imageLoad(ConstraintMaskImage, p).r & MASK_GRADIENT)  != 0u;
 
-	
-	ivec2 Offsets[4] = ivec2[](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+	float Alpha = 0.0f;
+	float Beta = 0.0f;
 
-	float Sum = 0.0f;
-
-	for(int i = 0; i < 4; i++){
-		ivec2 NeighborPixel = clamp(p + Offsets[i], ivec2(0), imageSize(ElevationRead) - ivec2(1));
-
-		float NeighborHeight = imageLoad(ElevationRead, NeighborPixel).r;
-
-		vec3 NeighborGradient = imageLoad(GradientRead, NeighborPixel).rgb;
-		vec2 Gradient = NeighborGradient.xy * NeighborGradient.z;
-
-		vec2 Direction = vec2(-Offsets[i]);
-
-		Sum += (NeighborHeight + dot(Gradient, Direction));
+	if(HasElevationMask){
+		Alpha = 0.0f;
+		Beta = 0.0f;
+	}
+	else if(HasGradientMask){
+		Beta = 0.5f;
+		Alpha = 0.5f;
+	}
+	else{
+		Alpha = 1.0f;
+		Beta = 0.0f;
 	}
 
-	float NewHeight = 0.25f * Sum;
+
+	ivec2 Left = clamp(p + ivec2(-1, 0), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Right = clamp(p + ivec2(1, 0), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Down = clamp(p + ivec2(0, -1), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Up = clamp(p + ivec2(0, 1), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+
+	float F_L = 0.25f * (imageLoad(ElevationRead, Left).r +
+						imageLoad(ElevationRead, Right).r +
+						imageLoad(ElevationRead, Down).r +
+						imageLoad(ElevationRead, Up).r);
+
+	float F_I = imageLoad(ElevationRead, p).r;
+
+	vec3 Normal = imageLoad(GradientRead, p).rgb;
+	ivec2 Neighbor = ivec2(0, 0);
+	if (abs(Normal.x) > abs(Normal.y)){
+		Neighbor = p + ivec2(-int(sign(Normal.x)), 0);
+	}
+	else {
+		Neighbor = p + ivec2(0, -int(sign(Normal.y)));
+	}
+	Neighbor = clamp(Neighbor, ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	float F_N = imageLoad(ElevationRead, Neighbor).r;
+	ivec2 I_d = p - Neighbor;
+	vec2 Direction = vec2(I_d);
+	vec2 Gradient = Normal.xy * abs(Normal.z);
+	float Delta = dot(Gradient, Direction);
+
+	float F_G = F_N + Delta;
+
+	float NewHeight = Alpha * F_L + Beta * F_G + (1.0f - Alpha - Beta) * F_I;
 
 	if(!IsValidFloat(NewHeight)){
 		NewHeight = imageLoad(ElevationRead, p).r;
@@ -60,10 +88,6 @@ void main(){
 	}
 	if(p == DebugPixel1){
 		DebugData[1] = vec4(float(imageLoad(ConstraintMaskImage, p).r), 0.0f, 0.0f, 0.0f);
-	}
-
-	if(HasElevationMask){
-		NewHeight = imageLoad(ElevationRead, p).r;
 	}
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );

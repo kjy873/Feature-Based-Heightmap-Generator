@@ -14,8 +14,8 @@ static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
-int HeightMapU = 128;
-int HeightMapV = 128;
+int HeightMapU = 256;
+int HeightMapV = 256;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -1096,7 +1096,7 @@ void DrawPanel() {
 
 			// 단일 그리드로 반복시 매우 많은 횟수를 반복해야 함. 256x256 기준 5000회 이상
 			// Diffuse Gradient
-			for (int i = 0; i < 2000; i++) {
+			for (int i = 0; i < 5000; i++) {
 				
 				BufferMgr.BindGradientTexture();
 				BufferMgr.BindConstraintMaskTexture();
@@ -1120,7 +1120,7 @@ void DrawPanel() {
 			// Diffuse Elevation
 			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
 			//BufferMgr.BindGradientTexture();
-			for (int asd = 0; asd < 2000; asd++) {
+			for (int asd = 0; asd < 20000; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				BufferMgr.BindElevationTexture();
 				BufferMgr.BindGradientReadOnly();
@@ -1203,9 +1203,11 @@ void DrawPanel() {
 		}
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
-			ExportGradientImage("gradient.png", DiffuseMgr.GetGradientMap(), true);
-			ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
-			ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
+			//ExportGradientImage("gradient.png", DiffuseMgr.GetGradientMap(), true);
+			//ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
+			//ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
+			//ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
+			ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
 			cout << "Exported constraint maps" << endl;
 		}
 
@@ -1388,6 +1390,21 @@ void ExportGradientImage(const char* FileName, const std::vector<glm::vec3>& Map
 
 }
 
+void ExportGradientText(const char* FileName, const std::vector<glm::vec3>& Map) {
+	ofstream file(FileName);
+
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col++) {
+			float Gradient = Map[Row * HeightMapU + Col].z;
+
+			file << Gradient << " ";
+		}
+		file << "\n";
+	}
+
+	file.close();
+}
+
 void ExportHeightmapImage(const char* FileName, const std::vector<float>& Map) {
 	std::vector<uint8_t> image(HeightMapU * HeightMapV);
 	for (int Row = 0; Row < HeightMapV; Row++) {
@@ -1409,4 +1426,67 @@ void ExportConstraintMaskImage(const char* FileName, const std::vector<uint8_t>&
 		}
 	}
 	stbi_write_png(FileName, HeightMapU, HeightMapV, 1, image.data(), HeightMapU);
+}
+
+void ExportDiffusedGradientDot(const char* FileName, const std::vector<glm::vec3>& Map) {
+
+	static int count = 0;
+	std::cout << count << endl;
+
+	std::cout << "U=" << HeightMapU
+		<< " V=" << HeightMapV
+		<< " MapSize=" << Map.size() << std::endl;
+
+	ofstream file(FileName);
+	file.setf(std::ios::fixed);
+	file.precision(6);
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col++) {
+			int idx = Row * HeightMapU + Col;
+			glm::ivec2 p = ivec2(Col, Row);
+			glm::ivec2 Neighbor;
+			if (abs(Map[Row * HeightMapU + Col].x) > abs(Map[idx].y)) Neighbor = p + glm::ivec2((Map[idx].x > 0) ? -1 : 1, 0);
+			else Neighbor = p + glm::ivec2(0, (Map[idx].y > 0) ? -1 : 1);
+			Neighbor = glm::clamp(Neighbor, glm::ivec2(0, 0), glm::ivec2(HeightMapU - 1, HeightMapV - 1));
+			glm::ivec2 Diff = p - Neighbor;
+			glm::vec2 Direction = Diff;
+			glm::vec2 Gradient = glm::vec2(Map[idx].x, Map[idx].y) * Map[idx].z;
+			float Delta = glm::dot(Gradient, Direction);
+			//if (!std::isfinite(Delta)) Delta = 0.0f;
+			//file.write(reinterpret_cast<char*>(&Delta), sizeof(float));
+			
+			//count++;
+			//std::cout << count << endl;
+			file << Delta << " ";
+		}
+		file << "\n";
+	}
+
+	file.close();
+
+}
+
+void ExportDiffusedGradientImage(const char* FileName, const std::vector<glm::vec3>& Map) {
+	std::vector<uint8_t> image(HeightMapU * HeightMapV * 3);
+
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col) {
+
+			glm::ivec2 p = ivec2(Col, Row);
+			glm::ivec2 Neighbor;
+			if (abs(Map[Row * HeightMapU + Col].x) > abs(Map[Row * HeightMapU + Col].y)) Neighbor = p + glm::ivec2((Map[Row * HeightMapU + Col].x > 0) ? -1 : 1, 0);
+			else Neighbor = p + glm::ivec2(0, (Map[Row * HeightMapU + Col].y > 0) ? -1 : 1);
+			Neighbor = glm::clamp(Neighbor, glm::ivec2(0, 0), glm::ivec2(HeightMapU - 1, HeightMapV - 1));
+			glm::ivec2 Diff = p - Neighbor;
+			glm::vec2 Direction = Diff;
+			glm::vec2 Gradient = glm::vec2(Map[Row * HeightMapU + Col].x, Map[Row * HeightMapU + Col].y) * Map[Row * HeightMapU + Col].z;
+			float Delta = glm::dot(Gradient, Direction);
+			uint8_t value = (uint8_t)(Delta * 255.0f);
+			image[(Row * HeightMapU + Col) * 3 + 0] = value;
+			image[(Row * HeightMapU + Col) * 3 + 1] = value;
+			image[(Row * HeightMapU + Col) * 3 + 2] = value;
+		}
+	}
+	stbi_write_png(FileName, HeightMapU, HeightMapV, 3, image.data(), HeightMapU * 3);
+
 }
