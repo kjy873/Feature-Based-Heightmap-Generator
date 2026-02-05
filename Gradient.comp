@@ -41,11 +41,13 @@ void main(){
 	vec4 DownGradient = imageLoad(GradientRead, Down);
 	vec4 UpGradient   = imageLoad(GradientRead, Up);
 	
-	vec2 n = normalize(vec2(LeftGradient.xy + RightGradient.xy + DownGradient.xy + UpGradient.xy));
+	vec2 n = 0.25 * normalize(vec2(LeftGradient.xy + RightGradient.xy + DownGradient.xy + UpGradient.xy));
 	float m = imageLoad(GradientRead, p).z;
 	if(!HasGradientConstraint) m = 0.0f;
 	vec4 AvgGradient = 0.25f * (LeftGradient + RightGradient + DownGradient + UpGradient);
 
 	imageStore(GradientWrite, p, vec4(n, m, 0));
+
+	return;
 
 }

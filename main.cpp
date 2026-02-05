@@ -14,8 +14,8 @@ static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
-int HeightMapU = 512;
-int HeightMapV = 512;
+int HeightMapU = 256;
+int HeightMapV = 256;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -1083,8 +1083,13 @@ void DrawPanel() {
 			//RasterizerMgr.PrintQuads();
 			RasterizerMgr.BuildConstraintMaps();
 			// x방향이 col임
+			RasterizerMgr.PrintQuads();
+			std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
+			ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
 
 		}
+
+		
 
 
 		if (ImGui::InputInt("GradientIteration", &GradientIteration, 1, 100));
@@ -1096,6 +1101,7 @@ void DrawPanel() {
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients);
 			BufferMgr.UploadNoiseTexture(HeightMapU, HeightMapV, ConstraintMap.NoiseMap);
 			BufferMgr.UploadConstraintMaskTexture(HeightMapU, HeightMapV, ConstraintMap.ConstraintMaskMap.data());
+
 
 			BufferMgr.CreateSSBO();
 
@@ -1110,6 +1116,7 @@ void DrawPanel() {
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 				BufferMgr.SwapGradient();
 			}
+			ExportGradientImage("ConstraintGradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), false);
 			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV));
 			DiffuseMgr.NormalizeGradients();
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap());
@@ -1133,11 +1140,12 @@ void DrawPanel() {
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
 				//glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
 				
-				//BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, glm::ivec2(BorderPixels2.r, BorderPixels2.g), glm::ivec2(BorderPixels2.b, BorderPixels2.a));
+				//BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, glm::ivec2(50, 50), glm::ivec2(50, 49));
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				//BufferMgr.ReadPrintSSBO();
 				BufferMgr.SwapElevation();
+
 			}
 
 			//BufferMgr.UnbindElevationTexture();
@@ -1208,7 +1216,8 @@ void DrawPanel() {
 		}
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
-			ExportGradientImage("gradient.png", DiffuseMgr.GetGradientMap(), true);
+			
+			ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), false);
 			ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
 			ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
 			ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());

@@ -72,6 +72,5 @@ public:
 
 	float GradientAttenuation(glm::vec3& DstGradient, const glm::vec2& Pos, const glm::vec2& CurvePos, const glm::vec2& CurveNormal,
 		const float SignedDistance, const float GradientRadius, float GradientMagnitude);
-
+	
 };
-

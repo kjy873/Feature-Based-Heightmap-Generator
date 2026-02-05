@@ -236,10 +236,6 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, ConstraintMaskMap);
-	glMemoryBarrier(
-		GL_TEXTURE_UPDATE_BARRIER_BIT |
-		GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-	);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
@@ -433,12 +429,12 @@ void BufferManager::ReadPrintSSBO() {
 	);
 
 	// debugData[0]
-	printf("P0: Old=%f FN=%f FG=%f New=%f\n",
+	printf("P0: F_I=%f F_L=%f F_G=%f New=%f\n",
 		data[0], data[1], data[2], data[3]
 	);
 
 	// debugData[1]
-	printf("P1: Old=%f FN=%f FG=%f New=%f\n",
+	printf("P1: F_I=%f F_L=%f F_G=%f New=%f\n",
 		data[4], data[5], data[6], data[7]
 	);
 

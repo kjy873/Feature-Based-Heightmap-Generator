@@ -267,12 +267,17 @@ void Rasterizer::BuildQuads() {
 
 void Rasterizer::PrintQuads() const{
 
-	std::cout << "Quad count: " << Quads.size() << std::endl;
+	//std::cout << "Quad count: " << Quads.size() << std::endl;
+	//for (const auto& quad : Quads) {
+	//	std::cout << "Quad Vertices :" << "[V0 : (" << quad.V0.Position.x << ", " << quad.V0.Position.y << ", " << quad.V0.Position.z << "), "
+	//		<< "V1 : (" << quad.V1.Position.x << ", " << quad.V1.Position.y << ", " << quad.V1.Position.z << "), "
+	//		<< "V2 : (" << quad.V2.Position.x << ", " << quad.V2.Position.y << ", " << quad.V2.Position.z << "), "
+	//		<< "V3 : (" << quad.V3.Position.x << ", " << quad.V3.Position.y << ", " << quad.V3.Position.z << ")]" << std::endl;
+	//}
+
 	for (const auto& quad : Quads) {
-		std::cout << "Quad Vertices :" << "[V0 : (" << quad.V0.Position.x << ", " << quad.V0.Position.y << ", " << quad.V0.Position.z << "), "
-			<< "V1 : (" << quad.V1.Position.x << ", " << quad.V1.Position.y << ", " << quad.V1.Position.z << "), "
-			<< "V2 : (" << quad.V2.Position.x << ", " << quad.V2.Position.y << ", " << quad.V2.Position.z << "), "
-			<< "V3 : (" << quad.V3.Position.x << ", " << quad.V3.Position.y << ", " << quad.V3.Position.z << ")]" << std::endl;
+		quad.HasElevation ? std::cout << "Has Elevation" << std::endl : std::cout << "No Elevation" << std::endl;
+		quad.HasGradient ? std::cout << "Has Gradient" << std::endl : std::cout << "No Gradient" << std::endl;
 	}
 
 }
@@ -396,8 +401,14 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 	bool ApplyGradientA = false;
 	bool ApplyGradientB = false;
 
+	//Map.ConstraintMaskMap[index] |= 128;
+
 	// 배타적, 우선순위 : Elevation > Gradient, r 내부에서는 gradient가 적용되지 않음
-	if (quad.HasElevation && (ad <= r)) ApplyElevation = true;
+	/*if (quad.HasElevation && (ad <= r)) ApplyElevation = true;
+	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
+	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;*/
+
+	if (quad.HasElevation) ApplyElevation = true;
 	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
 	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;
 

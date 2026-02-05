@@ -39,8 +39,8 @@ void main(){
 		Beta = 0.0f;
 	}
 	else if(HasGradientMask){
-		Beta = 0.5f;
-		Alpha = 0.5f;
+		Alpha = 0.8f;
+		Beta = 0.2f;
 	}
 	else{
 		Alpha = 1.0f;
@@ -60,45 +60,45 @@ void main(){
 
 	float F_I = imageLoad(ElevationRead, p).r;
 
+	float F_G = F_I;
+
 	vec3 Normal = imageLoad(GradientRead, p).rgb;
-	ivec2 Neighbor = ivec2(0, 0);
-	if (abs(Normal.x) > abs(Normal.y)){
-		Neighbor = p + ivec2(-int(sign(Normal.x)), 0);
+
+	float Len = length(Normal.xy);
+
+	if(Len > 0.00001f){
+		vec2 n = normalize(Normal.xy);
+		
+		ivec2 nxp = ivec2(-int(sign(n.x)), 0);
+	    ivec2 nyp = ivec2(0, -int(sign(n.y)));
+
+		float Fx = imageLoad(ElevationRead, clamp(p + nxp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
+		float Fy = imageLoad(ElevationRead, clamp(p + nyp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
+
+		float F_N = n.x * n.x * Fx + n.y * n.y * Fy;
+
+		F_G = F_N + Normal.z;
 	}
 	else {
-		Neighbor = p + ivec2(0, -int(sign(Normal.y)));
+		F_G = F_L;
 	}
-	Neighbor = clamp(Neighbor, ivec2(0), imageSize(ElevationRead) - ivec2(1));
-	
-	vec2 n = normalize(Normal.xy);
-	ivec2 nxp = ivec2(-sign(n.x), 0);
-	ivec2 nyp = ivec2(0, -sign(n.y));
-
-	float Fx = imageLoad(ElevationRead, clamp(p + nxp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
-	float Fy = imageLoad(ElevationRead, clamp(p + nyp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
-
-	float F_N = n.x * n.x * Fx + n.y * n.y * Fy;
-	
-	ivec2 I_d = p - Neighbor;
-	vec2 Direction = vec2(I_d);
-	vec2 Gradient = Normal.xy * Normal.z;
-	float Delta = dot(Gradient, n);
-
-	float F_G = F_N + Delta;
 
 	float NewHeight = Alpha * F_L + Beta * F_G + (1.0f - Alpha - Beta) * F_I;
 
 	if(!IsValidFloat(NewHeight)){
 		NewHeight = imageLoad(ElevationRead, p).r;
+		return;
 	}
 
 	if(p == DebugPixel0){
-		DebugData[0] = vec4(float(imageLoad(ConstraintMaskImage, p).r), 0.0f, 0.0f, 0.0f);
+		DebugData[0] = vec4(0, 0, 0, 0);
 	}
 	if(p == DebugPixel1){
-		DebugData[1] = vec4(float(imageLoad(ConstraintMaskImage, p).r), 0.0f, 0.0f, 0.0f);
+		DebugData[1] = vec4(0, 0, 0, 0);
 	}
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );
+
+	return;
 
 }
