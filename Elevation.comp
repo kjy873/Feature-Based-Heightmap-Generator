@@ -69,11 +69,20 @@ void main(){
 		Neighbor = p + ivec2(0, -int(sign(Normal.y)));
 	}
 	Neighbor = clamp(Neighbor, ivec2(0), imageSize(ElevationRead) - ivec2(1));
-	float F_N = imageLoad(ElevationRead, Neighbor).r;
+	
+	vec2 n = normalize(Normal.xy);
+	ivec2 nxp = ivec2(-sign(n.x), 0);
+	ivec2 nyp = ivec2(0, -sign(n.y));
+
+	float Fx = imageLoad(ElevationRead, clamp(p + nxp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
+	float Fy = imageLoad(ElevationRead, clamp(p + nyp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
+
+	float F_N = n.x * n.x * Fx + n.y * n.y * Fy;
+	
 	ivec2 I_d = p - Neighbor;
 	vec2 Direction = vec2(I_d);
-	vec2 Gradient = Normal.xy * abs(Normal.z);
-	float Delta = dot(Gradient, Direction);
+	vec2 Gradient = Normal.xy * Normal.z;
+	float Delta = dot(Gradient, n);
 
 	float F_G = F_N + Delta;
 

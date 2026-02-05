@@ -14,8 +14,8 @@ static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
-int HeightMapU = 256;
-int HeightMapV = 256;
+int HeightMapU = 512;
+int HeightMapV = 512;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -38,6 +38,9 @@ double windowHeight = 1080;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
+
+int ElevationIteration = 5;
+int GradientIteration = 5000;
 
 float CameraSpeed = 0.01f;
 
@@ -1084,6 +1087,8 @@ void DrawPanel() {
 		}
 
 
+		if (ImGui::InputInt("GradientIteration", &GradientIteration, 1, 100));
+		if (ImGui::InputInt("ElevationIteration", &ElevationIteration, 1, 100));
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
 
@@ -1096,7 +1101,7 @@ void DrawPanel() {
 
 			// 단일 그리드로 반복시 매우 많은 횟수를 반복해야 함. 256x256 기준 5000회 이상
 			// Diffuse Gradient
-			for (int i = 0; i < 5000; i++) {
+			for (int i = 0; i < GradientIteration; i++) {
 				
 				BufferMgr.BindGradientTexture();
 				BufferMgr.BindConstraintMaskTexture();
@@ -1120,7 +1125,7 @@ void DrawPanel() {
 			// Diffuse Elevation
 			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
 			//BufferMgr.BindGradientTexture();
-			for (int asd = 0; asd < 20000; asd++) {
+			for (int asd = 0; asd < ElevationIteration; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				BufferMgr.BindElevationTexture();
 				BufferMgr.BindGradientReadOnly();
@@ -1203,11 +1208,11 @@ void DrawPanel() {
 		}
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
-			//ExportGradientImage("gradient.png", DiffuseMgr.GetGradientMap(), true);
-			//ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
-			//ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
-			//ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
-			ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
+			ExportGradientImage("gradient.png", DiffuseMgr.GetGradientMap(), true);
+			ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
+			ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
+			ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
+			//ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
 			cout << "Exported constraint maps" << endl;
 		}
 
