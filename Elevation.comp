@@ -7,6 +7,8 @@ layout (r32f, binding = 1) writeonly uniform image2D ElevationWrite;
 layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
 layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
+layout (rgba32f, binding = 7) writeonly uniform image2D DebugImage;
+
 uniform ivec2 DebugPixel0;
 uniform ivec2 DebugPixel1;
 
@@ -39,8 +41,8 @@ void main(){
 		Beta = 0.0f;
 	}
 	else if(HasGradientMask){
-		Alpha = 0.8f;
-		Beta = 0.2f;
+		Alpha = 0.5f;
+		Beta = 0.5f;
 	}
 	else{
 		Alpha = 1.0f;
@@ -66,6 +68,8 @@ void main(){
 
 	float Len = length(Normal.xy);
 
+	float F_N = 0.0f;
+
 	if(Len > 0.00001f){
 		vec2 n = normalize(Normal.xy);
 		
@@ -75,7 +79,7 @@ void main(){
 		float Fx = imageLoad(ElevationRead, clamp(p + nxp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
 		float Fy = imageLoad(ElevationRead, clamp(p + nyp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
 
-		float F_N = n.x * n.x * Fx + n.y * n.y * Fy;
+		F_N = n.x * n.x * Fx + n.y * n.y * Fy;
 
 		F_G = F_N + Normal.z;
 	}
@@ -91,11 +95,13 @@ void main(){
 	}
 
 	if(p == DebugPixel0){
-		DebugData[0] = vec4(0, 0, 0, 0);
+		DebugData[0] = vec4(F_L, F_G, Alpha, Beta);
 	}
 	if(p == DebugPixel1){
-		DebugData[1] = vec4(0, 0, 0, 0);
+		DebugData[1] = vec4(F_L, F_G, Alpha, Beta);
 	}
+
+	imageStore(DebugImage, p, vec4(F_I, F_N, F_G, NewHeight));
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );
 

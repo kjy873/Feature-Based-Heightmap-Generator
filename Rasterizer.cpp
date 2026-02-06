@@ -404,11 +404,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 	//Map.ConstraintMaskMap[index] |= 128;
 
 	// 배타적, 우선순위 : Elevation > Gradient, r 내부에서는 gradient가 적용되지 않음
-	/*if (quad.HasElevation && (ad <= r)) ApplyElevation = true;
-	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
-	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;*/
-
-	if (quad.HasElevation) ApplyElevation = true;
+	if (quad.HasElevation && (ad <= r)) ApplyElevation = true;
 	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
 	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;
 

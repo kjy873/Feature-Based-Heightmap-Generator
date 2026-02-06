@@ -1095,13 +1095,18 @@ void DrawPanel() {
 		if (ImGui::InputInt("GradientIteration", &GradientIteration, 1, 100));
 		if (ImGui::InputInt("ElevationIteration", &ElevationIteration, 1, 100));
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
+
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
+
+			ExportGradientImage("RasterizedGradientRGB.png", ConstraintMap.Gradients, true);
+			ExportHeightmapImage("RasterizedElevationGray.png", ConstraintMap.ElevationMap);
+			ExportConstraintMaskImage("RasterizedConstraintMask.png", ConstraintMap.ConstraintMaskMap);
 
 			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV, ConstraintMap.ElevationMap.data());
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients);
 			BufferMgr.UploadNoiseTexture(HeightMapU, HeightMapV, ConstraintMap.NoiseMap);
 			BufferMgr.UploadConstraintMaskTexture(HeightMapU, HeightMapV, ConstraintMap.ConstraintMaskMap.data());
-
+			BufferMgr.UploadDebugTexture(HeightMapU, HeightMapV);
 
 			BufferMgr.CreateSSBO();
 
@@ -1116,7 +1121,7 @@ void DrawPanel() {
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 				BufferMgr.SwapGradient();
 			}
-			ExportGradientImage("ConstraintGradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), false);
+			ExportGradientImage("DiffusedGradientRGB.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), true);
 			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV));
 			DiffuseMgr.NormalizeGradients();
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap());
@@ -1134,19 +1139,24 @@ void DrawPanel() {
 			//BufferMgr.BindGradientTexture();
 			for (int asd = 0; asd < ElevationIteration; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+				BufferMgr.BindDebugTexture();
 				BufferMgr.BindElevationTexture();
 				BufferMgr.BindGradientReadOnly();
 				BufferMgr.BindConstraintMaskTexture();
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-				//glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
+				glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
+				glm::ivec2 DebugPixel0 = glm::ivec2(BorderPixels2.x, BorderPixels2.y);
+				glm::ivec2 DebugPixel1 = glm::ivec2(BorderPixels2.z, BorderPixels2.w);
 				
-				//BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, glm::ivec2(50, 50), glm::ivec2(50, 49));
+				BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, DebugPixel0, DebugPixel1);
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				//BufferMgr.ReadPrintSSBO();
+				BufferMgr.ReadPrintSSBO();
 				BufferMgr.SwapElevation();
 
 			}
+
+			ExportDebugData(BufferMgr.ReadbackDebugTexture(HeightMapU, HeightMapV));
 
 			//BufferMgr.UnbindElevationTexture();
 
@@ -1155,64 +1165,8 @@ void DrawPanel() {
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 			UpdateSplineSurface();
 
-
-			for (const auto& height : heightmap.GetHeightMap()) {
-				
-				//if (height != 0) std::cout << "not zero" << std::endl;
-			}
-
-			//BufferMgr.UnbindAllTextures();
-
-
-			//glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-
-			//// --- 이 코드를 추가해 보세요 ---
-			//glUseProgram(0); // 사용 중인 컴퓨트 셰이더 해제
-
-			//// 바인딩했던 이미지 유닛들을 명시적으로 해제 (특히 0번과 1번)
-			//for (int i = 0; i < 4; i++) {
-			//	glBindImageTexture(i, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-			//}
-
-			//// ImGui가 사용할 일반 텍스처 유닛도 초기화 (안전을 위해)
-			//glActiveTexture(GL_TEXTURE0);
-			//glBindTexture(GL_TEXTURE_2D, 0);
-			// -----------------------------
-
-			/*for (int i = 0; i < 5; i++) {
-				BufferMgr.BindElevationTexture();
-				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-				glDispatchCompute((1024 + 15) / 16, (1024 + 15) / 16, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-				BufferMgr.SwapElevation();
-			}*/
-			//DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(1024, 1024));
-
-			//heightmap.SetHeight(DiffuseMgr.GetElevationMap());
-			//UpdateSplineSurface();
-			/*SplineSurface.GenerateSurface();
-			heightmap.AddHeight(SplineSurface.GetHeightMap());
-			heightmap.AddHeight(NoiseGen.GetHeightMap());
-			UpdateSplineSurface();*/
-
-
-
-
-
-			//BufferMgr.BindElevationTexture();
-			//BufferMgr.BindNoiseTexture();
-			//BufferMgr.BindConstraintMaskTexture();
-
-
-
-			std::vector<float> h(1024 * 1024);
-
-			//h = BufferMgr.ReadbackElevationTexture(1024, 1024);
-			/*std::cout << "ReadBack(Elevation):" << std::endl;
-			for (const auto& height : h) {
-				std::cout << height << std::endl;
-			}*/
+			ExportHeightmapImage("DiffusedHeightmapGray.png", heightmap.GetHeightMap());
+			
 		}
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
@@ -1436,6 +1390,9 @@ void ExportConstraintMaskImage(const char* FileName, const std::vector<uint8_t>&
 	for (int Row = 0; Row < HeightMapV; Row++) {
 		for (int Col = 0; Col < HeightMapU; Col++) {
 			uint8_t mask = Map[Row * HeightMapU + Col];
+			if (mask == 0) mask = 0;
+			if (mask == 1) mask = 85;
+			if (mask == 2) mask = 170;
 			image[Row * HeightMapU + Col] = mask;
 		}
 	}
@@ -1503,4 +1460,33 @@ void ExportDiffusedGradientImage(const char* FileName, const std::vector<glm::ve
 	}
 	stbi_write_png(FileName, HeightMapU, HeightMapV, 3, image.data(), HeightMapU * 3);
 
+}
+
+void ExportDebugData(const std::vector<glm::vec4>& Map) {
+
+	ofstream file1("OldHeight.txt");
+	ofstream file2("F_N.txt");
+	ofstream file3("F_G.txt");
+	ofstream file4("NewHeight.txt");
+
+	for(int Row = 0; Row < HeightMapV; Row++) {
+		for(int Col = 0; Col < HeightMapU; Col++) {
+			glm::vec4 data = Map[Row * HeightMapU + Col];
+
+			file1 << data.r << " ";
+			file2 << data.g << " ";
+			file3 << data.b << " ";
+			file4 << data.a << " ";
+			
+		}
+		file1 << "\n";
+		file2 << "\n";
+		file3 << "\n";
+		file4 << "\n";
+	}
+
+	file1.close();
+	file2.close();
+	file3.close();
+	file4.close();
 }

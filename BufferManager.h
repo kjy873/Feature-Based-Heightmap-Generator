@@ -37,6 +37,8 @@ struct GPUTextures {
 	PingPongTexture Multigrid;
 	GLuint ConstraintMask;
 
+	GLuint DebugTexture = 0;
+
 	GLuint SSBO = 0;
 };
 
@@ -93,6 +95,9 @@ public:
 	void BindConstraintMaskTexture();
 	void BindTexturesDefault();
 
+	void UploadDebugTexture(int ResU, int ResV);
+	void BindDebugTexture();
+
 	void SwapElevation() { Textures.Elevation.Swap(); }
 	void SwapGradient() { Textures.Gradient.Swap(); }
 	void SwapNoise() { Textures.Noise.Swap(); }
@@ -109,6 +114,7 @@ public:
 	std::vector<float> ReadbackElevationTexture(int ResU, int ResV);
 	std::vector<glm::vec3> ReadbackElevationTextureVec3(int ResU, int ResV);
 	std::vector<glm::vec3> ReadbackGradientTexture(int ResU, int ResV);
+	std::vector<glm::vec4> ReadbackDebugTexture(int ResU, int ResV);
 
 	void CreateSSBO();
 	void BindSSBO();

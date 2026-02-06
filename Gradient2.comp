@@ -26,27 +26,25 @@ void main(){
 	ivec2 Up   = p + ivec2( 0,  1);
 	if(Up.y >= imageSize(GradientRead).y) Up.y = imageSize(GradientRead).y - 1;
 
-	vec4 Gc = imageLoad(GradientRead, p);
-
 	uint mask = imageLoad(ConstraintMaskImage, p).r;
 
 	bool HasGradientConstraint = (mask & MASK_GRADIENT) != 0u;
 
-	// 항상 Laplace diffusion
-	vec4 G_L = 0.25 * (
-    imageLoad(GradientRead, Left) +
-    imageLoad(GradientRead, Right) +
-    imageLoad(GradientRead, Down) +
-    imageLoad(GradientRead, Up)
-	);
+	
 
-	// constraint는 가중치로 섞는다
-	float w = HasGradientConstraint ? 1.0 : 0.0;
+	vec4 LeftGradient = imageLoad(GradientRead, Left);
+	vec4 RightGradient= imageLoad(GradientRead, Right);
+	vec4 DownGradient = imageLoad(GradientRead, Down);
+	vec4 UpGradient   = imageLoad(GradientRead, Up);
 
-	// 논문식: G = w * G_constraint + (1-w) * G_L
-	vec4 G_new = mix(G_L, Gc, w);
+	vec4 Result = 0.25f * (LeftGradient + RightGradient + DownGradient + UpGradient);
+	
+	vec2 n = 0.25 * normalize(vec2(LeftGradient.xy + RightGradient.xy + DownGradient.xy + UpGradient.xy));
+	float m = imageLoad(GradientRead, p).z;
+	if(!HasGradientConstraint) m = 0.0f;
+	vec4 AvgGradient = 0.25f * (LeftGradient + RightGradient + DownGradient + UpGradient);
 
-	imageStore(GradientWrite, p, G_new);
+	imageStore(GradientWrite, p, AvgGradient);
 
 	return;
 

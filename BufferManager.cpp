@@ -239,63 +239,18 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
-//void BufferManager::UploadEmptyTextures(int ResU, int ResV) {
-//
-//	if (Textures.Elevation.Texture[0]) glDeleteTextures(1, &Textures.Elevation.Texture[0]);
-//	if (Textures.Elevation.Texture[1]) glDeleteTextures(1, &Textures.Elevation.Texture[1]);
-//	if (Textures.Gradient.Texture[0]) glDeleteTextures(1, &Textures.Gradient.Texture[0]);
-//	if (Textures.Gradient.Texture[1]) glDeleteTextures(1, &Textures.Gradient.Texture[1]);
-//	if (Textures.Noise.Texture[0]) glDeleteTextures(1, &Textures.Noise.Texture[0]);
-//	if (Textures.Noise.Texture[1]) glDeleteTextures(1, &Textures.Noise.Texture[1]);
-//	if (Textures.ConstraintMask.Texture[0]) glDeleteTextures(1, &Textures.ConstraintMask.Texture[0]);
-//	if (Textures.ConstraintMask.Texture[1]) glDeleteTextures(1, &Textures.ConstraintMask.Texture[1]);
-//
-//	glGenTextures(1, &Textures.Elevation);
-//	glBindTexture(GL_TEXTURE_2D, Textures.Elevation);
-//
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//
-//	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, nullptr);
-//
-//	glGenTextures(1, &Textures.Gradient);
-//	glBindTexture(GL_TEXTURE_2D, Textures.Gradient);
-//
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//
-//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, nullptr);
-//
-//	glGenTextures(1, &Textures.Noise);
-//	glBindTexture(GL_TEXTURE_2D, Textures.Noise);
-//
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//
-//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, nullptr);
-//
-//	glGenTextures(1, &Textures.ConstraintMask);
-//	glBindTexture(GL_TEXTURE_2D, Textures.ConstraintMask);
-//
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//
-//	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-//
-//	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
-//
-//	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-//
-//
-//}
+void BufferManager::UploadDebugTexture(int ResU, int ResV) {
+	
+	glGenTextures(1, &Textures.DebugTexture);
+	glBindTexture(GL_TEXTURE_2D, Textures.DebugTexture);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, nullptr);
+}
 
 void BufferManager::BindElevationTexture() {
 
@@ -319,6 +274,10 @@ void BufferManager::BindConstraintMaskTexture() {
 }
 void BufferManager::BindGradientReadOnly() {
 	glBindImageTexture(2, Textures.Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+}
+
+void BufferManager::BindDebugTexture() {
+	glBindImageTexture(7, Textures.DebugTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }
 
 //void BufferManager::BindTexturesDefault() {
@@ -352,6 +311,13 @@ std::vector<glm::vec3> BufferManager::ReadbackElevationTextureVec3(int ResU, int
 		ElevationData[i] = glm::vec3(ElevationDataVec4[i].x, ElevationDataVec4[i].y, ElevationDataVec4[i].z);
 	}
 	return ElevationData;
+}
+
+std::vector<glm::vec4> BufferManager::ReadbackDebugTexture(int ResU, int ResV) {
+	std::vector<glm::vec4> DebugData(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures.DebugTexture);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, DebugData.data());
+	return DebugData;
 }
 
 
@@ -429,12 +395,12 @@ void BufferManager::ReadPrintSSBO() {
 	);
 
 	// debugData[0]
-	printf("P0: F_I=%f F_L=%f F_G=%f New=%f\n",
+	printf("P0: F_L=%f F_G=%f Alpha=%f Beta=%f\n",
 		data[0], data[1], data[2], data[3]
 	);
 
 	// debugData[1]
-	printf("P1: F_I=%f F_L=%f F_G=%f New=%f\n",
+	printf("P1: F_L=%f F_G=%f Alpha=%f Beta=%f\n",
 		data[4], data[5], data[6], data[7]
 	);
 
