@@ -1083,7 +1083,7 @@ void DrawPanel() {
 			//RasterizerMgr.PrintQuads();
 			RasterizerMgr.BuildConstraintMaps();
 			// x방향이 col임
-			RasterizerMgr.PrintQuads();
+			//RasterizerMgr.PrintQuads();
 			std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
 			ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
 
@@ -1144,19 +1144,20 @@ void DrawPanel() {
 				BufferMgr.BindGradientReadOnly();
 				BufferMgr.BindConstraintMaskTexture();
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-				glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
-				glm::ivec2 DebugPixel0 = glm::ivec2(BorderPixels2.x, BorderPixels2.y);
-				glm::ivec2 DebugPixel1 = glm::ivec2(BorderPixels2.z, BorderPixels2.w);
+				//glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
+				//glm::ivec2 DebugPixel0 = glm::ivec2(BorderPixels2.x, BorderPixels2.y);
+				//glm::ivec2 DebugPixel1 = glm::ivec2(BorderPixels2.z, BorderPixels2.w);
 				
-				BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, DebugPixel0, DebugPixel1);
+				//BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, DebugPixel0, DebugPixel1);
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.ReadPrintSSBO();
+				//ExportDebugData(BufferMgr.ReadbackDebugTexture(HeightMapU, HeightMapV), asd + 1);
+				//BufferMgr.ReadPrintSSBO();
 				BufferMgr.SwapElevation();
 
 			}
 
-			ExportDebugData(BufferMgr.ReadbackDebugTexture(HeightMapU, HeightMapV));
+			
 
 			//BufferMgr.UnbindElevationTexture();
 
@@ -1462,12 +1463,16 @@ void ExportDiffusedGradientImage(const char* FileName, const std::vector<glm::ve
 
 }
 
-void ExportDebugData(const std::vector<glm::vec4>& Map) {
+void ExportDebugData(const std::vector<glm::vec4>& Map, const int Iteration) {
 
-	ofstream file1("OldHeight.txt");
-	ofstream file2("F_N.txt");
-	ofstream file3("F_G.txt");
-	ofstream file4("NewHeight.txt");
+	std::string Filename1 = "OldHeight" + to_string(Iteration) + ".txt";
+	std::string Filename2 = "F_N" + to_string(Iteration) + ".txt";
+	std::string Filename3 = "F_G" + to_string(Iteration) + ".txt";
+	std::string Filename4 = "NewHeight" + to_string(Iteration) + ".txt";
+	ofstream file1(Filename1);
+	ofstream file2(Filename2);
+	ofstream file3(Filename3);
+	ofstream file4(Filename4);
 
 	for(int Row = 0; Row < HeightMapV; Row++) {
 		for(int Col = 0; Col < HeightMapU; Col++) {

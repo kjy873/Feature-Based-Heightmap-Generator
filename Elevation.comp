@@ -37,7 +37,7 @@ void main(){
 	float Beta = 0.0f;
 
 	if(HasElevationMask){
-		Alpha = 0.0f;
+		Alpha = 0.01f;
 		Beta = 0.0f;
 	}
 	else if(HasGradientMask){
@@ -73,8 +73,8 @@ void main(){
 	if(Len > 0.00001f){
 		vec2 n = normalize(Normal.xy);
 		
-		ivec2 nxp = ivec2(-int(sign(n.x)), 0);
-	    ivec2 nyp = ivec2(0, -int(sign(n.y)));
+		ivec2 nxp = ivec2(int(sign(n.x)), 0);
+	    ivec2 nyp = ivec2(0, int(sign(n.y)));
 
 		float Fx = imageLoad(ElevationRead, clamp(p + nxp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
 		float Fy = imageLoad(ElevationRead, clamp(p + nyp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
@@ -87,7 +87,9 @@ void main(){
 		F_G = F_L;
 	}
 
-	float NewHeight = Alpha * F_L + Beta * F_G + (1.0f - Alpha - Beta) * F_I;
+	float e = F_G - F_I;
+
+	float NewHeight = Alpha * F_L + Beta * e + (1.0f - Alpha - Beta) * F_I;
 
 	if(!IsValidFloat(NewHeight)){
 		NewHeight = imageLoad(ElevationRead, p).r;

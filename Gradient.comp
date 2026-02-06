@@ -31,6 +31,7 @@ void main(){
 	uint mask = imageLoad(ConstraintMaskImage, p).r;
 
 	bool HasGradientConstraint = (mask & MASK_GRADIENT) != 0u;
+	bool HasElevationConstraint = (mask & MASK_ELEVATION) != 0u;
 
 	// 항상 Laplace diffusion
 	vec4 G_L = 0.25 * (
@@ -41,12 +42,17 @@ void main(){
 	);
 
 	// constraint는 가중치로 섞는다
-	float w = HasGradientConstraint ? 1.0 : 0.0;
+	//float w = HasGradientConstraint ? 1.0 : 0.0;
 
 	// 논문식: G = w * G_constraint + (1-w) * G_L
-	vec4 G_new = mix(G_L, Gc, w);
+	//vec4 G_new = mix(G_L, Gc, w);
 
-	imageStore(GradientWrite, p, G_new);
+	float m = G_L.z;
+	if(!HasGradientConstraint && !HasElevationConstraint) m = 0.0f;
+	if(HasGradientConstraint) m = Gc.z;
+	G_L.z = m;
+
+	imageStore(GradientWrite, p, G_L);
 
 	return;
 

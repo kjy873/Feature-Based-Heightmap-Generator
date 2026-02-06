@@ -497,7 +497,7 @@ void ExportConstraintMaskImage(const char* FileName, const std::vector<uint8_t>&
 void ExportGradientText(const char* FileName, const std::vector<glm::vec3>& Map);
 void ExportDiffusedGradientDot(const char* FileName, const std::vector<glm::vec3>& Map);
 void ExportDiffusedGradientImage(const char* FileName, const std::vector<glm::vec3>& Map);
-void ExportDebugData(const std::vector<glm::vec4>& Map);
+void ExportDebugData(const std::vector<glm::vec4>& Map, const int Iteration);
 
 void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 	GLsizei length, const GLchar* message, const void* userParam) {
