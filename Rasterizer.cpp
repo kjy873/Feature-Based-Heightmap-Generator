@@ -116,12 +116,12 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 
 		point.Constraint.Mask = ConstraintMask::None;
 
-		if ((point.u - 0.0f) < 1e-6f){
+		if (fabs(point.u - 0.0f) < 1e-6f){
 			point.Constraint = Curve.ConstraintPoints.front();
 			point.Constraint.u = point.u;
 			continue;
 		}
-		if ((point.u - 1.0f) < 1e-6f) {
+		if (fabs(point.u - 1.0f) < 1e-6f) {
 			point.Constraint = Curve.ConstraintPoints.back();
 			point.Constraint.u = point.u;
 			continue;
@@ -130,18 +130,19 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 		int Segment = -1;
 		for (int i = 0; i < Curve.ConstraintPoints.size() - 1; i++) {
 			if (point.u >= Curve.ConstraintPoints[i].u && point.u <= Curve.ConstraintPoints[i + 1].u) {
+				//std::cout << "constraintpoint u : " << Curve.ConstraintPoints[i].u << ", " << Curve.ConstraintPoints[i + 1].u << std::endl;
 				Segment = i;
 				break;
 			}
 		}
 
 		if (Segment == -1) continue;
-		if (point.u - Curve.ConstraintPoints[Segment].u < 1e-6f) {
+		if (fabs(point.u - Curve.ConstraintPoints[Segment].u) < 1e-6f) {
 			point.Constraint = Curve.ConstraintPoints[Segment];
 			point.Constraint.u = point.u;
 			continue;
 		}
-		if (point.u - Curve.ConstraintPoints[Segment + 1].u > -1e-6f) {
+		if (fabs(point.u - Curve.ConstraintPoints[Segment + 1].u) > -1e-6f) {
 			point.Constraint = Curve.ConstraintPoints[Segment + 1];
 			point.Constraint.u = point.u;
 			continue;
@@ -259,9 +260,7 @@ void Rasterizer::BuildQuads() {
 	for (const auto& curve : Curves) {
 		for (int i = 0; i < curve.PolylineSamples.size() - 1; i++) {
 			if (BuildQuad(curve.PolylineSamples[i], curve.PolylineSamples[i + 1], quad)) {
-				quad.Owners.ElevationCurveID = curve.CurveID;
-				quad.Owners.GradientCurveID = curve.CurveID;
-				quad.Owners.NoiseCurveID = curve.CurveID;
+				quad.CurveID = curve.CurveID;
 				Quads.emplace_back(quad);
 			}
 			//else std::cout << "false" << std::endl;
@@ -415,23 +414,34 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
 	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;
 
+
 	if (ApplyElevation) {
 		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Elevation) {
-			if (Map.CurveIDMap[index].ElevationCurveID != quad.Owners.ElevationCurveID) {
-
+			if (Map.CurveIDMap[index].ElevationOwner != quad.CurveID) {
+				Map.CurveIDMap[index].SumElevation += h;
+				Map.CurveIDMap[index].CountElevation++;
+				Map.ElevationMap[index] = Map.CurveIDMap[index].SumElevation / (float)Map.CurveIDMap[index].CountElevation;
 			}
 		}
 		else {
 			Map.ElevationMap[index] = h;
+			Map.CurveIDMap[index].SumElevation += h;
+			Map.CurveIDMap[index].CountElevation++;
 			Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Elevation;
+			Map.CurveIDMap[index].ElevationOwner = quad.CurveID;
 
 		}
 	}
-	if (ApplyGradientA || ApplyGradientB) {  // 동일 곡선 간의 gradient 재연산 = 덮어쓰기 or max, 다른 곡선 간의 gradient 충돌 = 제거
+	if ((ApplyGradientA || ApplyGradientB) && !Map.CurveIDMap[index].GradientConflict) {  // 동일 곡선 간의 gradient 재연산 = 덮어쓰기 or max, 다른 곡선 간의 gradient 충돌 = 제거
 		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Gradient) {
 			//Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
 			//Map.GradientMap[index] = glm::vec2(0.0f, 0.0f);
 			//Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
+			if (Map.CurveIDMap[index].GradientOwner != quad.CurveID) {
+				Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
+				Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
+				Map.CurveIDMap[index].GradientConflict = true;
+			}
 		}
 		else {
 			glm::vec2 n = glm::normalize(glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
@@ -442,6 +452,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.Gradients[index].x = n.x;
 				Map.Gradients[index].y = n.y;
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(theta)); // == norm
+				Map.CurveIDMap[index].GradientOwner = quad.CurveID;
 			}
 			else if (ApplyGradientB) {
 				GradientAttenuation = glm::clamp(1.0f - ad / b, 0.0f, 1.0f) * TexelSize;
@@ -450,6 +461,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.Gradients[index].x = -n.x;
 				Map.Gradients[index].y = -n.y;
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(phi));
+				Map.CurveIDMap[index].GradientOwner = quad.CurveID;
 			}
 
 		}
@@ -457,12 +469,23 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 
 	bool ApplyNoise = false;
 	if (quad.HasNoise) {
-		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Noise);
+		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Noise) {
+			if (Map.CurveIDMap[index].NoiseOwner != quad.CurveID) {
+				Map.CurveIDMap[index].CountNoise++;
+				Map.CurveIDMap[index].SumNoise += glm::vec2(Amplitude, Roughness);
+				Map.NoiseMap[index].x = Map.CurveIDMap[index].SumNoise.x / (float)Map.CurveIDMap[index].CountNoise;
+				Map.NoiseMap[index].y = Map.CurveIDMap[index].SumNoise.y / (float)Map.CurveIDMap[index].CountNoise;
+			}
+		}
 		else {
 			Map.NoiseMap[index].x = std::max(Map.NoiseMap[index].x, Amplitude);
 			Map.NoiseMap[index].y = std::max(Map.NoiseMap[index].y, Roughness);
 			Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Noise;
+			Map.CurveIDMap[index].NoiseOwner = quad.CurveID;
+			Map.CurveIDMap[index].CountNoise++;
+			Map.CurveIDMap[index].SumNoise += glm::vec2(Amplitude, Roughness);
 			ApplyNoise = true;
+
 		}
 	}
 }

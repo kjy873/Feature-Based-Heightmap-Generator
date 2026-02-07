@@ -38,6 +38,7 @@ public:
 		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
 		Map.Gradients.assign(ResU * ResV, glm::vec3(0.0f, 0.0f, 0.0f));
+		Map.CurveIDMap.assign(ResU * ResV, OwnerCurve());
 		//OwnerCurve emptyOwner{ -1, -1, -1 };
 		//Map.CurveIDMap.assign(ResU * ResV, emptyOwner);
 	}; // *0.5f °¡´É

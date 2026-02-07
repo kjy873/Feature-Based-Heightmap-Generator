@@ -86,9 +86,18 @@
 	};
 
 	struct OwnerCurve {
-		int ElevationCurveID = -1;
-		int GradientCurveID = -1;
-		int NoiseCurveID = -1;
+		float SumElevation = 0;
+		int CountElevation = 0;
+		glm::vec2 SumNoise = glm::vec2(0.0f, 0.0f);
+		int CountNoise = 0;
+
+		int ElevationOwner = -1;
+		int GradientOwner = -1;
+		int NoiseOwner = -1;
+
+		bool GradientConflict = false;
+
+		OwnerCurve() {};
 	};
 
 	struct QuadVertex {
@@ -107,7 +116,7 @@
 		QuadVertex V2; // p1 - right
 		QuadVertex V3; // p0 - right
 
-		OwnerCurve Owners;
+		int CurveID = -1;
 
 		bool HasElevation = false;
 		bool HasGradient = false;

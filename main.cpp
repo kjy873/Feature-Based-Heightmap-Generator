@@ -881,8 +881,8 @@ void CallbackMouseMove(GLFWwindow* window, double xpos, double ypos) {
 
 void CallbackMouseWheel(GLFWwindow* window, double xoffset, double yoffset) {
 	if (MouseRightButtonPressed) {
-		if (yoffset > 0 && CameraSpeed < 10.0f) CameraSpeed += 0.01f;
-		else if (yoffset < 0 && CameraSpeed > 0.01f) CameraSpeed -= 0.01f;
+		if (yoffset > 0 && CameraSpeed < 10.0f) CameraSpeed += 0.001f;
+		else if (yoffset < 0 && CameraSpeed > 0.001f) CameraSpeed -= 0.001f;
 		return;
 	}
 	

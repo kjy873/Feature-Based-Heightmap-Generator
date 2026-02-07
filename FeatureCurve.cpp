@@ -740,6 +740,9 @@ void FeatureCurveManager::SelectCurve(const PickResult& Picked) {
 	GetFeatureCurve(SelectedCurveID)->SetHighlightWeight(1.0f);
 	State = EditCurveState::CurveSelected;
 
+	std::cout << "ControlPoints: " << GetFeatureCurve(SelectedCurveID)->GetControlPoints().size() << std::endl;
+	std::cout << "ConstraintPoints: " << GetFeatureCurve(SelectedCurveID)->GetConstraintPoints().size() << std::endl;
+
 	return;
 
 }
@@ -1069,6 +1072,10 @@ const std::vector<CurveData> FeatureCurveManager::ExtractCurveData() {
 		std::sort(Data.ConstraintPoints.begin(), Data.ConstraintPoints.end(), [](const Constraints& a, const Constraints& b) {
 			return a.u < b.u;
 			});
+
+		for (const auto& cp : Data.ConstraintPoints) {
+			std::cout << "  Constraint u: " << cp.u << std::endl;
+		}
 		
 		Data.CurveID = curve.GetCurveID();
 
