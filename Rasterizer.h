@@ -38,6 +38,8 @@ public:
 		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
 		Map.Gradients.assign(ResU * ResV, glm::vec3(0.0f, 0.0f, 0.0f));
+		//OwnerCurve emptyOwner{ -1, -1, -1 };
+		//Map.CurveIDMap.assign(ResU * ResV, emptyOwner);
 	}; // *0.5f °¡´É
 
 	void BuildPolyline();
@@ -63,7 +65,8 @@ public:
 	AABB ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const;
 
 	bool Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) const;
-	void InterpolateQuad(const glm::vec2& p, const Quad& quad, int r, int c);
+	void InterpolateQuad(const glm::vec2& p, const Quad& quad, const int index);
+	void InterpolateQuadIntersectDiffCurve(const glm::vec2& p, const Quad& quad, const int index);
 
 	const Maps& GetMaps() const { return Map; }
 

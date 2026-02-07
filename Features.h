@@ -68,9 +68,13 @@
 		std::vector<Constraints> ConstraintPoints;
 		std::vector<LinearCoord> PolylineSamples;
 
+		int CurveID = -1;
+
 
 		CurveData() {};
-		CurveData(std::vector<glm::vec3> Control, std::vector<Constraints> Constraint) : ControlPoints(Control), ConstraintPoints(Constraint) {};
+		CurveData(std::vector<glm::vec3> Control, 
+				  std::vector<Constraints> Constraint,
+				  int ID) : ControlPoints(Control), ConstraintPoints(Constraint), CurveID(ID) {};
 
 		CurveData& operator=(const CurveData& other) {
 			if (this != &other) {
@@ -79,6 +83,12 @@
 			}
 			return *this;
 		}
+	};
+
+	struct OwnerCurve {
+		int ElevationCurveID = -1;
+		int GradientCurveID = -1;
+		int NoiseCurveID = -1;
 	};
 
 	struct QuadVertex {
@@ -96,6 +106,8 @@
 		QuadVertex V1; // p1 - left
 		QuadVertex V2; // p1 - right
 		QuadVertex V3; // p0 - right
+
+		OwnerCurve Owners;
 
 		bool HasElevation = false;
 		bool HasGradient = false;
@@ -120,6 +132,8 @@
 		std::vector<glm::vec2> NoiseMap;
 		std::vector<uint8_t> ConstraintMaskMap;
 		std::vector<glm::vec3> Gradients;
+
+		std::vector<OwnerCurve> CurveIDMap;
 
 	};
 

@@ -1069,6 +1069,9 @@ const std::vector<CurveData> FeatureCurveManager::ExtractCurveData() {
 		std::sort(Data.ConstraintPoints.begin(), Data.ConstraintPoints.end(), [](const Constraints& a, const Constraints& b) {
 			return a.u < b.u;
 			});
+		
+		Data.CurveID = curve.GetCurveID();
+
 		Datas.emplace_back(std::move(Data));
 	}
 
