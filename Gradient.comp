@@ -41,18 +41,19 @@ void main(){
     imageLoad(GradientRead, Up)
 	);
 
-	// constraint는 가중치로 섞는다
-	//float w = HasGradientConstraint ? 1.0 : 0.0;
+	float Magnitude = 0.0; // 기본값 0 (둘 다 아닐 때)
 
-	// 논문식: G = w * G_constraint + (1-w) * G_L
-	//vec4 G_new = mix(G_L, Gc, w);
+	if (HasGradientConstraint) {
+		Magnitude = Gc.z; // Gradient 제약이 있으면 현재 값(Gc)의 z 유지
+	}	 
+	else if (HasElevationConstraint) {
+    		Magnitude = G_L.z; 
+	} 
+	else {
+		Magnitude = 0.0f; // 둘 다 아닐 때 0
+	}
 
-	float m = G_L.z;
-	if(!HasGradientConstraint && !HasElevationConstraint) m = 0.0f;
-	if(HasGradientConstraint) m = Gc.z;
-	G_L.z = m;
-
-	imageStore(GradientWrite, p, G_L);
+	imageStore(GradientWrite, p, vec4(G_L.x, G_L.y, Magnitude, G_L.w));
 
 	return;
 

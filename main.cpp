@@ -966,8 +966,8 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 	if (gradient) {
 		ImGui::InputFloat("a", &InputConstraints.a, 0.0f, 1.0f);
 		ImGui::InputFloat("b", &InputConstraints.b, 0.0f, 1.0f);
-		ImGui::InputFloat("theta", &InputConstraints.theta, 0.0f, 90.0f);
-		ImGui::InputFloat("phi", &InputConstraints.phi, 0.0f, 90.0f);
+		ImGui::InputFloat("theta", &InputConstraints.theta, -90.0f, 90.0f);
+		ImGui::InputFloat("phi", &InputConstraints.phi, -90.0f, 90.0f);
 	}
 
 	bool noise = HasMask(InputConstraintMask, ConstraintMask::Noise);
@@ -1172,7 +1172,7 @@ void DrawPanel() {
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
 			
-			ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), false);
+			ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), true);
 			ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
 			ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
 			ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
@@ -1350,8 +1350,8 @@ void ExportGradientImage(const char* FileName, const std::vector<glm::vec3>& Map
  			uint8_t b = 128;
 			if(ExportNorm) b = (uint8_t)(norm * 255.0f);
 
-			image[(Row * HeightMapU + Col) * 3 + 0] = r;
-			image[(Row * HeightMapU + Col) * 3 + 1] = g;
+			image[(Row * HeightMapU + Col) * 3 + 0] = 0;
+			image[(Row * HeightMapU + Col) * 3 + 1] = 0;
 			image[(Row * HeightMapU + Col) * 3 + 2] = b;
 		}	
 	}

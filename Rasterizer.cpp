@@ -409,7 +409,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;
 
 	if (ApplyElevation) {
-		Map.ElevationMap[index] = std::max(Map.ElevationMap[index], h);
+		Map.ElevationMap[index] = h;
 		Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Elevation;
 	}
 	if (ApplyGradientA || ApplyGradientB) {  // 동일 곡선 간의 gradient 재연산 = 덮어쓰기 or max, 다른 곡선 간의 gradient 충돌 = 제거
@@ -421,16 +421,16 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, int row, 
 		else {
 			glm::vec2 n = glm::normalize(glm::vec2(InterpolatedCurveNormal.x, InterpolatedCurveNormal.z));
 			if (ApplyGradientA) {
-				GradientAttenuation = glm::clamp(1.0f - ad / a, 0.0f, 1.0f);
-				Map.GradientMap[index] = glm::vec2(theta, phi);
+				GradientAttenuation = glm::clamp(1.0f - ad / a, 0.0f, 1.0f) * TexelSize;
+				//GradientAttenuation = glm::clamp(1.0f - abs(2*(ad / a) - 1), 0.0f, 1.0f);
 				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
 				Map.Gradients[index].x = n.x;
 				Map.Gradients[index].y = n.y;
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(theta)); // == norm
 			}
 			else if (ApplyGradientB) {
-				GradientAttenuation = glm::clamp(1.0f - ad / b, 0.0f, 1.0f);
-				Map.GradientMap[index] = glm::vec2(theta, phi);
+				GradientAttenuation = glm::clamp(1.0f - ad / b, 0.0f, 1.0f) * TexelSize;
+				//GradientAttenuation = glm::clamp(1.0f - abs(2*(ad / b) - 1), 0.0f, 1.0f);
 				Map.ConstraintMaskMap[index] |= (int)ConstraintMask::Gradient;
 				Map.Gradients[index].x = -n.x;
 				Map.Gradients[index].y = -n.y;

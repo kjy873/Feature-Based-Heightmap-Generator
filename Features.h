@@ -117,7 +117,6 @@
 
 	struct Maps {
 		std::vector<float> ElevationMap;
-		std::vector<glm::vec2> GradientMap;
 		std::vector<glm::vec2> NoiseMap;
 		std::vector<uint8_t> ConstraintMaskMap;
 		std::vector<glm::vec3> Gradients;

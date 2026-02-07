@@ -12,7 +12,6 @@ public:
 
 	void Initialize(int ResU, int ResV) {
 		Map.ElevationMap.assign(ResU * ResV, 0.0f);
-		Map.GradientMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
 		Map.Gradients.assign(ResU * ResV, glm::vec3(0.0f, 0.0f, 0.0f));
