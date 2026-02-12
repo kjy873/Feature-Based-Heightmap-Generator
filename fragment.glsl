@@ -11,13 +11,15 @@ uniform float HighlightWeight;
 
 void main(){
 
+	vec3 N = normalize(cross(dFdx(fragPos.xyz), dFdy(fragPos.xyz)));
+
 	float ambientLight = 0.8;
 	vec3 ambient = ambientLight * lightColor;
 
 	vec3 normalVector = normalize(normal);
 	vec3 lightDirection = normalize(lightPos - fragPos.xyz);
 
-	float diffuseLight = max(dot(normalVector, lightDirection), 0.0);
+	float diffuseLight = max(dot(N, lightDirection), 0.0);
 	vec3 diffuse = diffuseLight * lightColor;
 
 	vec3 result = (ambient + diffuse) * passColor;

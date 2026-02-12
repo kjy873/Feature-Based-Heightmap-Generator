@@ -7,6 +7,9 @@ layout (r32f, binding = 1) writeonly uniform image2D ElevationWrite;
 layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
 layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
+layout (rg32f, binding = 4) readonly uniform image2D NoiseRead;
+layout (rg32f, binding = 5) writeonly uniform image2D NoiseWrite;
+
 layout (rgba32f, binding = 7) writeonly uniform image2D DebugImage;
 
 uniform ivec2 DebugPixel0;
@@ -32,6 +35,7 @@ void main(){
 
 	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & MASK_ELEVATION) != 0u;
 	bool HasGradientMask  = (imageLoad(ConstraintMaskImage, p).r & MASK_GRADIENT)  != 0u;
+	bool HasNoiseMask = (imageLoad(ConstraintMaskImage, p).r & MASK_NOISE) != 0u;
 
 	float Alpha = 0.0f;
 	float Beta = 0.0f;
@@ -106,6 +110,31 @@ void main(){
 	imageStore(DebugImage, p, vec4(F_I, F_N, F_G, NewHeight));
 
 	imageStore(ElevationWrite, p, vec4(NewHeight) );
+
+	// Noise diffusion
+
+	float NewAmplitude = 0.0f;
+	float NewRoughness = 0.0f;
+
+	if(HasNoiseMask) {
+		NewAmplitude = imageLoad(NoiseRead, p).r;
+		NewRoughness = imageLoad(NoiseRead, p).g;
+	}
+	else{
+		NewAmplitude = 0.25f * (imageLoad(NoiseRead, Left).r +
+								imageLoad(NoiseRead, Right).r +
+								imageLoad(NoiseRead, Down).r +
+								imageLoad(NoiseRead, Up).r);
+
+		NewRoughness = 0.25f * (imageLoad(NoiseRead, Left).g +
+								imageLoad(NoiseRead, Right).g +
+								imageLoad(NoiseRead, Down).g +
+								imageLoad(NoiseRead, Up).g);
+	}
+
+	imageStore(NoiseWrite, p, vec4(NewAmplitude, NewRoughness, 0.0f, 0.0f));
+
+	// Noise diffusion
 
 	return;
 

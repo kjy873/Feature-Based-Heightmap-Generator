@@ -130,7 +130,8 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 		int Segment = -1;
 		for (int i = 0; i < Curve.ConstraintPoints.size() - 1; i++) {
 			if (point.u >= Curve.ConstraintPoints[i].u && point.u <= Curve.ConstraintPoints[i + 1].u) {
-				//std::cout << "constraintpoint u : " << Curve.ConstraintPoints[i].u << ", " << Curve.ConstraintPoints[i + 1].u << std::endl;
+				
+				//std::cout << "segment u : " << Curve.ConstraintPoints[i].u << ", " << Curve.ConstraintPoints[i + 1].u << std::endl;
 				Segment = i;
 				break;
 			}
@@ -140,9 +141,10 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 		if (fabs(point.u - Curve.ConstraintPoints[Segment].u) < 1e-6f) {
 			point.Constraint = Curve.ConstraintPoints[Segment];
 			point.Constraint.u = point.u;
+			
 			continue;
 		}
-		if (fabs(point.u - Curve.ConstraintPoints[Segment + 1].u) > -1e-6f) {
+		if (fabs(point.u - Curve.ConstraintPoints[Segment + 1].u) < 1e-6f) {
 			point.Constraint = Curve.ConstraintPoints[Segment + 1];
 			point.Constraint.u = point.u;
 			continue;
@@ -181,6 +183,8 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 		}
 		
 		point.Constraint.u = point.u;
+
+		std::cout << "Interpolated Constraint u: " << point.Constraint.u << std::endl;
 	}
 
 }

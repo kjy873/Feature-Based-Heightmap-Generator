@@ -20,6 +20,7 @@ void RenderManager::BeginFrame(const glm::mat4& View, const glm::mat4& Proj, con
 
 	glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, &View[0][0]);
 	glUniformMatrix4fv(ProjLocation, 1, GL_FALSE, &Proj[0][0]);
+	glUniform3fv(LightLocation, 1, glm::value_ptr(LightPos));
 }
 
 void RenderManager::Draw(const Mesh& mesh) {

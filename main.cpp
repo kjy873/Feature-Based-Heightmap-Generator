@@ -1069,7 +1069,7 @@ void DrawPanel() {
 			if (SAMPLE_INTERVAL > 1.0f / 2.0f) SAMPLE_INTERVAL = 1.0f / 2.0f;
 		}
 		if (ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
-			if (LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.0f, 10.0f, 0.0f);
+			if (LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.5f, 10.0f, 0.5f);
 			else LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
 		}
 		if (ImGui::Button("Rasterize", ImVec2(-FLT_MIN, 30))) {
@@ -1141,6 +1141,7 @@ void DrawPanel() {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 				BufferMgr.BindDebugTexture();
 				BufferMgr.BindElevationTexture();
+				BufferMgr.BindNoiseTexture();
 				BufferMgr.BindGradientReadOnly();
 				BufferMgr.BindConstraintMaskTexture();
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
@@ -1154,6 +1155,7 @@ void DrawPanel() {
 				//ExportDebugData(BufferMgr.ReadbackDebugTexture(HeightMapU, HeightMapV), asd + 1);
 				//BufferMgr.ReadPrintSSBO();
 				BufferMgr.SwapElevation();
+				BufferMgr.SwapNoise();
 
 			}
 
