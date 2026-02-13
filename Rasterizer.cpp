@@ -472,7 +472,8 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 	}
 
 	bool ApplyNoise = false;
-	if (quad.HasNoise) {
+	if (quad.HasNoise && (ad <= r * 0.5)) ApplyNoise = true;
+	if (ApplyNoise) {
 		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Noise) {
 			if (Map.CurveIDMap[index].NoiseOwner != quad.CurveID) {
 				Map.CurveIDMap[index].CountNoise++;
@@ -488,7 +489,6 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 			Map.CurveIDMap[index].NoiseOwner = quad.CurveID;
 			Map.CurveIDMap[index].CountNoise++;
 			Map.CurveIDMap[index].SumNoise += glm::vec2(Amplitude, Roughness);
-			ApplyNoise = true;
 
 		}
 	}

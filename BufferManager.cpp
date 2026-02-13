@@ -239,7 +239,7 @@ void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
-void BufferManager::UploadDebugTexture(int ResU, int ResV) {
+void BufferManager::UploadDbgTexture(int ResU, int ResV) {
 	
 	glGenTextures(1, &Textures.DebugTexture);
 	glBindTexture(GL_TEXTURE_2D, Textures.DebugTexture);
@@ -276,7 +276,7 @@ void BufferManager::BindGradientReadOnly() {
 	glBindImageTexture(2, Textures.Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 }
 
-void BufferManager::BindDebugTexture() {
+void BufferManager::BindDbgTexture() {
 	glBindImageTexture(7, Textures.DebugTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }
 
@@ -313,7 +313,7 @@ std::vector<glm::vec3> BufferManager::ReadbackElevationTextureVec3(int ResU, int
 	return ElevationData;
 }
 
-std::vector<glm::vec4> BufferManager::ReadbackDebugTexture(int ResU, int ResV) {
+std::vector<glm::vec4> BufferManager::ReadbackDbgTexture(int ResU, int ResV) {
 	std::vector<glm::vec4> DebugData(ResU * ResV);
 	glBindTexture(GL_TEXTURE_2D, Textures.DebugTexture);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, DebugData.data());
@@ -332,6 +332,17 @@ std::vector<glm::vec3> BufferManager::ReadbackGradientTexture(int ResU, int ResV
 		GradientData[i] = glm::vec3(GradientDataRGBA[i].nx, GradientDataRGBA[i].ny, GradientDataRGBA[i].norm);
 	}
 	return GradientData;
+}
+
+std::vector<glm::vec2> BufferManager::ReadbackNoiseTexture(int ResU, int ResV) {
+	std::vector<glm::vec4> NoiseDataRGBA(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures.Noise.GetReadTexture());
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, NoiseDataRGBA.data());
+	std::vector<glm::vec2> NoiseData(ResU * ResV);
+	for (int i = 0; i < ResU * ResV; i++) {
+		NoiseData[i] = glm::vec2(NoiseDataRGBA[i].x, NoiseDataRGBA[i].y);
+	}
+	return NoiseData;
 }
 
 void BufferManager::UnbindAllTextures() {
@@ -406,4 +417,68 @@ void BufferManager::ReadPrintSSBO() {
 
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void BufferManager::AllocateTexture2D(GLuint& TextureID, int ResU, int ResV, GLenum InternalFormat, GLenum Format, GLenum Type, GLenum filter, GLenum wrap) {
+	if (TextureID == 0) glGenTextures(1, &TextureID);
+	glBindTexture(GL_TEXTURE_2D, TextureID);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, InternalFormat, ResU, ResV, 0, Format, Type, nullptr);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+}
+
+void BufferManager::CreateDebugTextures(int ResU, int ResV) {
+	DebugTexture.ResU = ResU;
+	DebugTexture.ResV = ResV;
+
+	AllocateTexture2D(DebugTexture.Tex0, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	AllocateTexture2D(DebugTexture.Tex1, ResU, ResV, GL_RG32F, GL_RG, GL_FLOAT);
+}
+
+void BufferManager::UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec2>& PackedRG) {
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex0);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RGBA, GL_FLOAT, PackedRGBA.data());
+
+	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RG, GL_FLOAT, PackedRG.data());
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+}
+
+void BufferManager::BindDebugTextures(GLuint ShaderProgramID) {
+
+	//printf("Tex0=%u isTex0=%d | Tex1=%u isTex1=%d\n",
+	//	DebugTexture.Tex0, glIsTexture(DebugTexture.Tex0),
+	//	DebugTexture.Tex1, glIsTexture(DebugTexture.Tex1));
+
+	//glUseProgram(ShaderProgramID);
+
+	/*GLint cur = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &cur);
+	printf("BindDebugTextures: current=%d, arg=%d\n", cur, (int)ShaderProgramID);*/
+
+	GLint loc0 = glGetUniformLocation(ShaderProgramID, "DebugTexture0");
+	GLint loc1 = glGetUniformLocation(ShaderProgramID, "DebugTexture1");
+
+	if (loc0 >= 0) glUniform1i(loc0, DebugTexture.unit0);
+	if (loc1 >= 0) glUniform1i(loc1, DebugTexture.unit1);
+
+	glActiveTexture(GL_TEXTURE0 + DebugTexture.unit0);
+	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex0);
+
+	glActiveTexture(GL_TEXTURE0 + DebugTexture.unit1);
+	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
 }

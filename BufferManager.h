@@ -14,6 +14,14 @@
 
 #include "Features.h"
 
+struct DebugTextures {
+	GLuint Tex0;
+	GLuint Tex1;
+	int ResU, ResV;
+	int unit0 = 8;
+	int unit1 = 9;
+};
+
 struct GradientRGBA {
 	float nx;
 	float ny;
@@ -66,6 +74,8 @@ private:
 	
 	unsigned int BufferID = 0;
 
+	DebugTextures DebugTexture;
+
 public:
 
 	BufferManager() {}
@@ -95,8 +105,8 @@ public:
 	void BindConstraintMaskTexture();
 	void BindTexturesDefault();
 
-	void UploadDebugTexture(int ResU, int ResV);
-	void BindDebugTexture();
+	void UploadDbgTexture(int ResU, int ResV);
+	void BindDbgTexture();
 
 	void SwapElevation() { Textures.Elevation.Swap(); }
 	void SwapGradient() { Textures.Gradient.Swap(); }
@@ -114,7 +124,8 @@ public:
 	std::vector<float> ReadbackElevationTexture(int ResU, int ResV);
 	std::vector<glm::vec3> ReadbackElevationTextureVec3(int ResU, int ResV);
 	std::vector<glm::vec3> ReadbackGradientTexture(int ResU, int ResV);
-	std::vector<glm::vec4> ReadbackDebugTexture(int ResU, int ResV);
+	std::vector<glm::vec2> ReadbackNoiseTexture(int ResU, int ResV);
+	std::vector<glm::vec4> ReadbackDbgTexture(int ResU, int ResV);
 
 	void CreateSSBO();
 	void BindSSBO();
@@ -124,6 +135,10 @@ public:
 
 	void ReadPrintSSBO();
 
+	void AllocateTexture2D(GLuint& TextureID, int ResU, int ResV, GLenum InternalFormat, GLenum Format, GLenum Type, GLenum filter = GL_NEAREST, GLenum wrap = GL_CLAMP_TO_EDGE);
+	void CreateDebugTextures(int ResU, int ResV);
+	void UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec2>& PackedRG);
+	void BindDebugTextures(GLuint ShaderProgramID);
 
 	const GLuint& GetVAOByID(unsigned int ID) const{
 		auto it = BufferMap.find(ID);

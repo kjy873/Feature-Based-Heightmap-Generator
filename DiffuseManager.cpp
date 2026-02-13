@@ -13,3 +13,11 @@ void DiffuseManager::NormalizeGradients() {
 	}
 
 }
+
+void DiffuseManager::PackMaps() {
+	for (int i = 0; i < PackedMapRGBA.size(); i++) {
+		PackedMapRGBA[i] = glm::vec4(Map.ElevationMap[i], Map.Gradients[i].x, Map.Gradients[i].y, Map.Gradients[i].z);
+		PackedMapRG[i] = glm::vec2(Map.NoiseMap[i].x, Map.NoiseMap[i].y);
+
+	}
+}

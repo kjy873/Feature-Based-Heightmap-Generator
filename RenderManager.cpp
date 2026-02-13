@@ -1,7 +1,14 @@
 #include "RenderManager.h"
 
 
-void RenderManager::Init(const char* view, const char* proj, const char* model, const char* light, const char* HighlightWeight) {
+void RenderManager::Init(const char* view, 
+						 const char* proj, 
+						 const char* model, 
+						 const char* light, 
+						 const char* HighlightWeight, 
+						 const char* debugmode,
+						 const char* debugoverlayalpha,
+						 const char* Res) {
 
 	ViewLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), view);
 	ProjLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), proj);
@@ -9,9 +16,13 @@ void RenderManager::Init(const char* view, const char* proj, const char* model, 
 	LightLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), light);
 	HighlightWeightLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), HighlightWeight);
 
+	DebugModeLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), debugmode);
+	DebugOverlayAlphaLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), debugoverlayalpha);
+	ResLocation = glGetUniformLocation(ShaderMgr.GetShaderProgramID(), "Res");
+
 }
 
-void RenderManager::BeginFrame(const glm::mat4& View, const glm::mat4& Proj, const glm::vec3 &LightPos) {
+void RenderManager::BeginFrame(const glm::mat4& View, const glm::mat4& Proj, const glm::vec3 &LightPos, const DebugMode Mode, const float DebugAlpha, const int ResU, const int ResV) {
 
 	glUseProgram(ShaderMgr.GetShaderProgramID());
 
@@ -21,6 +32,11 @@ void RenderManager::BeginFrame(const glm::mat4& View, const glm::mat4& Proj, con
 	glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, &View[0][0]);
 	glUniformMatrix4fv(ProjLocation, 1, GL_FALSE, &Proj[0][0]);
 	glUniform3fv(LightLocation, 1, glm::value_ptr(LightPos));
+
+	glUniform1i(DebugModeLocation, (int)Mode);
+	glUniform1f(DebugOverlayAlphaLocation, DebugAlpha);
+	glUniform2i(ResLocation, ResU, ResV);
+
 }
 
 void RenderManager::Draw(const Mesh& mesh) {

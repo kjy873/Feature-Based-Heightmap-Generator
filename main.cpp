@@ -14,6 +14,9 @@ static random_device random;
 static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
+DebugMode CurrentDebugMode = DebugMode::None;
+float DebugOverlayAlpha = 0.0f;
+
 int HeightMapU = 256;
 int HeightMapV = 256;
 
@@ -190,7 +193,7 @@ int main() {
 
 	ShaderMgr.InitShader();
 
-	RenderMgr.Init("viewTransform", "projectionTransform", "modelTransform", "lightPos", "HighlightWeight");
+	RenderMgr.Init("viewTransform", "projectionTransform", "modelTransform", "lightPos", "HighlightWeight", "DebugMode", "OverlayAlpha", "Res");
 
 	glUseProgram(ShaderMgr.GetShaderProgramID());
 
@@ -356,6 +359,8 @@ void init() {
 
 	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
+	BufferMgr.CreateDebugTextures(HeightMapU, HeightMapV);
+
 	controlPoints_initial = {
 		{glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1 / 3.0f, 0.0f, 0.0f), glm::vec3(2 / 3.0f, 0.0f, 0.0f) , glm::vec3(3 / 3.0f, 0.0f, 0.0f)},
 		{glm::vec3(0.0f, 0.0f, 1 / 3.0f), glm::vec3(1 / 3.0f, 0.0f, 1 / 3.0f), glm::vec3(2 / 3.0f, 0.0f, 1 / 3.0f) , glm::vec3(3 / 3.0f, 0.0f, 1 / 3.0f)},
@@ -400,7 +405,9 @@ GLvoid drawScene() {
 	float aspect = static_cast<float>(windowWidth) / windowHeight;
 	projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 500.0f);
 
-	RenderMgr.BeginFrame(view, projection, LightSource);
+	RenderMgr.BeginFrame(view, projection, LightSource, CurrentDebugMode, DebugOverlayAlpha, HeightMapU, HeightMapV);
+
+	BufferMgr.BindDebugTextures(ShaderMgr.GetShaderProgramID());
 
 	for (const auto& a : Axes) RenderMgr.Draw(a);
 
@@ -1106,7 +1113,7 @@ void DrawPanel() {
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients);
 			BufferMgr.UploadNoiseTexture(HeightMapU, HeightMapV, ConstraintMap.NoiseMap);
 			BufferMgr.UploadConstraintMaskTexture(HeightMapU, HeightMapV, ConstraintMap.ConstraintMaskMap.data());
-			BufferMgr.UploadDebugTexture(HeightMapU, HeightMapV);
+			//BufferMgr.UploadDebugTexture(HeightMapU, HeightMapV);
 
 			BufferMgr.CreateSSBO();
 
@@ -1139,7 +1146,7 @@ void DrawPanel() {
 			//BufferMgr.BindGradientTexture();
 			for (int asd = 0; asd < ElevationIteration; asd++) {
 				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.BindDebugTexture();
+				BufferMgr.BindDbgTexture();
 				BufferMgr.BindElevationTexture();
 				BufferMgr.BindNoiseTexture();
 				BufferMgr.BindGradientReadOnly();
@@ -1164,6 +1171,11 @@ void DrawPanel() {
 			//BufferMgr.UnbindElevationTexture();
 
 			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV));
+			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV));
+
+			DiffuseMgr.PackMaps();
+			
+			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRG());
 
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 			UpdateSplineSurface();
@@ -1180,6 +1192,33 @@ void DrawPanel() {
 			ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
 			//ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
 			cout << "Exported constraint maps" << endl;
+		}
+
+		ImGui::Text("Debug Modes");
+		ImGui::Separator();
+		if (ImGui::Button("DebugNone", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::None;
+			DebugOverlayAlpha = 0.0f;
+		}
+		if (ImGui::Button("DebugElevation", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::Elevation;
+			DebugOverlayAlpha = 1.0f;
+		}
+		if (ImGui::Button("DebugNormXY", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::NormXY;
+			DebugOverlayAlpha = 1.0f;
+		}
+		if (ImGui::Button("DebugNormZ", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::NormZ;
+			DebugOverlayAlpha = 1.0f;
+		}
+		if (ImGui::Button("DebugAmplitude", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::Amplitude;
+			DebugOverlayAlpha = 1.0f;
+		}
+		if (ImGui::Button("DebugRoughness", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::Roughness;
+			DebugOverlayAlpha = 1.0f;
 		}
 
 
