@@ -21,7 +21,7 @@ float saturate(float x) { return clamp(x, 0.0, 1.0); }
 vec3 GetColorFromDebugTexture(ivec2 PixelCoord){
 	
 	vec4 t0 = texelFetch(DebugTexture0, PixelCoord, 0);
-	vec2 t1 = texelFetch(DebugTexture1, PixelCoord, 0).rg;
+	vec4 t1 = texelFetch(DebugTexture1, PixelCoord, 0);
 
 	if(DebugMode == 1){
 		return vec3 (t0.r);
@@ -41,6 +41,22 @@ vec3 GetColorFromDebugTexture(ivec2 PixelCoord){
 	}
 	if(DebugMode == 5){
 		return vec3(t1.g);
+	}
+	if(DebugMode == 6){
+		float v = t1.b;
+		v = clamp(v * 1000.0, 0.0, 1.0);
+		return vec3(v);
+
+		//float v = t1.b;  // 값이 있는지 없는지만 검사
+		//return (abs(v) > 1e-8) ? vec3(1.0) : vec3(0.0);
+	}
+	if(DebugMode == 7){
+		float v = t1.b;
+		v = clamp(v * 1000.0, 0.0, 1.0);
+		return vec3(v);
+
+		//float v = t1.b;  // 값이 있는지 없는지만 검사
+		//return (abs(v) > 1e-8) ? vec3(1.0) : vec3(0.0);
 	}
 
 

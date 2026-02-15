@@ -154,3 +154,16 @@ GLvoid ShaderManager::InitComputePrograms(const char* GradientName, const char* 
 	ComputeShaders.insert({ ComputeType::Multigrid, MultigridProgram });
 
 }
+
+GLvoid ShaderManager::AddComputeShaderProgram(const char* ComputeName, const ComputeType Type) {
+	
+	ComputeProgram Program;
+
+	if (!Make_ComputeShaders(Program.ComputeShader, ComputeName)) return;
+	if (!Make_ComputeProgram(Program.Program, Program.ComputeShader)) return;
+
+	std::cout << "Add Compute Shader Success" << std::endl;
+
+	ComputeShaders.insert({ Type, Program });
+
+}

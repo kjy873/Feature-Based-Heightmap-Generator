@@ -12,7 +12,9 @@ enum class DebugMode : int {
 	NormXY = 2,
 	NormZ = 3,
 	Amplitude = 4,
-	Roughness = 5
+	Roughness = 5,
+	Residual = 6,
+	Correction = 7
 };
 
 struct RenderItem {

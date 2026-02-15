@@ -2,13 +2,9 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (r32f, binding = 0) readonly uniform image2D ElevationRead;
-layout (r32f, binding = 1) writeonly uniform image2D ElevationWrite;
+layout (rgba32f, binding = 0) readonly uniform image2D ElevationRead;
+layout (rgba32f, binding = 1) writeonly uniform image2D ElevationWrite;
 layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
-layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
-
-layout (rg32f, binding = 4) readonly uniform image2D NoiseRead;
-layout (rg32f, binding = 5) writeonly uniform image2D NoiseWrite;
 
 layout (rgba32f, binding = 7) writeonly uniform image2D DebugImage;
 
@@ -33,9 +29,11 @@ void main(){
 		return;
 	}
 
-	bool HasElevationMask = (imageLoad(ConstraintMaskImage, p).r & MASK_ELEVATION) != 0u;
-	bool HasGradientMask  = (imageLoad(ConstraintMaskImage, p).r & MASK_GRADIENT)  != 0u;
-	bool HasNoiseMask = (imageLoad(ConstraintMaskImage, p).r & MASK_NOISE) != 0u;
+	uint mask = uint(imageLoad(ElevationRead, p).a + 0.5);
+
+	bool HasElevationMask = (mask & MASK_ELEVATION) != 0u;
+	bool HasGradientMask  = (mask & MASK_GRADIENT)  != 0u;
+	bool HasNoiseMask = (mask & MASK_NOISE) != 0u;
 
 	float Alpha = 0.0f;
 	float Beta = 0.0f;
@@ -109,7 +107,7 @@ void main(){
 
 	imageStore(DebugImage, p, vec4(F_I, F_N, F_G, NewHeight));
 
-	imageStore(ElevationWrite, p, vec4(NewHeight) );
+	//imageStore(ElevationWrite, p, vec4(NewHeight) );
 
 	// Noise diffusion
 
@@ -117,22 +115,22 @@ void main(){
 	float NewRoughness = 0.0f;
 
 	if(HasNoiseMask) {
-		NewAmplitude = imageLoad(NoiseRead, p).r;
-		NewRoughness = imageLoad(NoiseRead, p).g;
+		NewAmplitude = imageLoad(ElevationRead, p).g;
+		NewRoughness = imageLoad(ElevationRead, p).b;
 	}
 	else{
-		NewAmplitude = 0.25f * (imageLoad(NoiseRead, Left).r +
-								imageLoad(NoiseRead, Right).r +
-								imageLoad(NoiseRead, Down).r +
-								imageLoad(NoiseRead, Up).r);
+		NewAmplitude = 0.25f * (imageLoad(ElevationRead, Left).g +
+								imageLoad(ElevationRead, Right).g +
+								imageLoad(ElevationRead, Down).g +
+								imageLoad(ElevationRead, Up).g);
 
-		NewRoughness = 0.25f * (imageLoad(NoiseRead, Left).g +
-								imageLoad(NoiseRead, Right).g +
-								imageLoad(NoiseRead, Down).g +
-								imageLoad(NoiseRead, Up).g);
+		NewRoughness = 0.25f * (imageLoad(ElevationRead, Left).b +
+								imageLoad(ElevationRead, Right).b +
+								imageLoad(ElevationRead, Down).b +
+								imageLoad(ElevationRead, Up).b);
 	}
 
-	imageStore(NoiseWrite, p, vec4(NewAmplitude, NewRoughness, 0.0f, 0.0f));
+	imageStore(ElevationWrite, p, vec4(NewHeight, NewAmplitude, NewRoughness, float(mask)));
 
 	// Noise diffusion
 

@@ -2,9 +2,9 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
+layout (rgba32f, binding = 0) readonly uniform image2D ElevationRead;
 layout (rgba32f, binding = 2) readonly uniform image2D GradientRead;
 layout (rgba32f, binding = 3) writeonly uniform image2D GradientWrite;
-layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
 
 const uint MASK_ELEVATION = 1u << 0;
 const uint MASK_GRADIENT  = 1u << 1;
@@ -28,7 +28,7 @@ void main(){
 
 	vec4 Gc = imageLoad(GradientRead, p);
 
-	uint mask = imageLoad(ConstraintMaskImage, p).r;
+	uint mask = uint(imageLoad(ElevationRead, p).a);
 
 	bool HasGradientConstraint = (mask & MASK_GRADIENT) != 0u;
 	bool HasElevationConstraint = (mask & MASK_ELEVATION) != 0u;

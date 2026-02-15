@@ -130,40 +130,47 @@ void BufferManager::UploadHeightByID(unsigned int ID, const float* HeightMap, in
 
 }
 
-void BufferManager::UploadElevationTexture(int ResU, int ResV, const float* ElevationMap) {
+void BufferManager::UploadElevationTexture(int ResU, int ResV, 
+										   const float* ElevationMap, const std::vector<glm::vec2>& NoiseMap, const uint8_t* ConstraintMaskMap, 
+										   const int Index) {
 
-	if (Textures.Elevation.Texture[0]) glDeleteTextures(1, &Textures.Elevation.Texture[0]);
-	if (Textures.Elevation.Texture[1]) glDeleteTextures(1, &Textures.Elevation.Texture[1]);
+	if (Textures[Index].Elevation.Texture[0]) glDeleteTextures(1, &Textures[Index].Elevation.Texture[0]);
+	if (Textures[Index].Elevation.Texture[1]) glDeleteTextures(1, &Textures[Index].Elevation.Texture[1]);
 
-	glGenTextures(1, &Textures.Elevation.Texture[0]);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.Texture[0]);
+	std::vector<glm::vec4> ElevationNoiseMap(ResU * ResV);
+	for (int i = 0; i < ResU * ResV; i++) {
+		ElevationNoiseMap[i] = glm::vec4(ElevationMap[i], NoiseMap[i].x, NoiseMap[i].y, float(ConstraintMaskMap[i]));
+	}
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, ElevationMap);
-
-	glGenTextures(1, &Textures.Elevation.Texture[1]);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.Texture[1]);
+	glGenTextures(1, &Textures[Index].Elevation.Texture[0]);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Elevation.Texture[0]);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, ElevationMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, ElevationNoiseMap.data());
+
+	glGenTextures(1, &Textures[Index].Elevation.Texture[1]);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Elevation.Texture[1]);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, ElevationNoiseMap.data());
 
 }
 
-void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap) {
+void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap, const int Index) {
 
-	if (Textures.Gradient.Texture[0]) glDeleteTextures(1, &Textures.Gradient.Texture[0]);
-	if (Textures.Gradient.Texture[1]) glDeleteTextures(1, &Textures.Gradient.Texture[1]);
+	if (Textures[Index].Gradient.Texture[0]) glDeleteTextures(1, &Textures[Index].Gradient.Texture[0]);
+	if (Textures[Index].Gradient.Texture[1]) glDeleteTextures(1, &Textures[Index].Gradient.Texture[1]);
 
-	glGenTextures(1, &Textures.Gradient.Texture[0]);
-	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.Texture[0]);
+	glGenTextures(1, &Textures[Index].Gradient.Texture[0]);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Gradient.Texture[0]);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -182,8 +189,8 @@ void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, GradientMapRGBA.data());
 
-	glGenTextures(1, &Textures.Gradient.Texture[1]);
-	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.Texture[1]);
+	glGenTextures(1, &Textures[Index].Gradient.Texture[1]);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Gradient.Texture[1]);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -193,56 +200,58 @@ void BufferManager::UploadGradientTexture(int ResU, int ResV, const std::vector<
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, GradientMapRGBA.data());
 
 }
-void BufferManager::UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap) {
 
-	if (Textures.Noise.Texture[0]) glDeleteTextures(1, &Textures.Noise.Texture[0]);
-	if (Textures.Noise.Texture[1]) glDeleteTextures(1, &Textures.Noise.Texture[1]);
 
-	glGenTextures(1, &Textures.Noise.Texture[0]);
-	glBindTexture(GL_TEXTURE_2D, Textures.Noise.Texture[0]);
+//void BufferManager::UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap, const int Index) {
+//
+//	if (Textures[Index].Noise.Texture[0]) glDeleteTextures(1, &Textures[Index].Noise.Texture[0]);
+//	if (Textures[Index].Noise.Texture[1]) glDeleteTextures(1, &Textures[Index].Noise.Texture[1]);
+//
+//	glGenTextures(1, &Textures[Index].Noise.Texture[0]);
+//	glBindTexture(GL_TEXTURE_2D, Textures[Index].Noise.Texture[0]);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
+//
+//	glGenTextures(1, &Textures[Index].Noise.Texture[1]);
+//	glBindTexture(GL_TEXTURE_2D, Textures[Index].Noise.Texture[1]);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
+//
+//	
+//
+//}
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap, const int Index) {
+//
+//	if (Textures[Index].ConstraintMask) glDeleteTextures(1, &Textures[Index].ConstraintMask);
+//
+//	glGenTextures(1, &Textures[Index].ConstraintMask);
+//	glBindTexture(GL_TEXTURE_2D, Textures[Index].ConstraintMask);
+//
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//
+//	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+//	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, ConstraintMaskMap);
+//	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+//}
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
-
-	glGenTextures(1, &Textures.Noise.Texture[1]);
-	glBindTexture(GL_TEXTURE_2D, Textures.Noise.Texture[1]);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, ResU, ResV, 0, GL_RG, GL_FLOAT, NoiseMap.data());
-
+void BufferManager::UploadDbgTexture(int ResU, int ResV, const int Index) {
 	
-
-}
-
-void BufferManager::UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap) {
-
-	if (Textures.ConstraintMask) glDeleteTextures(1, &Textures.ConstraintMask);
-
-	glGenTextures(1, &Textures.ConstraintMask);
-	glBindTexture(GL_TEXTURE_2D, Textures.ConstraintMask);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, ResU, ResV, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, ConstraintMaskMap);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-}
-
-void BufferManager::UploadDbgTexture(int ResU, int ResV) {
-	
-	glGenTextures(1, &Textures.DebugTexture);
-	glBindTexture(GL_TEXTURE_2D, Textures.DebugTexture);
+	glGenTextures(1, &Textures[Index].DebugTexture);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].DebugTexture);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -252,33 +261,55 @@ void BufferManager::UploadDbgTexture(int ResU, int ResV) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ResU, ResV, 0, GL_RGBA, GL_FLOAT, nullptr);
 }
 
-void BufferManager::BindElevationTexture() {
+void BufferManager::BindElevationTextureDiffusion(const int Index) {
+	glBindImageTexture(0, Textures[Index].Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(1, Textures[Index].Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+// Diffusion 후 swap하기 때문에, Residual 계산할 때는 Old/New가 뒤집혀야 함, 또한 둘 다 ReadOnly로 바인딩
+void BufferManager::BindElevationTextureResidual(const int Index) {
+	glBindImageTexture(1, Textures[Index].Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(0, Textures[Index].Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+}
+void BufferManager::BindGradientTexture(const int Index) {
+	glBindImageTexture(2, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(3, Textures[Index].Gradient.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+//void BufferManager::BindNoiseTexture(const int Index) {
+//	glBindImageTexture(4, Textures[Index].Noise.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+//	glBindImageTexture(5, Textures[Index].Noise.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+//}
+//void BufferManager::BindConstraintMaskTexture(const int Index) {
+//	glBindImageTexture(6, Textures[Index].ConstraintMask, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+//}
+void BufferManager::BindGradientReadOnly(const int Index) {
+	glBindImageTexture(2, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+}
 
-	//printf("Bind ReadTex = %u, WriteTex = %u\n",
-	//	Textures.Elevation.GetReadTexture(),
-	//	Textures.Elevation.GetWriteTexture());
-
-	glBindImageTexture(0, Textures.Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-	glBindImageTexture(1, Textures.Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
-}
-void BufferManager::BindGradientTexture() {
-	glBindImageTexture(2, Textures.Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-	glBindImageTexture(3, Textures.Gradient.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-}
-void BufferManager::BindNoiseTexture() {
-	glBindImageTexture(4, Textures.Noise.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
-	glBindImageTexture(5, Textures.Noise.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
-}
-void BufferManager::BindConstraintMaskTexture() {
-	glBindImageTexture(6, Textures.ConstraintMask, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
-}
-void BufferManager::BindGradientReadOnly() {
-	glBindImageTexture(2, Textures.Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+void BufferManager::UploadRasidualTexture(const int ResU, const int ResV, const int Index) {
+	if (Textures[Index].Residual) glDeleteTextures(1, &Textures[Index].Residual);
+	glGenTextures(1, &Textures[Index].Residual);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Residual);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, nullptr);
 }
 
-void BufferManager::BindDbgTexture() {
-	glBindImageTexture(7, Textures.DebugTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+void BufferManager::BindResidualTextureRead(const int Index) {
+
+	glBindImageTexture(4, Textures[Index].Residual, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+
 }
+
+void BufferManager::BindResidualTextureWrite(const int Index) {
+	glBindImageTexture(3, Textures[Index].Residual, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+}
+
+void BufferManager::BindDbgTexture(const int Index) {
+	glBindImageTexture(7, Textures[Index].DebugTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+
 
 //void BufferManager::BindTexturesDefault() {
 //
@@ -292,19 +323,21 @@ void BufferManager::BindDbgTexture() {
 //
 //}
 
-std::vector<float> BufferManager::ReadbackElevationTexture(int ResU, int ResV) {
+std::vector<float> BufferManager::ReadbackElevationTexture(int ResU, int ResV, const int Index) {
+	std::vector<glm::vec4> ElevationDataRGBA(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Elevation.GetReadTexture());
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, ElevationDataRGBA.data());
+	
 	std::vector<float> ElevationData(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.GetReadTexture());
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, ElevationData.data());
-	/*for (const auto& height : ElevationData) {
-		std::cout << height << std::endl;
-	}*/
+	for (int i = 0; i < ResU * ResV; i++) {
+		ElevationData[i] = ElevationDataRGBA[i].x;
+	}
 	return ElevationData;
 }
 
-std::vector<glm::vec3> BufferManager::ReadbackElevationTextureVec3(int ResU, int ResV) {
+std::vector<glm::vec3> BufferManager::ReadbackElevationTextureVec3(int ResU, int ResV, const int Index) {
 	std::vector<glm::vec4> ElevationDataVec4(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures.Elevation.GetReadTexture());
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Elevation.GetReadTexture());
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, ElevationDataVec4.data());
 	std::vector<glm::vec3> ElevationData(ResU * ResV);
 	for (int i = 0; i < ResU * ResV; i++) {
@@ -313,18 +346,18 @@ std::vector<glm::vec3> BufferManager::ReadbackElevationTextureVec3(int ResU, int
 	return ElevationData;
 }
 
-std::vector<glm::vec4> BufferManager::ReadbackDbgTexture(int ResU, int ResV) {
+std::vector<glm::vec4> BufferManager::ReadbackDbgTexture(int ResU, int ResV, const int Index) {
 	std::vector<glm::vec4> DebugData(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures.DebugTexture);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].DebugTexture);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, DebugData.data());
 	return DebugData;
 }
 
 
 
-std::vector<glm::vec3> BufferManager::ReadbackGradientTexture(int ResU, int ResV) {
+std::vector<glm::vec3> BufferManager::ReadbackGradientTexture(int ResU, int ResV, const int Index) {
 	std::vector<GradientRGBA> GradientDataRGBA(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures.Gradient.GetReadTexture());
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Gradient.GetReadTexture());
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, GradientDataRGBA.data());
 
 	std::vector<glm::vec3> GradientData(ResU * ResV);
@@ -334,16 +367,29 @@ std::vector<glm::vec3> BufferManager::ReadbackGradientTexture(int ResU, int ResV
 	return GradientData;
 }
 
-std::vector<glm::vec2> BufferManager::ReadbackNoiseTexture(int ResU, int ResV) {
+std::vector<glm::vec2> BufferManager::ReadbackNoiseTexture(int ResU, int ResV, const int Index) {
 	std::vector<glm::vec4> NoiseDataRGBA(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures.Noise.GetReadTexture());
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Elevation.GetReadTexture());
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, NoiseDataRGBA.data());
 	std::vector<glm::vec2> NoiseData(ResU * ResV);
 	for (int i = 0; i < ResU * ResV; i++) {
-		NoiseData[i] = glm::vec2(NoiseDataRGBA[i].x, NoiseDataRGBA[i].y);
+		NoiseData[i] = glm::vec2(NoiseDataRGBA[i].y, NoiseDataRGBA[i].z);
 	}
 	return NoiseData;
 }
+
+std::vector<float> BufferManager::ReadbackResidualTexture(int ResU, int ResV, const int Index) {
+	std::vector<glm::vec4> ResidualDataRGBA(ResU * ResV);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Residual);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, ResidualDataRGBA.data());
+	std::vector<float> ResidualData(ResU * ResV);
+	for (int i = 0; i < ResU * ResV; i++) {
+		ResidualData[i] = ResidualDataRGBA[i].x;
+	}
+	return ResidualData;
+}
+
+
 
 void BufferManager::UnbindAllTextures() {
 
@@ -369,9 +415,9 @@ void BufferManager::UnbindElevationTexture(){
 	glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 }
 
-void BufferManager::CreateSSBO() {
-	glGenBuffers(1, &Textures.SSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, Textures.SSBO);
+void BufferManager::CreateSSBO(const int Index) {
+	glGenBuffers(1, &Textures[Index].SSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, Textures[Index].SSBO);
 
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * 4 * 2, nullptr, GL_DYNAMIC_READ);
 
@@ -379,9 +425,9 @@ void BufferManager::CreateSSBO() {
 
 }
 
-void BufferManager::BindSSBO() {
+void BufferManager::BindSSBO(const int Index) {
 
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, Textures.SSBO);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, Textures[Index].SSBO);
 
 }
 
@@ -391,14 +437,14 @@ void BufferManager::UploadDebugPixel2(const GLuint ProgramID, const glm::ivec2& 
 
 }
 
-void BufferManager::AskDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1) {
-	BindSSBO();
+void BufferManager::AskDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1, const int Index) {
+	BindSSBO(Index);
 	UploadDebugPixel2(ProgramID, p0, p1);
 }
 
-void BufferManager::ReadPrintSSBO() {
+void BufferManager::ReadPrintSSBO(const int Index) {
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, Textures.SSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, Textures[Index].SSBO);
 
 	float* data = (float*)glMapBuffer(
 		GL_SHADER_STORAGE_BUFFER,
@@ -439,10 +485,10 @@ void BufferManager::CreateDebugTextures(int ResU, int ResV) {
 	DebugTexture.ResV = ResV;
 
 	AllocateTexture2D(DebugTexture.Tex0, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
-	AllocateTexture2D(DebugTexture.Tex1, ResU, ResV, GL_RG32F, GL_RG, GL_FLOAT);
+	AllocateTexture2D(DebugTexture.Tex1, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 }
 
-void BufferManager::UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec2>& PackedRG) {
+void BufferManager::UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec4>& PackedRGRC) {
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -450,7 +496,7 @@ void BufferManager::UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RGBA, GL_FLOAT, PackedRGBA.data());
 
 	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RG, GL_FLOAT, PackedRG.data());
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RGBA, GL_FLOAT, PackedRGRC.data());
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
@@ -482,3 +528,9 @@ void BufferManager::BindDebugTextures(GLuint ShaderProgramID) {
 	glActiveTexture(GL_TEXTURE0 + DebugTexture.unit1);
 	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
 }
+
+void BufferManager::SwapElevation(const int Index) { Textures[Index].Elevation.Swap(); }
+void BufferManager::SwapGradient(const int Index) { Textures[Index].Gradient.Swap(); }
+//void BufferManager::SwapNoise(const int Index) { Textures[Index].Noise.Swap(); }
+void BufferManager::ResetGradientPingPong(const int Index) { Textures[Index].Gradient.ping = 0; }
+const GLuint& BufferManager::GetElevationTextureWrite(const int Index) { return Textures[Index].Elevation.GetWriteTexture(); }

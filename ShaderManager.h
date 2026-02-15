@@ -19,7 +19,8 @@ enum class ComputeType {
 	Gradient,
 	Elevation,
 	Noise,
-	Multigrid
+	Multigrid,
+	Residual
 };
 
 struct ComputeProgram {
@@ -65,6 +66,7 @@ public:
 
 	GLvoid InitShader();
 	GLvoid InitComputePrograms(const char* GradientName, const char* ElevationName, const char* NoiseName, const char* MultigridName);
+	GLvoid AddComputeShaderProgram(const char* ComputeName, const ComputeType Type);
 	// init buffer
 
 	const GLuint& GetShaderProgramID() const{ return ShaderProgramID; }

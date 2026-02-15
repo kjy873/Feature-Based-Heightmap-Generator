@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 256;
-int HeightMapV = 256;
+int HeightMapU = 1024;
+int HeightMapV = 1024;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -355,7 +355,10 @@ void init() {
 	NoiseGen.SetRes(HeightMapU, HeightMapV);
 
 
-	ShaderMgr.InitComputePrograms("Gradient.comp", "Elevation.comp", "Noise.comp", "Multigrid.comp");
+	//ShaderMgr.InitComputePrograms("Gradient.comp", "Elevation.comp", "Noise.comp", "Multigrid.comp");
+	ShaderMgr.AddComputeShaderProgram("Elevation.comp", ComputeType::Elevation);
+	ShaderMgr.AddComputeShaderProgram("Gradient.comp", ComputeType::Gradient);
+	ShaderMgr.AddComputeShaderProgram("Residual.comp", ComputeType::Residual);
 
 	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
@@ -1109,89 +1112,81 @@ void DrawPanel() {
 			ExportHeightmapImage("RasterizedElevationGray.png", ConstraintMap.ElevationMap);
 			ExportConstraintMaskImage("RasterizedConstraintMask.png", ConstraintMap.ConstraintMaskMap);
 
-			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV, ConstraintMap.ElevationMap.data());
-			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients);
-			BufferMgr.UploadNoiseTexture(HeightMapU, HeightMapV, ConstraintMap.NoiseMap);
-			BufferMgr.UploadConstraintMaskTexture(HeightMapU, HeightMapV, ConstraintMap.ConstraintMaskMap.data());
-			//BufferMgr.UploadDebugTexture(HeightMapU, HeightMapV);
+			BufferMgr.AddTextureSet();
 
-			BufferMgr.CreateSSBO();
+			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV, 
+				ConstraintMap.ElevationMap.data(), ConstraintMap.NoiseMap, ConstraintMap.ConstraintMaskMap.data(), 0);
+			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients, 0);
+			BufferMgr.UploadRasidualTexture(HeightMapU, HeightMapV, 0);
+
+			BufferMgr.CreateSSBO(0);
 
 			// 단일 그리드로 반복시 매우 많은 횟수를 반복해야 함. 256x256 기준 5000회 이상
 			// Diffuse Gradient
 			for (int i = 0; i < GradientIteration; i++) {
-				
-				BufferMgr.BindGradientTexture();
-				BufferMgr.BindConstraintMaskTexture();
+				BufferMgr.BindElevationTextureDiffusion(0);
+				BufferMgr.BindGradientTexture(0);
 				ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-				BufferMgr.SwapGradient();
+				BufferMgr.SwapGradient(0);
 			}
-			ExportGradientImage("DiffusedGradientRGB.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), true);
-			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV));
+			ExportGradientImage("DiffusedGradientRGB.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0), true);
+			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0));
 			DiffuseMgr.NormalizeGradients();
-			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap());
-			BufferMgr.ResetGradientPingPong();
-			BufferMgr.BindGradientReadOnly();
-
-
-			/*for (const auto& grad : DiffuseMgr.GetGradientMap()){
-				if ((grad.x != 0 || grad.y != 0) && grad.z != 0) cout << "not zero grad: " << grad.x << ", " << grad.y << ", " << grad.z << endl;
-			}*/
-
+			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap(), 0);
+			BufferMgr.ResetGradientPingPong(0);
+			BufferMgr.BindGradientReadOnly(0);
 			
-			// Diffuse Elevation
-			//BufferMgr.UploadGradientTexture(1024, 1024, DiffuseMgr.GetGradientMap());
-			//BufferMgr.BindGradientTexture();
+
 			for (int asd = 0; asd < ElevationIteration; asd++) {
-				//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.BindDbgTexture();
-				BufferMgr.BindElevationTexture();
-				BufferMgr.BindNoiseTexture();
-				BufferMgr.BindGradientReadOnly();
-				BufferMgr.BindConstraintMaskTexture();
+				BufferMgr.BindDbgTexture(0);
+				BufferMgr.BindElevationTextureDiffusion(0);
+				BufferMgr.BindGradientReadOnly(0);
 				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-				//glm::ivec4 BorderPixels2 = RasterizerMgr.GetBorderPixels2();
-				//glm::ivec2 DebugPixel0 = glm::ivec2(BorderPixels2.x, BorderPixels2.y);
-				//glm::ivec2 DebugPixel1 = glm::ivec2(BorderPixels2.z, BorderPixels2.w);
 				
-				//BufferMgr.AskDebugPixel2(ShaderMgr.FindComputeProgram(ComputeType::Elevation).Program, DebugPixel0, DebugPixel1);
 				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				//ExportDebugData(BufferMgr.ReadbackDebugTexture(HeightMapU, HeightMapV), asd + 1);
-				//BufferMgr.ReadPrintSSBO();
-				BufferMgr.SwapElevation();
-				BufferMgr.SwapNoise();
+				BufferMgr.SwapElevation(0);
 
 			}
+
+			BufferMgr.BindElevationTextureResidual(0);
+			BufferMgr.BindResidualTextureWrite(0);
+			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
+			glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
 
 			
 
 			//BufferMgr.UnbindElevationTexture();
 
-			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV));
-			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV));
+			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV, 0));
+			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV, 0));
+			DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+
+			/*for (const auto& r : DiffuseMgr.GetResidualMap()) {
+				if (r > 1e-6f) cout << "Residual value: " << r << endl;
+			}*/
 
 			DiffuseMgr.PackMaps();
 			
-			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRG());
+			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRGRC());
 
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 			UpdateSplineSurface();
-
-			ExportHeightmapImage("DiffusedHeightmapGray.png", heightmap.GetHeightMap());
 			
 		}
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
 			
-			ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV), true);
-			ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
-			ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
-			ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
+			//ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0), true);
+			//ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
+			//ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
+			//ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
 			//ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
-			cout << "Exported constraint maps" << endl;
+			//cout << "Exported constraint maps" << endl;
 		}
 
 		ImGui::Text("Debug Modes");
@@ -1218,6 +1213,14 @@ void DrawPanel() {
 		}
 		if (ImGui::Button("DebugRoughness", ImVec2(-FLT_MIN, 30))) {
 			CurrentDebugMode = DebugMode::Roughness;
+			DebugOverlayAlpha = 1.0f;
+		}
+		if(ImGui::Button("DebugResidual", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::Residual;
+			DebugOverlayAlpha = 1.0f;
+		}
+		if(ImGui::Button("DebugCorrection", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::Correction;
 			DebugOverlayAlpha = 1.0f;
 		}
 

@@ -184,7 +184,7 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 		
 		point.Constraint.u = point.u;
 
-		std::cout << "Interpolated Constraint u: " << point.Constraint.u << std::endl;
+		//std::cout << "Interpolated Constraint u: " << point.Constraint.u << std::endl;
 	}
 
 }

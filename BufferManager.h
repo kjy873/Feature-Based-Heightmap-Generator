@@ -39,11 +39,12 @@ struct PingPongTexture {
 };
 
 struct GPUTextures {
-	PingPongTexture Elevation;
+	PingPongTexture Elevation;  // level 1부터는 오차 해를 계산하는 텍스처로 사용
 	PingPongTexture Gradient;
-	PingPongTexture Noise;
-	PingPongTexture Multigrid;
-	GLuint ConstraintMask;
+
+	GLuint Residual;
+
+	PingPongTexture Correction;
 
 	GLuint DebugTexture = 0;
 
@@ -70,7 +71,7 @@ class BufferManager
 private:
 	std::unordered_map<unsigned int, BufferData> BufferMap;
 
-	GPUTextures Textures;
+	std::vector<GPUTextures> Textures;
 	
 	unsigned int BufferID = 0;
 
@@ -94,50 +95,64 @@ public:
 
 	void UploadHeightByID(unsigned int ID, const float* HeightMap, int Size);
 
-	void UploadElevationTexture(int ResU, int ResV, const float* ElevationMap);
-	void UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap);
-	void UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap);
-	void UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap);
+	void AddTextureSet() { Textures.emplace_back(); }
+
+	void UploadElevationTexture(int ResU, int ResV,
+		const float* ElevationMap, const std::vector<glm::vec2>& NoiseMap, const uint8_t* ConstraintMaskMap,
+		const int Index);
+	void UploadGradientTexture(int ResU, int ResV, const std::vector<glm::vec3>& GradientMap, const int Index);
+	void UploadNoiseTexture(int ResU, int ResV, const std::vector<glm::vec2>& NoiseMap, const int Index);
+	void UploadConstraintMaskTexture(int ResU, int ResV, const uint8_t* ConstraintMaskMap, const int Index);
 	void UploadEmptyTextures(int ResU, int ResV);
-	void BindElevationTexture();
-	void BindGradientTexture();
-	void BindNoiseTexture();
-	void BindConstraintMaskTexture();
+	void BindElevationTextureDiffusion(const int Index);
+	void BindElevationTextureResidual(const int Index);
+	void BindGradientTexture(const int Index);
+	void BindNoiseTexture(const int Index);
+	void BindConstraintMaskTexture(const int Index);
 	void BindTexturesDefault();
 
-	void UploadDbgTexture(int ResU, int ResV);
-	void BindDbgTexture();
+	
 
-	void SwapElevation() { Textures.Elevation.Swap(); }
-	void SwapGradient() { Textures.Gradient.Swap(); }
-	void SwapNoise() { Textures.Noise.Swap(); }
+	void UploadRasidualTexture(const int ResU, const int ResV, const int Index);
+	void BindResidualTextureRead(const int Index);
+	void BindResidualTextureWrite(const int Index);
 
-	void ResetGradientPingPong() { Textures.Gradient.ping = 0; }
-	void BindGradientReadOnly();
+	void UploadDbgTexture(int ResU, int ResV, const int Index);
+	void BindDbgTexture(const int Index);
 
-	const GLuint& GetElevationTextureWrite() { return Textures.Elevation.GetWriteTexture(); }
+	void SwapElevation(const int Index);
+	void SwapGradient(const int Index);
+	void SwapNoise(const int Index);
+
+	void ResetGradientPingPong(const int Index);
+
+	void BindGradientReadOnly(const int Index);
+
+	const GLuint& GetElevationTextureWrite(const int Index);
+
 
 	void UnbindAllTextures();
 	void UnbindElevationTexture();
 
 
-	std::vector<float> ReadbackElevationTexture(int ResU, int ResV);
-	std::vector<glm::vec3> ReadbackElevationTextureVec3(int ResU, int ResV);
-	std::vector<glm::vec3> ReadbackGradientTexture(int ResU, int ResV);
-	std::vector<glm::vec2> ReadbackNoiseTexture(int ResU, int ResV);
-	std::vector<glm::vec4> ReadbackDbgTexture(int ResU, int ResV);
+	std::vector<float> ReadbackElevationTexture(int ResU, int ResV, const int Index);
+	std::vector<glm::vec3> ReadbackElevationTextureVec3(int ResU, int ResV, const int Index);
+	std::vector<glm::vec3> ReadbackGradientTexture(int ResU, int ResV, const int Index);
+	std::vector<glm::vec2> ReadbackNoiseTexture(int ResU, int ResV, const int Index);
+	std::vector<glm::vec4> ReadbackDbgTexture(int ResU, int ResV, const int Index);
+	std::vector<float> ReadbackResidualTexture(int ResU, int ResV, const int Index);
 
-	void CreateSSBO();
-	void BindSSBO();
+	void CreateSSBO(const int Index);
+	void BindSSBO(const int Index);
 
 	void UploadDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1);
-	void AskDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1);
+	void AskDebugPixel2(const GLuint ProgramID, const glm::ivec2& p0, const glm::ivec2& p1, const int Index);
 
-	void ReadPrintSSBO();
+	void ReadPrintSSBO(const int Index);
 
 	void AllocateTexture2D(GLuint& TextureID, int ResU, int ResV, GLenum InternalFormat, GLenum Format, GLenum Type, GLenum filter = GL_NEAREST, GLenum wrap = GL_CLAMP_TO_EDGE);
 	void CreateDebugTextures(int ResU, int ResV);
-	void UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec2>& PackedRG);
+	void UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec4>& PackedRGRC);
 	void BindDebugTextures(GLuint ShaderProgramID);
 
 	const GLuint& GetVAOByID(unsigned int ID) const{
