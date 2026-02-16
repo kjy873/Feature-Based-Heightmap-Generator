@@ -33,8 +33,8 @@ struct PingPongTexture {
 	GLuint Texture[2] = { 0,0 };
 	int ping = 0;
 
-	GLuint GetReadTexture() const { return Texture[ping]; }
-	GLuint GetWriteTexture() const { return Texture[1 - ping]; }
+	GLuint& GetReadTexture() { return Texture[ping]; }
+	GLuint& GetWriteTexture() { return Texture[1 - ping]; }
 	void Swap() { ping = 1 - ping; }
 };
 
@@ -113,9 +113,13 @@ public:
 
 	
 
-	void UploadRasidualTexture(const int ResU, const int ResV, const int Index);
+	void AllocateRasidualTexture(const int ResU, const int ResV, const int Index);
 	void BindResidualTextureRead(const int Index);
 	void BindResidualTextureWrite(const int Index);
+
+	void AllocateCoarseTextures(const int ResU, const int ResV, const int Index);
+	void BindCoarseTextureWriteInResidualPass(const int Index);
+
 
 	void UploadDbgTexture(int ResU, int ResV, const int Index);
 	void BindDbgTexture(const int Index);

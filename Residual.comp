@@ -4,32 +4,64 @@ layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (rgba32f, binding = 0) readonly uniform image2D ElevationOld;
 layout (rgba32f, binding = 1) readonly uniform image2D ElevationNew;
-layout (r32f, binding = 3) writeonly uniform image2D ResidualWrite;
+layout (rgba32f, binding = 2) writeonly uniform image2D ResidualWrite;
+layout (rgba32f, binding = 3) writeonly uniform image2D CoarseWrite;
 
 const uint MASK_ELEVATION = 1u << 0;
 const uint MASK_GRADIENT  = 1u << 1;
 const uint MASK_NOISE     = 1u << 2;
 
+float ElevationResidual(float NewH, float OldH, uint Mask){
+	if((Mask & MASK_ELEVATION) != 0u){
+		return 0.0f;
+	}
+
+	// 정석 RHS x, 더 엄밀히 계산할 수 있지만, 전체 패스 완성/검증 전까지는 NewH - OldH로 계산한다.
+	return NewH - OldH;
+
+}
+
 void main(){
 	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
 
-	if(p.x >= imageSize(ElevationOld).x || p.y >= imageSize(ElevationOld).y){
+	if(p.x >= imageSize(CoarseWrite).x || p.y >= imageSize(CoarseWrite).y){
 		return;
 	}
 
-	uint mask = uint(imageLoad(ElevationOld, p).a + 0.5);
 
-	bool HasElevationMask = (mask & MASK_ELEVATION) != 0u;
 
-	float OldH = imageLoad(ElevationOld, p).r;
-	float NewH = imageLoad(ElevationNew, p).r;
+	ivec2 p00 = p * 2;
+	ivec2 p01 = p00 + ivec2(0, 1);
+	ivec2 p10 = p00 + ivec2(1, 0);
+	ivec2 p11 = p00 + ivec2(1, 1);
 
-	float Residual = NewH - OldH;
+	p00 = clamp(p00, ivec2(0), imageSize(ElevationOld) - ivec2(1));
+	p01 = clamp(p01, ivec2(0), imageSize(ElevationOld) - ivec2(1));
+	p10 = clamp(p10, ivec2(0), imageSize(ElevationOld) - ivec2(1));
+	p11 = clamp(p11, ivec2(0), imageSize(ElevationOld) - ivec2(1));
 
-	if(HasElevationMask){
-		Residual = 0.0f;
-	}
+	uint MaskP00 = uint(imageLoad(ElevationOld, p00).a + 0.5);
+	uint MaskP01 = uint(imageLoad(ElevationOld, p01).a + 0.5);
+	uint MaskP10 = uint(imageLoad(ElevationOld, p10).a + 0.5);
+	uint MaskP11 = uint(imageLoad(ElevationOld, p11).a + 0.5);
+
+	float ResidualP00 = ElevationResidual(imageLoad(ElevationNew, p00).r, imageLoad(ElevationOld, p00).r, MaskP00);
+	float ResidualP01 = ElevationResidual(imageLoad(ElevationNew, p01).r, imageLoad(ElevationOld, p01).r, MaskP01);
+	float ResidualP10 = ElevationResidual(imageLoad(ElevationNew, p10).r, imageLoad(ElevationOld, p10).r, MaskP10);
+	float ResidualP11 = ElevationResidual(imageLoad(ElevationNew, p11).r, imageLoad(ElevationOld, p11).r, MaskP11);
+
+	// fine residual debug, 전체 패스 완성 후 주석 처리
+	imageStore(ResidualWrite, p00, vec4(ResidualP00, 0.0f, 0.0f, float(MaskP00)));
+	imageStore(ResidualWrite, p01, vec4(ResidualP01, 0.0f, 0.0f, float(MaskP01)));
+	imageStore(ResidualWrite, p10, vec4(ResidualP10, 0.0f, 0.0f, float(MaskP10)));
+	imageStore(ResidualWrite, p11, vec4(ResidualP11, 0.0f, 0.0f, float(MaskP11)));
+	// fine residual debug
+
+	float ResidualAvrg = (ResidualP00 + ResidualP01 + ResidualP10 + ResidualP11) * 0.25f;
+
+	uint Mask = MaskP00 | MaskP01 | MaskP10 | MaskP11;
+
 	// noise도 residual 계산한다면 마스크 범위에서 0
 
-	imageStore(ResidualWrite, p, vec4(Residual, 0.0f, 0.0f, 0.0f));
+	imageStore(CoarseWrite, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
 }

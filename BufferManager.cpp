@@ -285,25 +285,28 @@ void BufferManager::BindGradientReadOnly(const int Index) {
 	glBindImageTexture(2, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 }
 
-void BufferManager::UploadRasidualTexture(const int ResU, const int ResV, const int Index) {
-	if (Textures[Index].Residual) glDeleteTextures(1, &Textures[Index].Residual);
-	glGenTextures(1, &Textures[Index].Residual);
-	glBindTexture(GL_TEXTURE_2D, Textures[Index].Residual);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, ResU, ResV, 0, GL_RED, GL_FLOAT, nullptr);
+void BufferManager::AllocateRasidualTexture(const int ResU, const int ResV, const int Index) {
+
+	AllocateTexture2D(Textures[Index].Residual, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 }
 
 void BufferManager::BindResidualTextureRead(const int Index) {
 
-	glBindImageTexture(4, Textures[Index].Residual, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+	glBindImageTexture(4, Textures[Index].Residual, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
 }
 
 void BufferManager::BindResidualTextureWrite(const int Index) {
-	glBindImageTexture(3, Textures[Index].Residual, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+	glBindImageTexture(2, Textures[Index].Residual, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+
+void BufferManager::AllocateCoarseTextures(const int ResU, const int ResV, const int Index) {
+	AllocateTexture2D(Textures[Index].Elevation.GetReadTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	AllocateTexture2D(Textures[Index].Elevation.GetWriteTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+}
+
+void BufferManager::BindCoarseTextureWriteInResidualPass(const int Index) {
+	glBindImageTexture(3, Textures[Index].Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }
 
 void BufferManager::BindDbgTexture(const int Index) {

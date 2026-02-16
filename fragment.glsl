@@ -51,7 +51,7 @@ vec3 GetColorFromDebugTexture(ivec2 PixelCoord){
 		//return (abs(v) > 1e-8) ? vec3(1.0) : vec3(0.0);
 	}
 	if(DebugMode == 7){
-		float v = t1.b;
+		float v = t1.a;
 		v = clamp(v * 1000.0, 0.0, 1.0);
 		return vec3(v);
 

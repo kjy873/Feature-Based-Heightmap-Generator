@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 1024;
-int HeightMapV = 1024;
+int HeightMapU = 256;
+int HeightMapV = 256;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -1108,16 +1108,13 @@ void DrawPanel() {
 
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
 
-			ExportGradientImage("RasterizedGradientRGB.png", ConstraintMap.Gradients, true);
-			ExportHeightmapImage("RasterizedElevationGray.png", ConstraintMap.ElevationMap);
-			ExportConstraintMaskImage("RasterizedConstraintMask.png", ConstraintMap.ConstraintMaskMap);
-
+			BufferMgr.AddTextureSet();
 			BufferMgr.AddTextureSet();
 
 			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV, 
 				ConstraintMap.ElevationMap.data(), ConstraintMap.NoiseMap, ConstraintMap.ConstraintMaskMap.data(), 0);
 			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients, 0);
-			BufferMgr.UploadRasidualTexture(HeightMapU, HeightMapV, 0);
+
 
 			BufferMgr.CreateSSBO(0);
 
@@ -1151,10 +1148,16 @@ void DrawPanel() {
 
 			}
 
+
+			// 레벨 0의 residual 할당, 바인드 -> 레벨 1의 coarse 할당 -> 레벨 1의 coarse를 레벨 0에 write로 바인드
+			BufferMgr.AllocateRasidualTexture(HeightMapU, HeightMapV, 0);
+			BufferMgr.AllocateCoarseTextures(HeightMapU / 2, HeightMapV / 2, 1);
+
 			BufferMgr.BindElevationTextureResidual(0);
+			BufferMgr.BindCoarseTextureWriteInResidualPass(1);
 			BufferMgr.BindResidualTextureWrite(0);
 			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
-			glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
 
