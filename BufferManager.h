@@ -40,9 +40,10 @@ struct PingPongTexture {
 
 struct GPUTextures {
 	PingPongTexture Elevation;  // level 1부터는 오차 해를 계산하는 텍스처로 사용
-	PingPongTexture Gradient;
+	PingPongTexture Gradient;  // level 1부터는 계산된 F_G를 저장하는 텍스처로 사용
 
-	GLuint Residual;
+	GLuint Residual_Fine;
+	GLuint Residual_Coarse;
 
 	PingPongTexture Correction;
 
@@ -119,6 +120,8 @@ public:
 
 	void AllocateCoarseTextures(const int ResU, const int ResV, const int Index);
 	void BindCoarseTextureWriteInResidualPass(const int Index);
+	void BindCoarseTextureInCoarsePass(const int Index);
+	void BindFineGradeintInResidualPass(const int Index);
 
 
 	void UploadDbgTexture(int ResU, int ResV, const int Index);

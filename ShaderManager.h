@@ -20,7 +20,8 @@ enum class ComputeType {
 	Elevation,
 	Noise,
 	Multigrid,
-	Residual
+	Residual,
+	Coarse
 };
 
 struct ComputeProgram {

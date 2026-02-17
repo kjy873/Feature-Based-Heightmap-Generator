@@ -4,8 +4,11 @@ layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (rgba32f, binding = 0) readonly uniform image2D ElevationOld;
 layout (rgba32f, binding = 1) readonly uniform image2D ElevationNew;
-layout (rgba32f, binding = 2) writeonly uniform image2D ResidualWrite;
+layout (rgba32f, binding = 2) writeonly uniform image2D ResidualFine;
 layout (rgba32f, binding = 3) writeonly uniform image2D CoarseWrite;
+layout (rgba32f, binding = 4) writeonly uniform image2D ResidualCoarse;
+layout (rgba32f, binding = 5) readonly uniform image2D GradientRead;
+layout (rgba32f, binding = 6) writeonly uniform image2D GradientWrite;
 
 const uint MASK_ELEVATION = 1u << 0;
 const uint MASK_GRADIENT  = 1u << 1;
@@ -50,18 +53,27 @@ void main(){
 	float ResidualP10 = ElevationResidual(imageLoad(ElevationNew, p10).r, imageLoad(ElevationOld, p10).r, MaskP10);
 	float ResidualP11 = ElevationResidual(imageLoad(ElevationNew, p11).r, imageLoad(ElevationOld, p11).r, MaskP11);
 
+	vec3 GradientP00 = imageLoad(GradientRead, p00).rgb;
+	vec3 GradientP01 = imageLoad(GradientRead, p01).rgb;
+	vec3 GradientP10 = imageLoad(GradientRead, p10).rgb;
+	vec3 GradientP11 = imageLoad(GradientRead, p11).rgb;
+
 	// fine residual debug, 전체 패스 완성 후 주석 처리
-	imageStore(ResidualWrite, p00, vec4(ResidualP00, 0.0f, 0.0f, float(MaskP00)));
-	imageStore(ResidualWrite, p01, vec4(ResidualP01, 0.0f, 0.0f, float(MaskP01)));
-	imageStore(ResidualWrite, p10, vec4(ResidualP10, 0.0f, 0.0f, float(MaskP10)));
-	imageStore(ResidualWrite, p11, vec4(ResidualP11, 0.0f, 0.0f, float(MaskP11)));
+	imageStore(ResidualFine, p00, vec4(ResidualP00, 0.0f, 0.0f, float(MaskP00)));
+	imageStore(ResidualFine, p01, vec4(ResidualP01, 0.0f, 0.0f, float(MaskP01)));
+	imageStore(ResidualFine, p10, vec4(ResidualP10, 0.0f, 0.0f, float(MaskP10)));
+	imageStore(ResidualFine, p11, vec4(ResidualP11, 0.0f, 0.0f, float(MaskP11)));
 	// fine residual debug
 
 	float ResidualAvrg = (ResidualP00 + ResidualP01 + ResidualP10 + ResidualP11) * 0.25f;
 
 	uint Mask = MaskP00 | MaskP01 | MaskP10 | MaskP11;
 
+
+
 	// noise도 residual 계산한다면 마스크 범위에서 0
 
-	imageStore(CoarseWrite, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
+	imageStore(ResidualCoarse, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
+
+	//imageStore(CoarseWrite, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
 }

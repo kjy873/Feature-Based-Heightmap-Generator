@@ -359,6 +359,7 @@ void init() {
 	ShaderMgr.AddComputeShaderProgram("Elevation.comp", ComputeType::Elevation);
 	ShaderMgr.AddComputeShaderProgram("Gradient.comp", ComputeType::Gradient);
 	ShaderMgr.AddComputeShaderProgram("Residual.comp", ComputeType::Residual);
+	ShaderMgr.AddComputeShaderProgram("Coarse.comp", ComputeType::Coarse);
 
 	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
@@ -1148,8 +1149,10 @@ void DrawPanel() {
 
 			}
 
+			// 텍스처 레벨은 '해상도 기준'
 
-			// 레벨 0의 residual 할당, 바인드 -> 레벨 1의 coarse 할당 -> 레벨 1의 coarse를 레벨 0에 write로 바인드
+			// fine 해상도의 residual은 디버깅용, 레벨0. coarse해상도 residual은 coarse패스용, 레벨1
+			// 레벨 0의 residual 할당, 바인드 -> 레벨 1의 coarse 할당 -> 레벨 1의 coarse를 레벨 0에 write로 바인드 
 			BufferMgr.AllocateRasidualTexture(HeightMapU, HeightMapV, 0);
 			BufferMgr.AllocateCoarseTextures(HeightMapU / 2, HeightMapV / 2, 1);
 
@@ -1159,6 +1162,13 @@ void DrawPanel() {
 			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
 			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+			// coarse texture 3가지 바인드
+			BufferMgr.BindCoarseTextureInCoarsePass(1);
+			ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
+			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
 
 
 			

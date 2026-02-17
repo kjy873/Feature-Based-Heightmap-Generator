@@ -287,26 +287,46 @@ void BufferManager::BindGradientReadOnly(const int Index) {
 
 void BufferManager::AllocateRasidualTexture(const int ResU, const int ResV, const int Index) {
 
-	AllocateTexture2D(Textures[Index].Residual, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	AllocateTexture2D(Textures[Index].Residual_Fine, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 }
 
-void BufferManager::BindResidualTextureRead(const int Index) {
+void BufferManager::BindResidualTextureRead(const int Index) {  // Fine 해상도
 
-	glBindImageTexture(4, Textures[Index].Residual, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(4, Textures[Index].Residual_Fine, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
 }
 
-void BufferManager::BindResidualTextureWrite(const int Index) {
-	glBindImageTexture(2, Textures[Index].Residual, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+void BufferManager::BindFineGradeintInResidualPass(const int Index) {
+	glBindImageTexture(5, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+}
+
+void BufferManager::BindResidualTextureWrite(const int Index) {  // FIne 해상도
+	glBindImageTexture(2, Textures[Index].Residual_Fine, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }
 
 void BufferManager::AllocateCoarseTextures(const int ResU, const int ResV, const int Index) {
 	AllocateTexture2D(Textures[Index].Elevation.GetReadTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 	AllocateTexture2D(Textures[Index].Elevation.GetWriteTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+
+	AllocateTexture2D(Textures[Index].Residual_Coarse, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+
+	AllocateTexture2D(Textures[Index].Gradient.GetWriteTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 }
 
 void BufferManager::BindCoarseTextureWriteInResidualPass(const int Index) {
 	glBindImageTexture(3, Textures[Index].Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+	glBindImageTexture(4, Textures[Index].Residual_Coarse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+	glBindImageTexture(6, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+
+void BufferManager::BindCoarseTextureInCoarsePass(const int Index) {
+	glBindImageTexture(0, Textures[Index].Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(1, Textures[Index].Elevation.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+	glBindImageTexture(4, Textures[Index].Residual_Coarse, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+	glBindImageTexture(6, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 }
 
 void BufferManager::BindDbgTexture(const int Index) {
@@ -383,7 +403,7 @@ std::vector<glm::vec2> BufferManager::ReadbackNoiseTexture(int ResU, int ResV, c
 
 std::vector<float> BufferManager::ReadbackResidualTexture(int ResU, int ResV, const int Index) {
 	std::vector<glm::vec4> ResidualDataRGBA(ResU * ResV);
-	glBindTexture(GL_TEXTURE_2D, Textures[Index].Residual);
+	glBindTexture(GL_TEXTURE_2D, Textures[Index].Residual_Fine);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, ResidualDataRGBA.data());
 	std::vector<float> ResidualData(ResU * ResV);
 	for (int i = 0; i < ResU * ResV; i++) {

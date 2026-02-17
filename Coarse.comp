@@ -1,0 +1,53 @@
+#version 430 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 0, rgba32f) readonly uniform image2D ElevationRead;
+layout (binding = 1, rgba32f) writeonly uniform image2D ElevationWrite;
+layout (binding = 4, rgba32f) readonly uniform image2D ResidualCoarse;
+layout (binding = 6, rgba32f) readonly uniform image2D GradientRead;
+
+const uint MASK_ELEVATION = 1u << 0;
+const uint MASK_GRADIENT  = 1u << 1;
+const uint MASK_NOISE     = 1u << 2;
+
+void main(){
+	
+	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+	uint Mask = uint(imageLoad(ResidualCoarse, p).a);
+
+	bool HasElevationMask = ((Mask & MASK_ELEVATION) != 0u);
+	bool HasGradientMask = ((Mask & MASK_GRADIENT) != 0u);
+
+	float Alpha;
+	float Beta;
+
+	if(HasElevationMask){
+		Alpha = 0.0f;
+		Beta = 0.0f;
+	}
+	else if(HasGradientMask){
+		Alpha = 0.5f;
+		Beta = 0.5f;
+	}
+	else{
+		Alpha = 1.0f;
+		Beta = 0.0f;
+	}
+
+	float E = 0.0f;
+
+	float RHS = imageLoad(ResidualCoarse, p).r;
+
+	// Relaxation code
+
+
+
+	// Relaxation code
+
+
+	imageStore(ElevationWrite, p, vec4(E, 0.0f, 0.0f, 0.0f));
+	return;
+
+}
