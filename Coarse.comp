@@ -15,13 +15,18 @@ void main(){
 	
 	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
 
-	uint Mask = uint(imageLoad(ResidualCoarse, p).a);
+	uint Mask = uint(round(imageLoad(ResidualCoarse, p).a));
 
 	bool HasElevationMask = ((Mask & MASK_ELEVATION) != 0u);
 	bool HasGradientMask = ((Mask & MASK_GRADIENT) != 0u);
 
 	float Alpha;
 	float Beta;
+
+	if (HasElevationMask) {
+    imageStore(ElevationWrite, p, vec4(0.0));
+    return;
+	}
 
 	if(HasElevationMask){
 		Alpha = 0.0f;
@@ -36,18 +41,45 @@ void main(){
 		Beta = 0.0f;
 	}
 
-	float E = 0.0f;
-
 	float RHS = imageLoad(ResidualCoarse, p).r;
 
 	// Relaxation code
 
+	ivec2 Left = clamp(p + ivec2(-1, 0), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Right = clamp(p + ivec2(1, 0), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Down = clamp(p + ivec2(0, -1), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Up = clamp(p + ivec2(0, 1), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+
+	float LeftE = imageLoad(ElevationRead, Left).r;
+	float RightE = imageLoad(ElevationRead, Right).r;
+	float DownE = imageLoad(ElevationRead, Down).r;
+	float UpE = imageLoad(ElevationRead, Up).r;
+
+	float E_L = 0.25f * (LeftE + RightE + DownE + UpE);
+
+	float E_N = 0.0f;
+	if(Beta > 0.0f){
+		vec2 n = imageLoad(GradientRead, p).rg;
+
+		int sx = (n.x > 0.0) ? 1 : -1;
+		int sy = (n.y > 0.0) ? 1 : -1;
+
+		ivec2 nxp = ivec2(-sx, 0);
+		ivec2 nyp = ivec2(0, -sy);
+
+		float En1 = imageLoad(ElevationRead, clamp(p + nxp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
+		float En2 = imageLoad(ElevationRead, clamp(p + nyp, ivec2(0), imageSize(ElevationRead) - ivec2(1))).r;
+
+		E_N = n.x * n.x * En1 + n.y * n.y * En2;
+	}
+
+	float NewE = Alpha * E_L + Beta * E_N + RHS;
 
 
 	// Relaxation code
 
 
-	imageStore(ElevationWrite, p, vec4(E, 0.0f, 0.0f, 0.0f));
+	imageStore(ElevationWrite, p, vec4(NewE, 0.0f, 0.0f, 0.0f));
 	return;
 
 }

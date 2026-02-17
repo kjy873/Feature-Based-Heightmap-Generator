@@ -18,10 +18,51 @@ float ElevationResidual(float NewH, float OldH, uint Mask){
 	if((Mask & MASK_ELEVATION) != 0u){
 		return 0.0f;
 	}
-
-	// 정석 RHS x, 더 엄밀히 계산할 수 있지만, 전체 패스 완성/검증 전까지는 NewH - OldH로 계산한다.
 	return NewH - OldH;
 
+}
+
+vec3 DownsampleGradient(vec3 P00, vec3 P01, vec3 P10, vec3 P11){
+
+	vec2 N00 = normalize(P00.rg);
+	vec2 N01 = normalize(P01.rg);
+	vec2 N10 = normalize(P10.rg);
+	vec2 N11 = normalize(P11.rg);
+
+	float W00 = P00.b;
+	float W01 = P01.b;
+	float W10 = P10.b;
+	float W11 = P11.b;
+
+	vec2 RefN = N00;
+	float RefW = W00;
+
+	if(W01 > RefW){ RefN = N01; RefW = W01; }
+	if(W10 > RefW){ RefN = N10; RefW = W10; }
+	if(W11 > RefW){ RefN = N11; RefW = W11; }
+
+	float SumW = W00 + W01 + W10 + W11;
+	if (SumW <= 1e-6f || RefW <= 1e-6f || length(RefN) <= 1e-6f){ return vec3(0.0f); }
+
+	if(W00 > 0.0f && dot(N00, RefN) < 0.0f) N00 = -N00;
+	if(W01 > 0.0f && dot(N01, RefN) < 0.0f) N01 = -N01;
+	if(W10 > 0.0f && dot(N10, RefN) < 0.0f) N10 = -N10;
+	if(W11 > 0.0f && dot(N11, RefN) < 0.0f) N11 = -N11;
+
+	vec2 Sum = W00 * N00 + W01 * N01 + W10 * N10 + W11 * N11;
+
+	float len = length(Sum);
+	vec2 CoarseN = (len > 1e-6f) ? (Sum / len) : RefN;
+
+	float Count =
+        (W00 > 0.0 ? 1.0 : 0.0) +
+        (W01 > 0.0 ? 1.0 : 0.0) +
+        (W10 > 0.0 ? 1.0 : 0.0) +
+        (W11 > 0.0 ? 1.0 : 0.0);
+	float CoarseNorm = (Count > 0.0f) ? (SumW / Count) : 0.0f;
+	
+
+	return vec3(CoarseN, CoarseNorm);
 }
 
 void main(){
@@ -53,10 +94,17 @@ void main(){
 	float ResidualP10 = ElevationResidual(imageLoad(ElevationNew, p10).r, imageLoad(ElevationOld, p10).r, MaskP10);
 	float ResidualP11 = ElevationResidual(imageLoad(ElevationNew, p11).r, imageLoad(ElevationOld, p11).r, MaskP11);
 
-	vec3 GradientP00 = imageLoad(GradientRead, p00).rgb;
-	vec3 GradientP01 = imageLoad(GradientRead, p01).rgb;
-	vec3 GradientP10 = imageLoad(GradientRead, p10).rgb;
-	vec3 GradientP11 = imageLoad(GradientRead, p11).rgb;
+
+	// Gradient
+	
+	vec3 CoarseGradient = DownsampleGradient(
+		imageLoad(GradientRead, p00).rgb,
+		imageLoad(GradientRead, p01).rgb,
+		imageLoad(GradientRead, p10).rgb,
+		imageLoad(GradientRead, p11).rgb
+	);
+
+	// Gradient
 
 	// fine residual debug, 전체 패스 완성 후 주석 처리
 	imageStore(ResidualFine, p00, vec4(ResidualP00, 0.0f, 0.0f, float(MaskP00)));
@@ -74,6 +122,7 @@ void main(){
 	// noise도 residual 계산한다면 마스크 범위에서 0
 
 	imageStore(ResidualCoarse, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
+	imageStore(GradientWrite, p, vec4(CoarseGradient, 0.0f));
 
 	//imageStore(CoarseWrite, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
 }
