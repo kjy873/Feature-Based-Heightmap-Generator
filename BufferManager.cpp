@@ -329,6 +329,10 @@ void BufferManager::BindCoarseTextureInCoarsePass(const int Index) {
 	glBindImageTexture(6, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 }
 
+void BufferManager::BindCoarseTextureInCorrectionPass(const int Index) {
+	glBindImageTexture(2, Textures[Index].Elevation.GetReadTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+}
+
 void BufferManager::BindDbgTexture(const int Index) {
 	glBindImageTexture(7, Textures[Index].DebugTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }

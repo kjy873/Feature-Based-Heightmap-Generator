@@ -144,6 +144,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="Coarse.comp" />
+    <None Include="Correction.comp" />
     <None Include="Elevation.comp" />
     <None Include="fragment.glsl" />
     <None Include="Gradient.comp" />

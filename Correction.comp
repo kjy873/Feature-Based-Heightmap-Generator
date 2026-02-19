@@ -1,0 +1,57 @@
+#version 430 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (rgba32f, binding = 0) readonly uniform image2D ElevationRead; // level n
+layout (rgba32f, binding = 1) writeonly uniform image2D ElevationWrite; // level n
+layout (rgba32f, binding = 2) readonly uniform image2D CorrectionRead; // level n + 1 
+
+const uint MASK_ELEVATION = 1u << 0;
+const uint MASK_GRADIENT  = 1u << 1;
+const uint MASK_NOISE     = 1u << 2;
+
+float BilinearProlong(ivec2 FineP){
+	
+	ivec2 CoarseP = FineP >> 1;
+
+	bool OddX = (FineP.x & 1) != 0;
+	bool OddY = (FineP.y & 1) != 0;
+
+	float C00 = imageLoad(CorrectionRead, clamp(CoarseP, ivec2(0), imageSize(CorrectionRead) - ivec2(1))).r;
+	float C10 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(1, 0), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).r;
+	float C01 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(0, 1), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).r;
+	float C11 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(1, 1), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).r;
+
+	if(!OddX && !OddY) return C00;
+	if(OddX && !OddY) return 0.5 * (C00 + C10);
+	if(!OddX && OddY) return 0.5 * (C00 + C01);
+	return 0.25 * (C00 + C10 + C01 + C11);
+
+}
+
+void main(){
+	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+	if (p.x >= imageSize(ElevationWrite).x || p.y >= imageSize(ElevationWrite).y) {
+		return;
+	}
+
+	vec4 Fine = imageLoad(ElevationRead, p);
+
+	uint Mask = uint(round(Fine.a));
+
+	if((Mask & MASK_ELEVATION) != 0u){
+		imageStore(ElevationWrite, p, Fine);
+		return;
+	}
+
+	float OldH = Fine.r;
+
+	float ProlongedE = BilinearProlong(p);
+
+	float NewH = OldH + ProlongedE;
+
+	imageStore(ElevationWrite, p, vec4(NewH, Fine.g, Fine.b, Fine.a));	
+
+
+}

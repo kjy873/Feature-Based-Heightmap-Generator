@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 256;
-int HeightMapV = 256;
+int HeightMapU = 1024;
+int HeightMapV = 1024;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -360,6 +360,7 @@ void init() {
 	ShaderMgr.AddComputeShaderProgram("Gradient.comp", ComputeType::Gradient);
 	ShaderMgr.AddComputeShaderProgram("Residual.comp", ComputeType::Residual);
 	ShaderMgr.AddComputeShaderProgram("Coarse.comp", ComputeType::Coarse);
+	ShaderMgr.AddComputeShaderProgram("Correction.comp", ComputeType::Correction);
 
 	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
@@ -1149,6 +1150,8 @@ void DrawPanel() {
 
 			}
 
+			std::cout << "Elevation Iteration Complete" << std::endl;
+
 			// 텍스처 레벨은 '해상도 기준'
 
 			// fine 해상도의 residual은 디버깅용, 레벨0. coarse해상도 residual은 coarse패스용, 레벨1
@@ -1162,15 +1165,6 @@ void DrawPanel() {
 			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
 			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-			// coarse texture 3가지 바인드
-			BufferMgr.BindCoarseTextureInCoarsePass(1);
-			ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
-			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-
-
 			
 
 			//BufferMgr.UnbindElevationTexture();
@@ -1178,6 +1172,7 @@ void DrawPanel() {
 			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV, 0));
 			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV, 0));
 			DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+
 
 			/*for (const auto& r : DiffuseMgr.GetResidualMap()) {
 				if (r > 1e-6f) cout << "Residual value: " << r << endl;
@@ -1189,7 +1184,77 @@ void DrawPanel() {
 
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 			UpdateSplineSurface();
+			//ExportHeightMapFromRGBATexture("DiffusedHeightMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+			auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return abs(a) < abs(b); });
+			std::cout << "Max residual value: " << *it << std::endl;
+			float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float sum, float r) { return sum + abs(r); });
+			float avrg = acc / DiffuseMgr.GetResidualMap().size();
+			std::cout << "Average residual value: " << avrg << std::endl;
+		}
+
+		if (ImGui::Button("Correction", ImVec2(-FLT_MIN, 30))) {
+
+
+			// coarse texture 3가지 바인드
+			for (int i = 0; i < 500; i++) {
+				BufferMgr.BindCoarseTextureInCoarsePass(1);
+				ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
+				glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
+				BufferMgr.SwapElevation(1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+			}
+			// correction pass, fine 해상도로 실행, coarse 결과 텍스처, fine read, write 텍스처 바인드
+			BufferMgr.BindElevationTextureDiffusion(0);
+			BufferMgr.BindCoarseTextureInCorrectionPass(1);
+			ShaderMgr.FindComputeProgram(ComputeType::Correction).Use();
+			glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 			
+			BufferMgr.SwapElevation(0);
+
+			for (int i = 0; i < 2; i++) {
+
+			BufferMgr.BindDbgTexture(0);
+			BufferMgr.BindElevationTextureDiffusion(0);
+			BufferMgr.BindGradientReadOnly(0);
+			ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+
+			glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+			BufferMgr.SwapElevation(0);
+			}
+
+			BufferMgr.AllocateRasidualTexture(HeightMapU, HeightMapV, 0);
+			BufferMgr.AllocateCoarseTextures(HeightMapU / 2, HeightMapV / 2, 1);
+
+			BufferMgr.BindElevationTextureResidual(0);
+			BufferMgr.BindCoarseTextureWriteInResidualPass(1);
+			BufferMgr.BindResidualTextureWrite(0);
+			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
+			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV, 0));
+			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV, 0));
+			DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+
+			/*for (const auto& r : DiffuseMgr.GetResidualMap()) {
+				if (r > 1e-6f) cout << "Residual value: " << r << endl;
+			}*/
+
+			auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return abs(a) < abs(b); });
+			std::cout << "Max residual value: " << *it << std::endl;
+			float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float sum, float r) { return sum + abs(r); });
+			float avrg = acc / DiffuseMgr.GetResidualMap().size();
+			std::cout << "Average residual value: " << avrg << std::endl;
+			//ExportHeightMapFromRGBATexture("CorrectedHeightMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+
+			DiffuseMgr.PackMaps();
+
+			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRGRC());
+
+			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
+			UpdateSplineSurface();
 		}
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
@@ -1364,6 +1429,22 @@ vector<vector<glm::vec3>> MakeInitialControlPoints(const int& Rows, const int& C
 	}
 
 	return points;
+}
+
+void ExportHeightMapFromRGBATexture(const char* FileName, const std::vector<float>& Map) {
+
+	ofstream file(FileName);
+
+	for (int Row = 0; Row < HeightMapV; Row++) {
+		for (int Col = 0; Col < HeightMapU; Col++) {
+			float height = Map[Row * HeightMapU + Col];
+			file << height << " ";
+		}
+		file << "\n";
+	}
+
+	file.close();
+
 }
 
 void ExportHeightMap(const char* FileName) {

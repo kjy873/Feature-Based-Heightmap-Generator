@@ -30,6 +30,7 @@
 #include <math.h>
 #include <chrono>
 #include <functional>
+#include <numeric>
 
 #include "ShaderManager.h"
 #include "BufferManager.h"
@@ -498,6 +499,7 @@ void ExportGradientText(const char* FileName, const std::vector<glm::vec3>& Map)
 void ExportDiffusedGradientDot(const char* FileName, const std::vector<glm::vec3>& Map);
 void ExportDiffusedGradientImage(const char* FileName, const std::vector<glm::vec3>& Map);
 void ExportDebugData(const std::vector<glm::vec4>& Map, const int Iteration);
+void ExportHeightMapFromRGBATexture(const char* FileName, const std::vector<float>& Map);
 
 void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 	GLsizei length, const GLchar* message, const void* userParam) {

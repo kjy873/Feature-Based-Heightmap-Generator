@@ -1072,10 +1072,6 @@ const std::vector<CurveData> FeatureCurveManager::ExtractCurveData() {
 		std::sort(Data.ConstraintPoints.begin(), Data.ConstraintPoints.end(), [](const Constraints& a, const Constraints& b) {
 			return a.u < b.u;
 			});
-
-		for (const auto& cp : Data.ConstraintPoints) {
-			std::cout << "  Constraint u: " << cp.u << std::endl;
-		}
 		
 		Data.CurveID = curve.GetCurveID();
 

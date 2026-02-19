@@ -21,7 +21,8 @@ enum class ComputeType {
 	Noise,
 	Multigrid,
 	Residual,
-	Coarse
+	Coarse,
+	Correction
 };
 
 struct ComputeProgram {

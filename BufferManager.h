@@ -122,6 +122,7 @@ public:
 	void BindCoarseTextureWriteInResidualPass(const int Index);
 	void BindCoarseTextureInCoarsePass(const int Index);
 	void BindFineGradeintInResidualPass(const int Index);
+	void BindCoarseTextureInCorrectionPass(const int Index);
 
 
 	void UploadDbgTexture(int ResU, int ResV, const int Index);
