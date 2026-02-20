@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 1024;
-int HeightMapV = 1024;
+int HeightMapU = 256;
+int HeightMapV = 256;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -1150,6 +1150,18 @@ void DrawPanel() {
 
 			}
 
+			for (int asd = 0; asd < 2; asd++) {
+				BufferMgr.BindDbgTexture(0);
+				BufferMgr.BindElevationTextureDiffusion(0);
+				BufferMgr.BindGradientReadOnly(0);
+				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+
+				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+				BufferMgr.SwapElevation(0);
+
+			}
+
 			std::cout << "Elevation Iteration Complete" << std::endl;
 
 			// 텍스처 레벨은 '해상도 기준'
@@ -1184,12 +1196,12 @@ void DrawPanel() {
 
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 			UpdateSplineSurface();
-			//ExportHeightMapFromRGBATexture("DiffusedHeightMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+			ExportHeightMapFromRGBATexture("DiffusedResidualMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
 			auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return abs(a) < abs(b); });
-			std::cout << "Max residual value: " << *it << std::endl;
+			std::cout << "Max residual value(Before): " << *it << std::endl;
 			float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float sum, float r) { return sum + abs(r); });
 			float avrg = acc / DiffuseMgr.GetResidualMap().size();
-			std::cout << "Average residual value: " << avrg << std::endl;
+			std::cout << "Average residual value(Before): " << avrg << std::endl;
 		}
 
 		if (ImGui::Button("Correction", ImVec2(-FLT_MIN, 30))) {
@@ -1242,12 +1254,12 @@ void DrawPanel() {
 				if (r > 1e-6f) cout << "Residual value: " << r << endl;
 			}*/
 
+			ExportHeightMapFromRGBATexture("CorrectedResidualMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
 			auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return abs(a) < abs(b); });
-			std::cout << "Max residual value: " << *it << std::endl;
+			std::cout << "Max residual value(After): " << *it << std::endl;
 			float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float sum, float r) { return sum + abs(r); });
 			float avrg = acc / DiffuseMgr.GetResidualMap().size();
-			std::cout << "Average residual value: " << avrg << std::endl;
-			//ExportHeightMapFromRGBATexture("CorrectedHeightMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
+			std::cout << "Average residual value(After): " << avrg << std::endl;
 
 			DiffuseMgr.PackMaps();
 
