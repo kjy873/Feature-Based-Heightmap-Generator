@@ -79,7 +79,7 @@ void main(){
 	// Relaxation code
 
 
-	imageStore(ElevationWrite, p, vec4(NewE, 0.0f, 0.0f, 0.0f));
+	imageStore(ElevationWrite, p, vec4(NewE, 0.0f, 0.0f, imageLoad(ResidualCoarse, p).a));
 	return;
 
 }
