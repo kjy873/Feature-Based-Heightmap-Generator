@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 256;
-int HeightMapV = 256;
+int HeightMapU = 1024;
+int HeightMapV = 1024;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -44,6 +44,11 @@ const float defaultSize = 0.05;
 
 int ElevationIteration = 5;
 int GradientIteration = 5000;
+int DiffusionLevel = 1;
+int MultigridIteration = 1;
+int CoarseSolverIteration = 5;
+int PreSmoothing = 5;
+int PostSmoothing = 5;
 
 float CameraSpeed = 0.01f;
 
@@ -1127,207 +1132,172 @@ void DrawPanel() {
 		// Correction pass 요구사항
 		// BindElevationTextureDiffusion(fine), BindCoarseTextureInCorrectionPass(coarse)
 		// Compute. (1/2 res)
-
+		//
+		// 다 끝난 후 OR 필요할 때
+		// DiffuseMgr에 텍스처 저장 (fine)
+		// DiffuseMgr에 저장된 텍스처로 PackMaps (디버깅용 텍스처 패킹)
+		// BufferMgr에 PackMaps로부터 GetTexture-> UploadDebugTextures(디버깅용)
+		// SetHeightMap, UpdateSplineSurface
+		
 
 		if (ImGui::InputInt("GradientIteration", &GradientIteration, 1, 100));
 		if (ImGui::InputInt("ElevationIteration", &ElevationIteration, 1, 100));
+		if (ImGui::InputInt("Level", &DiffusionLevel, 1, 5));
+		if (ImGui::InputInt("Multigrid Iteration", &MultigridIteration, 1, 10));
+		if (ImGui::InputInt("Coarse Solver Iteration", &CoarseSolverIteration, 1, 10));
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
 
+			// 0. Rasterizer에서 맵 로드, 레벨 수만큼 텍스처 셋 추가
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
 
-			BufferMgr.AddTextureSet();
-			BufferMgr.AddTextureSet();
+			BufferMgr.ClearTextureSet();
+			for (int i = 0; i < DiffusionLevel; i++) {
+				BufferMgr.AddTextureSet();
+			}
 
-			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV, 
-				ConstraintMap.ElevationMap.data(), ConstraintMap.NoiseMap, ConstraintMap.ConstraintMaskMap.data(), 0);
-			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients, 0);
+			for (int i = 0; i < DiffusionLevel - 1; i++) {
+				BufferMgr.AllocateCoarseTextures(HeightMapU >> i + 1, HeightMapV >> i + 1, i + 1);
+				BufferMgr.AllocateRasidualTexture(HeightMapU >> i, HeightMapV >> i, i);
+			}
 
+			auto ResU = [&](int Level) { return HeightMapU >> Level; };
+			auto ResV = [&](int Level) { return HeightMapV >> Level; };
+			auto K = [&](int Level) { return 5 * (Level + 1); };
 
-			BufferMgr.CreateSSBO(0);
-
-			// 단일 그리드로 반복시 매우 많은 횟수를 반복해야 함. 256x256 기준 5000회 이상
-			// Diffuse Gradient
+			// 1. Gradient Diffusion
+			BufferMgr.UploadElevationTexture(ResU(0), ResV(0), ConstraintMap.ElevationMap.data(), ConstraintMap.NoiseMap, ConstraintMap.ConstraintMaskMap.data(), 0);
+			BufferMgr.UploadGradientTexture(ResU(0), ResV(0), ConstraintMap.Gradients, 0);
 			for (int i = 0; i < GradientIteration; i++) {
 				BufferMgr.BindElevationTextureDiffusion(0);
 				BufferMgr.BindGradientTexture(0);
 				ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
-				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
+				glDispatchCompute((ResU(0) + 15) / 16, (ResV(0) + 15) / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 				BufferMgr.SwapGradient(0);
 			}
-			ExportGradientImage("DiffusedGradientRGB.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0), true);
-			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0));
+
+			// 2. Gradient Readback, Normalize, Upload
+			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(ResU(0), ResV(0), 0));
 			DiffuseMgr.NormalizeGradients();
-			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap(), 0);
-			BufferMgr.ResetGradientPingPong(0);
-			BufferMgr.BindGradientReadOnly(0);
-			
+			BufferMgr.UploadGradientTexture(ResU(0), ResV(0), DiffuseMgr.GetGradientMap(), 0);
 
-			for (int asd = 0; asd < ElevationIteration; asd++) {
-				BufferMgr.BindDbgTexture(0);
-				BufferMgr.BindElevationTextureDiffusion(0);
-				BufferMgr.BindGradientReadOnly(0);
-				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-				
-				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.SwapElevation(0);
+			// outerloop
+			for (int outer = 0; outer < MultigridIteration; outer++) {
+				for (int l = 0; l < DiffusionLevel - 1; l++) {
+					int iteration = K(l);
 
-			}
+					// 3. PreSmoothing
+					for (int i = 0; i < iteration; i++) {
+						if (l == 0) {
+							BufferMgr.BindGradientReadOnly(l);
+							BufferMgr.BindElevationTextureDiffusion(l);
+							ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+						}
+						else {
+							BufferMgr.BindCoarseTextureInCoarsePass(l);
+							ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
+						}
+						glDispatchCompute((ResU(l) + 15) / 16, (ResV(l) + 15) / 16, 1);
+						glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+						BufferMgr.SwapElevation(l);
+					}
 
-			for (int asd = 0; asd < 2; asd++) {
-				BufferMgr.BindDbgTexture(0);
-				BufferMgr.BindElevationTextureDiffusion(0);
-				BufferMgr.BindGradientReadOnly(0);
-				ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+					// 5. Residual & Restriction
+					BufferMgr.BindElevationTextureResidual(l);
+					BufferMgr.BindResidualTextureWrite(l);
+					BufferMgr.BindFineGradeintInResidualPass(l);
+					BufferMgr.BindCoarseTextureWriteInResidualPass(l + 1);
+					ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
 
-				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.SwapElevation(0);
+					glDispatchCompute((ResU(l + 1) + 15) / 16, (ResV(l + 1) + 15) / 16, 1);
+					glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-			}
+					BufferMgr.SwapGradient(l + 1);
 
-			std::cout << "Elevation Iteration Complete" << std::endl;
+					BufferMgr.ClearElevationTextures(ResU(l + 1), ResV(l + 1), l + 1);
 
-			// 텍스처 레벨은 '해상도 기준'
-
-			// fine 해상도의 residual은 디버깅용, 레벨0. coarse해상도 residual은 coarse패스용, 레벨1
-			// 레벨 0의 residual 할당, 바인드 -> 레벨 1의 coarse 할당 -> 레벨 1의 coarse를 레벨 0에 write로 바인드 
-			BufferMgr.AllocateRasidualTexture(HeightMapU, HeightMapV, 0);
-			BufferMgr.AllocateCoarseTextures(HeightMapU / 2, HeightMapV / 2, 1);
-
-			BufferMgr.BindElevationTextureResidual(0);
-			BufferMgr.BindCoarseTextureWriteInResidualPass(1);
-			BufferMgr.BindResidualTextureWrite(0);
-			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
-			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-			
-
-			//BufferMgr.UnbindElevationTexture();
-
-			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV, 0));
-			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV, 0));
-			DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
-
-
-			/*for (const auto& r : DiffuseMgr.GetResidualMap()) {
-				if (r > 1e-6f) cout << "Residual value: " << r << endl;
-			}*/
-
-			DiffuseMgr.PackMaps();
-			
-			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRGRC());
-
-			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
-			UpdateSplineSurface();
-			ExportHeightMapFromRGBATexture("DiffusedResidualMap.txt", BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
-			auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return abs(a) < abs(b); });
-			std::cout << "Max residual value(Before): " << *it << std::endl;
-			float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float sum, float r) { return sum + abs(r); });
-			float avrg = acc / DiffuseMgr.GetResidualMap().size();
-			std::cout << "Average residual value(Before): " << avrg << std::endl;
-		}
-
-		if (ImGui::Button("Correction", ImVec2(-FLT_MIN, 30))) {
-
-
-			// coarse texture 3가지 바인드
-			for (int i = 0; i < 500; i++) {
-				BufferMgr.BindCoarseTextureInCoarsePass(1);
-				ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
-				glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				BufferMgr.SwapElevation(1);
-			}
-			// correction pass, fine 해상도로 실행, coarse 결과 텍스처, fine read, write 텍스처 바인드
-			BufferMgr.BindElevationTextureDiffusion(0);
-			BufferMgr.BindCoarseTextureInCorrectionPass(1);
-			ShaderMgr.FindComputeProgram(ComputeType::Correction).Use();
-			glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-			
-			BufferMgr.SwapElevation(0);
-
-			for (int i = 0; i < 2; i++) {
-
-			BufferMgr.BindDbgTexture(0);
-			BufferMgr.BindElevationTextureDiffusion(0);
-			BufferMgr.BindGradientReadOnly(0);
-			ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-
-			glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-			BufferMgr.SwapElevation(0);
-			}
-
-			BufferMgr.AllocateRasidualTexture(HeightMapU, HeightMapV, 0);
-			BufferMgr.AllocateCoarseTextures(HeightMapU / 2, HeightMapV / 2, 1);
-
-			BufferMgr.BindElevationTextureResidual(0);
-			BufferMgr.BindCoarseTextureWriteInResidualPass(1);
-			BufferMgr.BindResidualTextureWrite(0);
-			ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
-			glDispatchCompute((HeightMapU / 2 + 15) / 16, (HeightMapV / 2 + 15) / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(HeightMapU, HeightMapV, 0));
-			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(HeightMapU, HeightMapV, 0));
-			DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(HeightMapU, HeightMapV, 0));
-
-			DiffuseMgr.PackMaps();
-
-			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRGRC());
-
-			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
-			UpdateSplineSurface();
-		}
-
-		if (ImGui::Button("Iterate", ImVec2(-FLT_MIN, 30))) {
-			int Level = 3;
-			BufferMgr.AddTextureSet();
-
-			Maps ConstraintMap = RasterizerMgr.GetMaps();
-			BufferMgr.UploadElevationTexture(HeightMapU, HeightMapV,
-				ConstraintMap.ElevationMap.data(), ConstraintMap.NoiseMap, ConstraintMap.ConstraintMaskMap.data(), Level);
-			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, ConstraintMap.Gradients, Level);
-
-			for (int i = 0; i < GradientIteration; i++) {
-				BufferMgr.BindElevationTextureDiffusion(Level);
-				BufferMgr.BindGradientTexture(Level);
-				ShaderMgr.FindComputeProgram(ComputeType::Gradient).Use();
-				glDispatchCompute((HeightMapU + 15) / 16, (HeightMapV + 15) / 16, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-				BufferMgr.SwapGradient(Level);
-			}
-
-			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0));
-			DiffuseMgr.NormalizeGradients();
-			BufferMgr.UploadGradientTexture(HeightMapU, HeightMapV, DiffuseMgr.GetGradientMap(), 0);
-			BufferMgr.ResetGradientPingPong(0);
-
-			for (int i = 0; i < 5; i++) {
-				int Iteration = 5 * (i + 1);
-				for (int j = 0; j < Iteration; j++) {
-					BufferMgr.BindElevationTextureDiffusion(i);
-					BufferMgr.BindGradientReadOnly(i);
-					ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
-					glDispatchCompute((HeightMapU / (std::pow(2, i)) + 15) / 16, (HeightMapV / (std::pow(2, i)) + 15) / 16, 1);
-					glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-					BufferMgr.SwapElevation(i);
+					if (l == 0) {
+						DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(ResU(l), ResV(l), l));
+						auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return std::abs(a) < std::abs(b); });
+						std::cout << "Max Residual Value(Before): " << *it << std::endl;
+						float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float a, float b) { return a + std::abs(b); });
+						std::cout << "Average Residual Value(Before): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;
+					}
 				}
-				BufferMgr.AllocateRasidualTexture(HeightMapU / (std::pow(2, i)), HeightMapV / (std::pow(2, i)), 0);
-				BufferMgr.AllocateCoarseTextures(HeightMapU / (std::pow(2, i + 1)), HeightMapV / (std::pow(2, i + 1)), 1);
 
-				BufferMgr.BindElevationTextureResidual(i);
-				BufferMgr.BindCoarseTextureWriteInResidualPass(i + 1);
-				BufferMgr.BindResidualTextureWrite(i);
-				ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
-				glDispatchCompute((HeightMapU / (std::pow(2, i + 1)) + 15) / 16, (HeightMapV / (std::pow(2, i + 1)) + 15) / 16, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-				
+				// l + 1의 Elevation Texture를 0으로 클리어
+
+				// 6. Coarsest Solve
+				{
+					int l = DiffusionLevel - 1;
+					int iteration = K(l);
+					for (int i = 0; i < iteration; i++) {
+						BufferMgr.BindCoarseTextureInCoarsePass(l);
+						ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
+						glDispatchCompute((ResU(l) + 15) / 16, (ResV(l) + 15) / 16, 1);
+						glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+						BufferMgr.SwapElevation(l);
+					}
+				}
+
+				// 7. Prolong & Correction & PostSmoothing
+				for (int l = DiffusionLevel - 2; l >= 0; l--) {
+					BufferMgr.BindElevationTextureDiffusion(l);
+					BufferMgr.BindCoarseTextureInCorrectionPass(l + 1);
+					ShaderMgr.FindComputeProgram(ComputeType::Correction).Use();
+					glDispatchCompute((ResU(l) + 15) / 16, (ResV(l) + 15) / 16, 1);
+					glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+					BufferMgr.SwapElevation(l);
+
+
+					// 8. Postsmoothing
+					int iteration = K(l);
+					for (int i = 0; i < iteration; i++) {
+						if (l == 0) {
+							BufferMgr.BindElevationTextureDiffusion(l);
+							BufferMgr.BindGradientReadOnly(l);
+							ShaderMgr.FindComputeProgram(ComputeType::Elevation).Use();
+						}
+						else {
+							BufferMgr.BindCoarseTextureInCoarsePass(l);
+							ShaderMgr.FindComputeProgram(ComputeType::Coarse).Use();
+						}
+						glDispatchCompute((ResU(l) + 15) / 16, (ResV(l) + 15) / 16, 1);
+						glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+						BufferMgr.SwapElevation(l);
+					}
+
+					// 여긴 디버깅용으로 residual pass를 1회 실행했는데, Coarse texture의 값을 덮어씀, outer loop가 2회 이상일 때에도 이렇게 값을 확인해도 문제가 없는지 확인해야 함
+					// 최종적으로 outer loop 내부에서 residual, correction 마다 max, avrg를 출력하고, 이걸 outer loop만큼 반복해서 디버깅
+					if (l == 0) {
+						BufferMgr.BindElevationTextureResidual(l);
+						BufferMgr.BindResidualTextureWrite(l);
+						BufferMgr.BindFineGradeintInResidualPass(l);
+						BufferMgr.BindCoarseTextureWriteInResidualPass(l + 1);
+						ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
+
+						glDispatchCompute((ResU(l + 1) + 15) / 16, (ResV(l + 1) + 15) / 16, 1);
+						glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+						
+						DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(ResU(l), ResV(l), l));
+						auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return std::abs(a) < std::abs(b); });
+						std::cout << "Max Residual Value(After): " << *it << std::endl;
+						float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float a, float b) { return a + std::abs(b); });
+						std::cout << "Average Residual Value(After): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;
+					}
+				}
 			}
+
+			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(ResU(0), ResV(0), 0));
+			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(ResU(0), ResV(0), 0));
+
+			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
+
+			UpdateSplineSurface();
 		}
+
+
+		
 
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
 			

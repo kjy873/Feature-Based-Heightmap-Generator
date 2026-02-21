@@ -73,7 +73,7 @@ private:
 	std::unordered_map<unsigned int, BufferData> BufferMap;
 
 	std::vector<GPUTextures> Textures;
-	
+
 	unsigned int BufferID = 0;
 
 	DebugTextures DebugTexture;
@@ -83,7 +83,7 @@ public:
 	BufferManager() {}
 	~BufferManager() {}
 
-	void InitVertexArrayObejct(BufferData &BufferData, bool UseEBO);
+	void InitVertexArrayObejct(BufferData& BufferData, bool UseEBO);
 	void BindVertexBufferObject(BufferData& BufferData, const glm::vec3* Position, int PositionSize, const glm::vec3* Color, int ColorSize, const glm::vec3* Normal, int NormalSize);
 	void BindElementBufferObject(BufferData& BufferData, const int* Index, int IndexSize);
 	void UploadHeight(BufferData& BufferData, const float* HeightMap, int Size);
@@ -97,6 +97,7 @@ public:
 	void UploadHeightByID(unsigned int ID, const float* HeightMap, int Size);
 
 	void AddTextureSet() { Textures.emplace_back(); }
+	void ClearTextureSet() { Textures.clear(); }
 
 	void UploadElevationTexture(int ResU, int ResV,
 		const float* ElevationMap, const std::vector<glm::vec2>& NoiseMap, const uint8_t* ConstraintMaskMap,
@@ -123,6 +124,8 @@ public:
 	void BindCoarseTextureInCoarsePass(const int Index);
 	void BindFineGradeintInResidualPass(const int Index);
 	void BindCoarseTextureInCorrectionPass(const int Index);
+
+	void ClearElevationTextures(const int ResU, const int ResV, const int Index);
 
 
 	void UploadDbgTexture(int ResU, int ResV, const int Index);

@@ -310,6 +310,7 @@ void BufferManager::AllocateCoarseTextures(const int ResU, const int ResV, const
 
 	AllocateTexture2D(Textures[Index].Residual_Coarse, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 
+	AllocateTexture2D(Textures[Index].Gradient.GetReadTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 	AllocateTexture2D(Textures[Index].Gradient.GetWriteTexture(), ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 }
 
@@ -318,7 +319,7 @@ void BufferManager::BindCoarseTextureWriteInResidualPass(const int Index) {
 
 	glBindImageTexture(4, Textures[Index].Residual_Coarse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-	glBindImageTexture(6, Textures[Index].Gradient.GetReadTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	glBindImageTexture(6, Textures[Index].Gradient.GetWriteTexture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }
 
 void BufferManager::BindCoarseTextureInCoarsePass(const int Index) {
@@ -337,6 +338,11 @@ void BufferManager::BindDbgTexture(const int Index) {
 	glBindImageTexture(7, Textures[Index].DebugTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }
 
+void BufferManager::ClearElevationTextures(const int ResU, const int ResV, const int Index) {
+	std::vector<glm::vec4> ClearData(ResU * ResV, glm::vec4(0.0f));
+	glClearTexImage(Textures[Index].Elevation.GetReadTexture(), 0, GL_RGBA, GL_FLOAT, ClearData.data());
+	glClearTexImage(Textures[Index].Elevation.GetWriteTexture(), 0, GL_RGBA, GL_FLOAT, ClearData.data());
+}
 
 //void BufferManager::BindTexturesDefault() {
 //
