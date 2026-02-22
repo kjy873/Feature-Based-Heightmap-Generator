@@ -1102,8 +1102,10 @@ void DrawPanel() {
 			RasterizerMgr.BuildConstraintMaps();
 			// x방향이 col임
 			//RasterizerMgr.PrintQuads();
-			std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
-			ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
+			//std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
+			//ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
+
+			//RasterizerMgr.PrintPolylines();
 
 		}
 

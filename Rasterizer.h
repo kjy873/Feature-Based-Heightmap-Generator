@@ -75,5 +75,15 @@ public:
 
 	float GradientAttenuation(glm::vec3& DstGradient, const glm::vec2& Pos, const glm::vec2& CurvePos, const glm::vec2& CurveNormal,
 		const float SignedDistance, const float GradientRadius, float GradientMagnitude);
+
+	void Clear() {
+		Map.ElevationMap.clear();
+		Map.NoiseMap.clear();
+		Map.ConstraintMaskMap.clear();
+		Map.Gradients.clear();
+		Map.CurveIDMap.clear();
+		Curves.clear();
+		Quads.clear();
+	}
 	
 };

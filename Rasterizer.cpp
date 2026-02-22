@@ -4,6 +4,8 @@ void Rasterizer::BuildPolyline() {
 
 	float du = TexelSize * 0.25f;
 
+	
+
 	for (auto& curve : Curves) {
 		const std::vector<glm::vec3>& cp = curve.ControlPoints;
 		const int LoopCount = (int)(cp.size() - 1) / 3;
