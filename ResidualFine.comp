@@ -1,0 +1,28 @@
+#version 430 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (rgba32f, binding = 0) readonly uniform image2D ElevationOld;
+layout (rgba32f, binding = 1) readonly uniform image2D ElevationNew;
+layout (rgba32f, binding = 2) writeonly uniform image2D ResidualFine;
+
+const uint MASK_ELEVATION = 1u << 0;
+
+float ElevationResidual(float NewH, float OldH, uint Mask){
+	if((Mask & MASK_ELEVATION) != 0u){
+		return 0.0f;
+	}
+	return NewH - OldH;
+}
+
+void main(){
+	ivec2 Coords = ivec2(gl_GlobalInvocationID.xy);
+
+	ivec2 size = imageSize(ElevationOld);
+	if (Coords.x >= size.x || Coords.y >= size.y) return;
+
+	vec4 OldData = imageLoad(ElevationOld, Coords);
+	vec4 NewData = imageLoad(ElevationNew, Coords);
+	float Residual = ElevationResidual(NewData.r, OldData.r, uint(round(NewData.a)));
+	imageStore(ResidualFine, Coords, vec4(Residual, 0.0f, 0.0f, 1.0f));
+}

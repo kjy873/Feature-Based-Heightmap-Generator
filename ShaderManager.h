@@ -22,7 +22,8 @@ enum class ComputeType {
 	Multigrid,
 	Residual,
 	Coarse,
-	Correction
+	Correction,
+	ResidualFine
 };
 
 struct ComputeProgram {

@@ -288,6 +288,7 @@ void BufferManager::BindGradientReadOnly(const int Index) {
 void BufferManager::AllocateRasidualTexture(const int ResU, const int ResV, const int Index) {
 
 	AllocateTexture2D(Textures[Index].Residual_Fine, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+
 }
 
 void BufferManager::BindResidualTextureRead(const int Index) {  // Fine ÇØ»óµµ

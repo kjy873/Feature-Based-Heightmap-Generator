@@ -366,6 +366,7 @@ void init() {
 	ShaderMgr.AddComputeShaderProgram("Residual.comp", ComputeType::Residual);
 	ShaderMgr.AddComputeShaderProgram("Coarse.comp", ComputeType::Coarse);
 	ShaderMgr.AddComputeShaderProgram("Correction.comp", ComputeType::Correction);
+	ShaderMgr.AddComputeShaderProgram("ResidualFine.comp", ComputeType::ResidualFine);
 
 	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
@@ -1272,11 +1273,9 @@ void DrawPanel() {
 					if (l == 0) {
 						BufferMgr.BindElevationTextureResidual(l);
 						BufferMgr.BindResidualTextureWrite(l);
-						BufferMgr.BindFineGradeintInResidualPass(l);
-						BufferMgr.BindCoarseTextureWriteInResidualPass(l + 1);
-						ShaderMgr.FindComputeProgram(ComputeType::Residual).Use();
+						ShaderMgr.FindComputeProgram(ComputeType::ResidualFine).Use();
 
-						glDispatchCompute((ResU(l + 1) + 15) / 16, (ResV(l + 1) + 15) / 16, 1);
+						glDispatchCompute((ResU(l) + 15) / 16, (ResV(l) + 15) / 16, 1);
 						glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 						
 						DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(ResU(l), ResV(l), l));

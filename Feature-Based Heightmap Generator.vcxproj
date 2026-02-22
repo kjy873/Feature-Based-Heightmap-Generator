@@ -146,6 +146,7 @@
     <None Include="Coarse.comp" />
     <None Include="Correction.comp" />
     <None Include="Elevation.comp" />
+    <None Include="ResidualFine.comp" />
     <None Include="fragment.glsl" />
     <None Include="Gradient.comp" />
     <None Include="Multigrid.comp" />
