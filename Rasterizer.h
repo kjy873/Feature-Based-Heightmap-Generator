@@ -85,5 +85,8 @@ public:
 		Curves.clear();
 		Quads.clear();
 	}
+
+	void CreatePolylineU();
+	void RemoveDuplicatePolylinePoints(std::vector<LinearCoord>& Src);
 	
 };

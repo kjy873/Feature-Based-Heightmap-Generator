@@ -1105,7 +1105,7 @@ void DrawPanel() {
 			//std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
 			//ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
 
-			//RasterizerMgr.PrintPolylines();
+			RasterizerMgr.PrintPolylines();
 
 		}
 

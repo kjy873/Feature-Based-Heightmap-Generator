@@ -7,6 +7,7 @@ void Rasterizer::BuildPolyline() {
 	
 
 	for (auto& curve : Curves) {
+		curve.PolylineSamples.clear();
 		const std::vector<glm::vec3>& cp = curve.ControlPoints;
 		const int LoopCount = (int)(cp.size() - 1) / 3;
 
@@ -41,8 +42,11 @@ void Rasterizer::BuildPolyline() {
 			}
 
 			curve.PolylineSamples.emplace_back(CreateLinearCoord(p0, p1, p2, p3, 1.0f));
+			PrePos = p3;
 		}
 	}
+
+	CreatePolylineU();
 
 }
 
@@ -61,6 +65,48 @@ const LinearCoord Rasterizer::CreateLinearCoord(const glm::vec3& p0, const glm::
 
 	return LinearCoord{ pos, normal, tangent, glm::clamp(t, 0.0f, 1.0f) };
 
+}
+
+void Rasterizer::CreatePolylineU() {
+
+	
+	
+	for (auto& curve : Curves) {
+		if (curve.PolylineSamples.size() < 2) continue;
+
+		RemoveDuplicatePolylinePoints(curve.PolylineSamples);
+
+		float TotalLength = 0.0f;
+
+		curve.PolylineSamples[0].u = 0.0f;
+		for (int i = 1; i < curve.PolylineSamples.size(); i++) {
+
+			float Length = glm::length(curve.PolylineSamples[i].Pos - curve.PolylineSamples[i - 1].Pos);
+			TotalLength += Length;
+
+			curve.PolylineSamples[i].u = TotalLength;
+		}
+
+		if (TotalLength > 0) {
+			for (auto& sample : curve.PolylineSamples) {
+				sample.u /= TotalLength;
+			}
+		}
+
+		curve.PolylineSamples.back().u = 1.0f;
+	}
+
+}
+void Rasterizer::RemoveDuplicatePolylinePoints(std::vector<LinearCoord>& Src) {
+
+	std::vector<LinearCoord> UniqueSamples;
+	UniqueSamples.reserve(Src.size());
+	UniqueSamples.push_back(Src.front());
+	for (int i = 1; i < Src.size(); i++) {
+		if (glm::length(Src[i].Pos - UniqueSamples.back().Pos) > TexelSize * 1e-3) UniqueSamples.push_back(Src[i]);
+	}
+
+	Src.swap(UniqueSamples);
 }
 
 void Rasterizer::PrintPolylines() const {
