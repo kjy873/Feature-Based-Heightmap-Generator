@@ -11,6 +11,13 @@
 #include "BufferManager.h"
 #include "Features.h"
 
+struct SaveData {
+	int CurveCount = 0;
+	std::vector<std::vector<glm::vec3>> ControlPoints;
+	std::vector<std::vector<Constraints>> Constraints;
+	std::vector<std::vector<glm::vec3>> ConstraintPos;
+};
+
 struct CurvePoint
 {
 	glm::vec3 Position;
@@ -212,6 +219,7 @@ public:
 	int FindNearestCurvePoint(const glm::vec3 Pos);
 
 	const std::vector<ConstraintPoint>& GetConstraintPoints() const { return ConstraintPoints; }
+	std::vector<ConstraintPoint>& GetConstraintPoints() { return ConstraintPoints; }
 
 	const std::vector<CurvePoint>& GetSamplePoints() const { return SamplePoints; }
 
@@ -401,4 +409,18 @@ public:
 	void PrintPickResult(const PickResult& Picked) const;
 
 	const std::vector<CurveData> ExtractCurveData();
+
+	SaveData ExtractSaveData();
+	void ImportSaveData(const SaveData& Data);
+	void ClearFeatureCurveManager() {
+		FeatureCurves.clear();
+		SelectedCurveID = -1;
+		SelectedControlPointID = -1;
+		SelectedConstraintPointID = -1;
+		NextCurveID = 0;
+		State = EditCurveState::None;
+		CommittedSegments = 0;
+		Pended.reset();
+		View = CurveManagerView();
+	}
 };

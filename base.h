@@ -510,3 +510,6 @@ void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum seve
 		<< " type = " << type << ", severity = " << severity
 		<< ", message = " << message << std::endl;
 }
+
+void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr);
+SaveData LoadCurveData(const char* FileName);

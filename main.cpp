@@ -1297,9 +1297,6 @@ void DrawPanel() {
 			UpdateSplineSurface();
 		}
 
-
-		
-
 		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
 			
 			//ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0), true);
@@ -1308,6 +1305,17 @@ void DrawPanel() {
 			//ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
 			//ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
 			//cout << "Exported constraint maps" << endl;
+		}
+
+		if (ImGui::Button("SaveCurveData", ImVec2(-FLT_MIN, 30))) {
+			SaveCurveData("CurveData", FeatureCurveMgr);
+		}
+		if (ImGui::Button("LoadCurveData", ImVec2(-FLT_MIN, 30))) {
+			FeatureCurveMgr.ImportSaveData(LoadCurveData("CurveData"));
+			FeatureCurveMgr.UploadBuffers(BufferMgr);
+			FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
+			FeatureCurveMgr.UploadBuffers(BufferMgr);
+			FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
 		}
 
 		ImGui::Text("Debug Modes");
@@ -1675,4 +1683,104 @@ void ExportDebugData(const std::vector<glm::vec4>& Map, const int Iteration) {
 	file2.close();
 	file3.close();
 	file4.close();
+}
+
+void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr) {
+		
+	SaveData Data = CurveMgr.ExtractSaveData();
+
+	ofstream file(FileName, ios::binary);
+
+	file.write(reinterpret_cast<const char*>(&Data.CurveCount), sizeof(int));
+
+	for (int i = 0; i < Data.CurveCount; i++) {
+
+		int ControlPointCount = Data.ControlPoints[i].size();
+		file.write(reinterpret_cast<const char*>(&ControlPointCount), sizeof(int));
+		for (const auto& cp : Data.ControlPoints[i]) {
+			file.write(reinterpret_cast<const char*>(&cp.x), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.y), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.z), sizeof(float));
+		}
+
+		int ConstraintCount = Data.Constraints[i].size();
+		file.write(reinterpret_cast<const char*>(&ConstraintCount), sizeof(int));
+		for (const auto& cp : Data.ConstraintPos[i]) {
+			file.write(reinterpret_cast<const char*>(&cp.x), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.y), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.z), sizeof(float));
+		}
+		for (const auto& cp : Data.Constraints[i]) {
+			file.write(reinterpret_cast<const char*>(&cp.h), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.r), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.a), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.b), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.theta), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.phi), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.Amplitude), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.Roughness), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.u), sizeof(float));
+			file.write(reinterpret_cast<const char*>(&cp.Mask), sizeof(uint8_t));
+		}
+	}
+	file.close();
+
+}
+
+SaveData LoadCurveData(const char* FileName) {
+
+	ifstream file(FileName, ios::binary);
+
+	SaveData Data;
+
+	int CurveCount;
+	file.read(reinterpret_cast<char*>(&CurveCount), sizeof(int));
+	Data.CurveCount = CurveCount;
+
+	Data.ControlPoints.resize(CurveCount);
+	Data.ConstraintPos.resize(CurveCount);
+	Data.Constraints.resize(CurveCount);
+
+	for (int i = 0; i < CurveCount; i++) {
+		int ControlPointCount = 0;
+		file.read(reinterpret_cast<char*>(&ControlPointCount), sizeof(int));
+		Data.ControlPoints[i].reserve(ControlPointCount);
+		for (int j = 0; j < ControlPointCount; j++) {
+			glm::vec3 cp;
+			file.read(reinterpret_cast<char*>(&cp.x), sizeof(float));
+			file.read(reinterpret_cast<char*>(&cp.y), sizeof(float));
+			file.read(reinterpret_cast<char*>(&cp.z), sizeof(float));
+			Data.ControlPoints[i].push_back(cp);
+		}
+		int ConstraintCount = 0;
+		file.read(reinterpret_cast<char*>(&ConstraintCount), sizeof(int));
+		Data.ConstraintPos[i].reserve(ConstraintCount);
+		for (int j = 0; j < ConstraintCount; j++) {
+			glm::vec3 cp;
+			file.read(reinterpret_cast<char*>(&cp.x), sizeof(float));
+			file.read(reinterpret_cast<char*>(&cp.y), sizeof(float));
+			file.read(reinterpret_cast<char*>(&cp.z), sizeof(float));
+			Data.ConstraintPos[i].push_back(cp);
+		}
+		Data.Constraints[i].reserve(ConstraintCount);
+		for(int j = 0; j < ConstraintCount; j++){
+			Constraints c;
+			file.read(reinterpret_cast<char*>(&c.h), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.r), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.a), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.b), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.theta), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.phi), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.Amplitude), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.Roughness), sizeof(float));
+			file.read(reinterpret_cast<char*>(&c.u), sizeof(float));
+			uint8_t mask;
+			file.read(reinterpret_cast<char*>(&mask), sizeof(uint8_t));
+			c.Mask = static_cast<ConstraintMask>(mask);
+			Data.Constraints[i].push_back(c);
+		}
+
+	}
+
+	return Data;
 }

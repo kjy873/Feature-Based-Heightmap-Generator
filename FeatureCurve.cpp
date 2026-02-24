@@ -224,6 +224,8 @@ void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos, const float u) {
 
 	ConstraintPoint cp(NextConstraintPointID++, Pos, u);
 
+	cp.CachedPos = Pos;
+
 	cp.SetMesh();
 		
 	ConstraintPoints.emplace_back(std::move(cp));
@@ -1080,4 +1082,68 @@ const std::vector<CurveData> FeatureCurveManager::ExtractCurveData() {
 
 	return Datas;
 
+}
+
+SaveData FeatureCurveManager::ExtractSaveData() {
+	SaveData Data;
+
+	Data.CurveCount = FeatureCurves.size();
+
+	Data.ControlPoints.resize(Data.CurveCount);
+	Data.ConstraintPos.resize(Data.CurveCount);
+	Data.Constraints.resize(Data.CurveCount);
+
+	for (int i = 0; i < FeatureCurves.size(); i++) {
+		Data.ControlPoints[i].reserve(FeatureCurves[i].GetControlPoints().size());
+		for (const auto& cp : FeatureCurves[i].GetControlPoints()) {
+			Data.ControlPoints[i].push_back(cp.GetPosition());
+		}
+		Data.ConstraintPos[i].reserve(FeatureCurves[i].GetConstraintPoints().size());
+		Data.Constraints[i].reserve(FeatureCurves[i].GetConstraintPoints().size());
+		for (const auto& cp : FeatureCurves[i].GetConstraintPoints()) {
+			Data.Constraints[i].push_back(cp.Data);
+			Data.ConstraintPos[i].push_back(cp.GetPosition());
+		}
+	}
+
+	return Data;
+
+}
+
+void FeatureCurveManager::ImportSaveData(const SaveData& Data) {
+
+	ClearFeatureCurveManager();
+
+	for (int i = 0; i < Data.CurveCount; i++) {
+		AddFeatureCurve();
+		SelectedCurveID = i;
+		for (const auto& cp : Data.ControlPoints[i]) {
+			GetFeatureCurve(i)->AddControlPoint(cp);
+		}
+		Cancel();
+
+		SelectedCurveID = i;
+		for (int j = 0; j < Data.ConstraintPos[i].size(); j++) {
+			glm::vec3 Pos = Data.ConstraintPos[i][j];
+			Constraints ConstraintData = Data.Constraints[i][j];
+			GetFeatureCurve(i)->AddConstraintPoint(Data.ConstraintPos[i][j], ConstraintData.u);
+
+			// AddConstraintPoint가 추가한 constraint point의 ID를 반환해서 GetConstraintPoint으로 접근해서 Data 업데이트하는 방식으로 개선할 수 있음
+			GetFeatureCurve(i)->GetConstraintPoints().back().Data = ConstraintData;
+		}
+		Cancel();
+
+		GetFeatureCurve(i)->BuildLinesLength();
+		UpdateAllBoundingBoxes();
+	}
+
+
+	// 아주 심각한 결함
+	// ControlPoint를 찍을 때 p2와 p3의 순서가 뒤바뀜
+	// 한 세그먼트가 완성될 때 constraint point가 2개 추가됨 -> Import하면 constraint point가 2개 더 많아짐
+	// Constraint Point는 첫점, 끝점, 직접 추가하는 점. 이 순서대로 저장됨
+
+	// 해결 : FetureCurve -> Add로 직접 추가해서 추가적인 동작을 방지함
+	// ID, CommittedSegment, BuildLines 등 추가적인 동작은 직접 호출하기
+	
 }
