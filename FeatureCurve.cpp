@@ -276,7 +276,7 @@ int FeatureCurve::FindConstraintPointByU(float u) const {
 
 	auto it = std::find_if(ConstraintPoints.begin(), ConstraintPoints.end(), [u](const ConstraintPoint& cp) { return glm::abs(cp.Data.u - u) < 1e-6f; }); // ¶Ç´Â a == b
 
-	return (it == ConstraintPoints.end()) ? -1 : it->Data.u;
+	return (it == ConstraintPoints.end()) ? -1 : it->GetID();
 
 }
 
