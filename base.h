@@ -513,3 +513,5 @@ void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum seve
 
 void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr);
 SaveData LoadCurveData(const char* FileName);
+
+const glm::vec3 MoveControlPoint(const glm::mat4 Origin);

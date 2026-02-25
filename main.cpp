@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 1024;
-int HeightMapV = 1024;
+int HeightMapU = 512;
+int HeightMapV = 512;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -36,6 +36,8 @@ double LastMouseY = 0.0;
 
 bool ControlPointRender = false;
 
+bool PickControlPoint = false;
+
 double windowWidth = 1920;
 double windowHeight = 1080;
 int FrameBufferWidth;
@@ -43,9 +45,10 @@ int FrameBufferHeight;
 const float defaultSize = 0.05;
 
 int ElevationIteration = 5;
-int GradientIteration = 5000;
-int DiffusionLevel = 1;
-int MultigridIteration = 1;
+int GradientIteration = 1000;
+int NoiseIteration = 1000;
+int DiffusionLevel = 5;
+int MultigridIteration = 50;
 int CoarseSolverIteration = 5;
 int PreSmoothing = 5;
 int PostSmoothing = 5;
@@ -58,6 +61,7 @@ bool DragMode = false;
 
 bool ControlPressed = false;
 bool ShiftPressed = false;
+bool AltPressed = false;
 
 int InputTangent = 0;
 
@@ -255,14 +259,13 @@ int main() {
 
 		if (EditVectorMode) CurveManagerViewer();
 
-
 		if (PickedControlPoint)
 		{
 			ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection),
 				ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(PickedObjectModelTransform));
 
 			//ImGuizmo::DecomposeMatrixToComponents() 변환을 값으로 바꿈
-
+			
 
 			PickedControlPoint->TSR = PickedObjectModelTransform; // ImGuizmo가 사용 중이면 PickedControlPoint의 변환을 업데이트
 			glm::vec3 newPosition = glm::vec3(PickedObjectModelTransform[3]);
@@ -367,6 +370,7 @@ void init() {
 	ShaderMgr.AddComputeShaderProgram("Coarse.comp", ComputeType::Coarse);
 	ShaderMgr.AddComputeShaderProgram("Correction.comp", ComputeType::Correction);
 	ShaderMgr.AddComputeShaderProgram("ResidualFine.comp", ComputeType::ResidualFine);
+	ShaderMgr.AddComputeShaderProgram("Noise.comp", ComputeType::Noise);
 
 	DiffuseMgr.Initialize(HeightMapU, HeightMapV);
 
@@ -669,6 +673,9 @@ GLvoid Keyboard(GLFWwindow* window) {
 
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) ShiftPressed = true;
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) ShiftPressed = false;
+
+	if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS) AltPressed = true;
+	if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_RELEASE) AltPressed = false;
 }
 
 void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
@@ -676,11 +683,11 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 	if (UiWantMouse)return;
 
 	bool GizmoActive = false;
-	if(ImGuizmo::IsOver() && PickedControlPoint) {
+	if(ImGuizmo::IsOver()) {
 		GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
 		//cout << "is over true" << endl;
 	}
-	if (ImGuizmo::IsUsing() && PickedControlPoint) {
+	if (ImGuizmo::IsUsing()) {
 		GizmoActive = true; // ImGuizmo가 사용 중이면 마우스 이벤트를 무시
 		//cout << "is using true" << endl;
 	}
@@ -750,6 +757,10 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Shift);
 				FeatureCurveMgr.UploadBuffers(BufferMgr);
 				FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
+			}
+
+			else if (AltPressed) {
+				FeatureCurveMgr.Click(NodePos, InputButton::Left, InputMode::Alt);
 			}
 			
 			else {
@@ -940,6 +951,32 @@ void CurveManagerViewer() {
 
 	}
 
+	if (CurveView.SelectedControlPointID != -1) {
+		PickControlPoint = true;
+		// ControlPoint의 Position을 가져와 임시 행렬 생성, Mesh의 행렬을 그대로 가져오려면, ControlPoint를 생성할 때 TSR을 바꿔야 함
+		//glm::mat4 Origin = FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetControlPoint(CurveView.SelectedControlPointID).GetMesh()->GetTransformMatrix();
+		glm::mat4 Origin = glm::translate(glm::mat4(1.0f), FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetControlPoint(CurveView.SelectedControlPointID).GetPosition());
+		glm::vec3 NewPos = MoveControlPoint(Origin);
+		FeatureCurveMgr.MoveSelectedControlPoint(NewPos);
+		FeatureCurveMgr.UploadBuffers(BufferMgr);
+	}
+	else PickControlPoint = false;
+
+}
+
+const glm::vec3 MoveControlPoint(const glm::mat4 Origin) {
+
+	glm::mat4 origin = Origin;
+	glm::mat4 temp = origin;
+	glm::mat4 delta = glm::mat4(1.0f);
+
+	ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(temp));
+
+	if (ImGuizmo::IsUsing()) {
+		glm::vec3 NewPos = glm::vec3(temp[3]);
+		return NewPos;
+	}
+	else return glm::vec3(Origin[3].x, Origin[3].y, Origin[3].z);
 }
 
 void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
@@ -1105,7 +1142,7 @@ void DrawPanel() {
 			//std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
 			//ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
 
-			RasterizerMgr.PrintPolylines();
+			//RasterizerMgr.PrintPolylines();
 
 		}
 
@@ -1145,6 +1182,7 @@ void DrawPanel() {
 
 		if (ImGui::InputInt("GradientIteration", &GradientIteration, 1, 100));
 		if (ImGui::InputInt("ElevationIteration", &ElevationIteration, 1, 100));
+		if (ImGui::InputInt("NoiseIteration", &NoiseIteration, 1, 100));
 		if (ImGui::InputInt("Level", &DiffusionLevel, 1, 5));
 		if (ImGui::InputInt("Multigrid Iteration", &MultigridIteration, 1, 10));
 		if (ImGui::InputInt("Coarse Solver Iteration", &CoarseSolverIteration, 1, 10));
@@ -1183,6 +1221,15 @@ void DrawPanel() {
 			DiffuseMgr.SetGradientMap(BufferMgr.ReadbackGradientTexture(ResU(0), ResV(0), 0));
 			DiffuseMgr.NormalizeGradients();
 			BufferMgr.UploadGradientTexture(ResU(0), ResV(0), DiffuseMgr.GetGradientMap(), 0);
+
+			// Noise Diffusion
+			for (int i = 0; i < NoiseIteration; i++) {
+				BufferMgr.BindElevationTextureDiffusion(0);
+				ShaderMgr.FindComputeProgram(ComputeType::Noise).Use();
+				glDispatchCompute((ResU(0) + 15) / 16, (ResV(0) + 15) / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+				BufferMgr.SwapElevation(0);
+			}
 
 			// outerloop
 			for (int outer = 0; outer < MultigridIteration; outer++) {
@@ -1294,6 +1341,17 @@ void DrawPanel() {
 
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 
+			UpdateSplineSurface();
+
+			DiffuseMgr.PackMaps();
+			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRGRC());
+
+		}
+
+		if (ImGui::Button("Apply Noise", ImVec2(-FLT_MIN, 30))) {
+			NoiseGen.GeneratePerlinNoiseAR(0, noiseParameters.frequency, noiseParameters.octaves, noiseParameters.lacunarity, DiffuseMgr.GetNoiseMap());
+
+			heightmap.AddHeight(NoiseGen.GetHeightMap());
 			UpdateSplineSurface();
 		}
 

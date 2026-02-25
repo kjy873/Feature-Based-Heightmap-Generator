@@ -252,6 +252,24 @@ int FeatureCurve::FindNearestCurvePoint(const glm::vec3 Pos) {
 
 }
 
+int FeatureCurve::FIndNearestCurvePointByU(const float u) {
+
+	int BestIndex = -1;
+	float NearestDistSq = std::numeric_limits<float>::max();
+
+	for (int i = 0; i < SamplePoints.size(); i++) {
+		float DistSq = (SamplePoints[i].u - u) * (SamplePoints[i].u - u);
+
+		if (DistSq < NearestDistSq) {
+			NearestDistSq = DistSq;
+			BestIndex = i;
+		}
+	}
+
+	return BestIndex;
+
+}
+
 FC::ControlPoint* FeatureCurve::GetControlPointPtr(int ID) {
 	auto it = std::find_if(ControlPoints.begin(), ControlPoints.end(), [ID](const FC::ControlPoint& cp) { return cp.GetID() == ID; });
 	return (it == ControlPoints.end()) ? nullptr : &(*it);
@@ -381,6 +399,8 @@ void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputM
 	/*std::cout << "Previous State: ";
 	PrintState();
 	std::cout << std::endl;*/
+
+	std::cout << "click" << std::endl;
 
 	PickResult Picked = Pick(Pos);
 
@@ -614,10 +634,10 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 
 		if (Mode == InputMode::Ctrl) return Decision::ExtendCurve;
 
-		if (Mode == InputMode::Shift) {
-			//std::cout << "Add Constraint Point" << std::endl;
-			return Decision::AddConstraintPoint;
-		}
+		if (Mode == InputMode::Shift) return Decision::AddConstraintPoint;
+
+		if (Mode == InputMode::Alt) return Decision::DeleteSelectedCurve;
+
 		if (ControlPointPicked) return Decision::SelectControlPoint;
 		if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 		if (CurvePicked) return Decision::SelectCurve;
@@ -718,6 +738,8 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 		break;
 	case Decision::DeleteSelectedControlPoint:
 	case Decision::DeleteSelectedCurve:
+		DeleteSelectedCurve();
+		break;
 	case Decision::SelectControlPoint:
 		SelectControlPoint(Picked);
 		break;
@@ -742,8 +764,9 @@ void FeatureCurveManager::SelectCurve(const PickResult& Picked) {
 	GetFeatureCurve(SelectedCurveID)->SetHighlightWeight(1.0f);
 	State = EditCurveState::CurveSelected;
 
-	std::cout << "ControlPoints: " << GetFeatureCurve(SelectedCurveID)->GetControlPoints().size() << std::endl;
-	std::cout << "ConstraintPoints: " << GetFeatureCurve(SelectedCurveID)->GetConstraintPoints().size() << std::endl;
+	std::cout << "Curve Selected (ID: " << SelectedCurveID << ")" << std::endl;
+	/*std::cout << "ControlPoints: " << GetFeatureCurve(SelectedCurveID)->GetControlPoints().size() << std::endl;
+	std::cout << "ConstraintPoints: " << GetFeatureCurve(SelectedCurveID)->GetConstraintPoints().size() << std::endl;*/
 
 	return;
 
@@ -1057,6 +1080,20 @@ void FeatureCurveManager::UpdateConstraintPoints(int CurveID) {
 	SamplePoint와 ConstraintPoint의 Pos, u값을 업데이트해야함*/
 
 
+	for (auto& ConstraintPoint : Curve->GetConstraintPoints()) {
+		// constraint point의 u를 구하고, samplepoint 중에서 u에 가장 가까운 점을 찾아서(samplepoint에도 u가 있음) 그 위치로 스냅하기
+		float u = ConstraintPoint.Data.u;
+		int NearestSampleIndex = Curve->FIndNearestCurvePointByU(u);
+
+		if (NearestSampleIndex != -1) {
+			glm::vec3 NewPos = Curve->GetSamplePoints()[NearestSampleIndex].Position;
+			ConstraintPoint.CachedPos = NewPos;
+			ConstraintPoint.Cached = true;
+			ConstraintPoint.Uploaded = true;
+			ConstraintPoint.SetMesh();
+		}
+	}
+
 
 	// u에 따라 위치 업데이트
 }
@@ -1142,4 +1179,39 @@ void FeatureCurveManager::ImportSaveData(const SaveData& Data) {
 		UpdateAllBoundingBoxes();
 	}
 	
+}
+
+void FeatureCurveManager::DeleteSelectedCurve() {
+	if (SelectedCurveID == -1 || SelectedControlPointID) return;
+
+	DeselectAll();
+
+	const int deleteID = SelectedCurveID;
+
+	auto it = std::find_if(FeatureCurves.begin(), FeatureCurves.end(),
+		[&](const FeatureCurve& c) { return c.GetCurveID() == deleteID; });
+
+	if (it != FeatureCurves.end()) {
+		FeatureCurves.erase(it);
+		std::cout << "Deleted Curve (ID: " << deleteID << ")" << std::endl;
+	}
+}
+
+void FeatureCurveManager::MoveSelectedControlPoint(const glm::vec3& Pos) {
+
+	if (SelectedControlPointID == -1 || SelectedCurveID == -1) return;
+
+	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
+
+	Curve->GetControlPoint(SelectedControlPointID).SetPosition(Pos);
+	Curve->GetControlPoint(SelectedControlPointID).SetMesh();
+	//Curve->GetControlPoint(SelectedControlPointID).GetMesh()->Translate(Pos);
+
+	Curve->BuildLinesLength();
+	Curve->UpdateBoundingBox();
+
+	UpdateConstraintPoints(SelectedCurveID);
+
+	std::cout << "Pos : " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
+
 }

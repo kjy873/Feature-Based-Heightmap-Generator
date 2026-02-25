@@ -115,6 +115,7 @@ void CubeMesh::SetHexahedron(const glm::vec3 center, float half, const glm::vec3
 		else
 			Normal[i] = glm::vec3(0.0f, 0.0f, 1.0f);
 	}
+
 }
 
 void TerrainMesh::SetSurface(const std::vector<glm::vec3>& vertices, const std::vector<int>& indices, const std::vector<glm::vec3>& normals, const glm::vec3& c) {

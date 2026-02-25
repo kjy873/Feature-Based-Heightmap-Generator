@@ -22,6 +22,8 @@ public:
 
 	void GeneratePerlinNoise(int Seed, float Frequency, int Octaves, float Persistence, float Lacunarity);
 	void GenerateSimplexNoise(int Seed, float Frequency, int Octaves, float Persistence, float Lacunarity);
+	void GeneratePerlinNoiseAR(int Seed, float Frequency, int Octaves, float Lacunarity, const std::vector<glm::vec2>& AR);
+	void GenerateSimplexNoiseAR(int Seed, float Frequency, int Octaves, float Lacunarity, const std::vector<glm::vec2>& AR);
 
 	const std::vector<float> GetHeightMap() { return Map; }
 

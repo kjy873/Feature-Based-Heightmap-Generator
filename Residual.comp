@@ -22,6 +22,13 @@ float ElevationResidual(float NewH, float OldH, uint Mask){
 
 }
 
+float NoiseResidual(float NewN, float OldN, uint Mask){
+	if((Mask & MASK_NOISE) != 0u){
+		return 0.0f;
+	}
+	return NewN - OldN;
+}
+
 vec3 DownsampleGradient(vec3 P00, vec3 P01, vec3 P10, vec3 P11){
 
 	vec2 N00 = normalize(P00.rg);
@@ -94,6 +101,15 @@ void main(){
 	float ResidualP10 = ElevationResidual(imageLoad(ElevationNew, p10).r, imageLoad(ElevationOld, p10).r, MaskP10);
 	float ResidualP11 = ElevationResidual(imageLoad(ElevationNew, p11).r, imageLoad(ElevationOld, p11).r, MaskP11);
 
+	float AmplitudeP00 = NoiseResidual(imageLoad(ElevationNew, p00).g, imageLoad(ElevationOld, p00).g, MaskP00);
+	float AmplitudeP01 = NoiseResidual(imageLoad(ElevationNew, p01).g, imageLoad(ElevationOld, p01).g, MaskP01);
+	float AmplitudeP10 = NoiseResidual(imageLoad(ElevationNew, p10).g, imageLoad(ElevationOld, p10).g, MaskP10);
+	float AmplitudeP11 = NoiseResidual(imageLoad(ElevationNew, p11).g, imageLoad(ElevationOld, p11).g, MaskP11);
+
+	float RoughnessP00 = NoiseResidual(imageLoad(ElevationNew, p00).b, imageLoad(ElevationOld, p00).b, MaskP00);
+	float RoughnessP01 = NoiseResidual(imageLoad(ElevationNew, p01).b, imageLoad(ElevationOld, p01).b, MaskP01);
+	float RoughnessP10 = NoiseResidual(imageLoad(ElevationNew, p10).b, imageLoad(ElevationOld, p10).b, MaskP10);
+	float RoughnessP11 = NoiseResidual(imageLoad(ElevationNew, p11).b, imageLoad(ElevationOld, p11).b, MaskP11);
 
 	// Gradient
 	
@@ -114,6 +130,8 @@ void main(){
 	// fine residual debug
 
 	float ResidualAvrg = (ResidualP00 + ResidualP01 + ResidualP10 + ResidualP11) * 0.25f;
+	float AmplitudeAvrg = (AmplitudeP00 + AmplitudeP01 + AmplitudeP10 + AmplitudeP11) * 0.25f;
+	float RoughnessAvrg = (RoughnessP00 + RoughnessP01 + RoughnessP10 + RoughnessP11) * 0.25f;
 
 	uint Mask = MaskP00 | MaskP01 | MaskP10 | MaskP11;
 
@@ -121,7 +139,7 @@ void main(){
 
 	// noise도 residual 계산한다면 마스크 범위에서 0
 
-	imageStore(ResidualCoarse, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));
+	imageStore(ResidualCoarse, p, vec4(ResidualAvrg, AmplitudeAvrg, RoughnessAvrg, float(Mask)));
 	imageStore(GradientWrite, p, vec4(CoarseGradient, 0.0f));
 
 	//imageStore(CoarseWrite, p, vec4(ResidualAvrg, 0.0f, 0.0f, float(Mask)));

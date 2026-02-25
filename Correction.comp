@@ -29,6 +29,44 @@ float BilinearProlong(ivec2 FineP){
 
 }
 
+float BilinearProlongA(ivec2 FineP){
+	
+	ivec2 CoarseP = FineP >> 1;
+
+	bool OddX = (FineP.x & 1) != 0;
+	bool OddY = (FineP.y & 1) != 0;
+
+	float C00 = imageLoad(CorrectionRead, clamp(CoarseP, ivec2(0), imageSize(CorrectionRead) - ivec2(1))).g;
+	float C10 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(1, 0), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).g;
+	float C01 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(0, 1), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).g;
+	float C11 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(1, 1), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).g;
+
+	if(!OddX && !OddY) return C00;
+	if(OddX && !OddY) return 0.5 * (C00 + C10);
+	if(!OddX && OddY) return 0.5 * (C00 + C01);
+	return 0.25 * (C00 + C10 + C01 + C11);
+
+}
+
+float BilinearProlongB(ivec2 FineP){
+	
+	ivec2 CoarseP = FineP >> 1;
+
+	bool OddX = (FineP.x & 1) != 0;
+	bool OddY = (FineP.y & 1) != 0;
+
+	float C00 = imageLoad(CorrectionRead, clamp(CoarseP, ivec2(0), imageSize(CorrectionRead) - ivec2(1))).b;
+	float C10 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(1, 0), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).b;
+	float C01 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(0, 1), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).b;
+	float C11 = imageLoad(CorrectionRead, clamp(CoarseP + ivec2(1, 1), ivec2(0), imageSize(CorrectionRead) - ivec2(1))).b;
+
+	if(!OddX && !OddY) return C00;
+	if(OddX && !OddY) return 0.5 * (C00 + C10);
+	if(!OddX && OddY) return 0.5 * (C00 + C01);
+	return 0.25 * (C00 + C10 + C01 + C11);
+
+}
+
 void main(){
 	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
 
@@ -50,6 +88,14 @@ void main(){
 	float ProlongedE = BilinearProlong(p);
 
 	float NewH = OldH + ProlongedE;
+
+	float OldA = Fine.g;
+	float ProlongedA = BilinearProlongA(p);
+	float NewA = OldA + ProlongedA;
+
+	float OldR = Fine.b;
+	float ProlongedR = BilinearProlongB(p);
+	float NewR = OldR + ProlongedR;
 
 	imageStore(ElevationWrite, p, vec4(NewH, Fine.g, Fine.b, Fine.a));	
 

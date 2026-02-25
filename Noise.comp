@@ -2,9 +2,45 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (rg32f, binding = 4) readonly uniform image2D NoiseRead;
-layout (rg32f, binding = 5) writeonly uniform image2D NoiseWrite;
-layout (r8ui, binding = 6) readonly uniform uimage2D ConstraintMaskImage;
+layout (rgba32f, binding = 0) readonly uniform image2D ElevationRead;
+layout (rgba32f, binding = 1) writeonly uniform image2D ElevationWrite;
+
+const uint MASK_ELEVATION = 1u << 0;
+const uint MASK_GRADIENT  = 1u << 1;
+const uint MASK_NOISE     = 1u << 2;
+
 void main(){
+
+	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+		if(p.x >= imageSize(ElevationRead).x || p.y >= imageSize(ElevationRead).y){
+		return;
+	}
+
+	uint mask = uint(imageLoad(ElevationRead, p).a + 0.5);
+
+	bool HasNoiseMask = (mask & MASK_NOISE) != 0u;
+
+	ivec2 Left = clamp(p + ivec2(-1, 0), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Right = clamp(p + ivec2(1, 0), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Down = clamp(p + ivec2(0, -1), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+	ivec2 Up = clamp(p + ivec2(0, 1), ivec2(0), imageSize(ElevationRead) - ivec2(1));
+
+	float A_L = 0.25f * (imageLoad(ElevationRead, Left).g +
+						imageLoad(ElevationRead, Right).g +
+						imageLoad(ElevationRead, Down).g +
+						imageLoad(ElevationRead, Up).g);
+
+	float R_L = 0.25f * (imageLoad(ElevationRead, Left).b +
+						imageLoad(ElevationRead, Right).b +
+						imageLoad(ElevationRead, Down).b +
+						imageLoad(ElevationRead, Up).b);
+
+	if(HasNoiseMask){
+		imageStore(ElevationWrite, p, imageLoad(ElevationRead, p));
+		return;
+	}
+
+	imageStore(ElevationWrite, p, vec4(imageLoad(ElevationRead, p).r, A_L, R_L, float(mask)));
 
 }

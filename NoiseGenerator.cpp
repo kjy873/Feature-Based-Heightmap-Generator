@@ -37,3 +37,33 @@ void NoiseGenerator::GenerateSimplexNoise(int Seed, float Frequency, int Octaves
 	}
 
 }
+
+void NoiseGenerator::GeneratePerlinNoiseAR(int Seed, float Frequency, int Octaves, float Lacunarity, const std::vector<glm::vec2>& AR) {
+
+	Map.clear();
+	Map.resize(Rows * Cols);
+
+	const auto g = NoiseSelectorAR(Rows, Cols, Seed, Frequency, Octaves, Lacunarity, "Perlin");
+
+	for (int i = 0; i < Rows; i++) {
+		for (int j = 0; j < Cols; j++) {
+			Map[i * Cols + j] = g(glm::vec2(j, i), AR[i * Cols + j].x, AR[i * Cols + j].y) * .1f;
+		}
+	}
+
+}
+
+void NoiseGenerator::GenerateSimplexNoiseAR(int Seed, float Frequency, int Octaves, float Lacunarity, const std::vector<glm::vec2>& AR) {
+
+	Map.clear();
+	Map.resize(Rows * Cols);
+
+	const auto g = NoiseSelectorAR(Rows, Cols, Seed, Frequency, Octaves, Lacunarity, "Simplex");
+
+	for (int i = 0; i < Rows; i++) {
+		for (int j = 0; j < Cols; j++) {
+			Map[i * Cols + j] = g(glm::vec2(j, i), AR[i * Cols + j].x, AR[i * Cols + j].y) * .1f;
+		}
+	}
+
+}

@@ -153,6 +153,34 @@ inline float NoiseCombiner1(const glm::vec2& p, const float& width, const float&
 
 }
 
+inline float NoiseCombinerAR(const glm::vec2& p, const float width, const float height, const int seed, const float frequency, const int octaves, float lacunarity, float A, float R,
+	const std::string& NoiseType) {
+
+	float Total = 0;
+	glm::vec2 point = glm::vec2((p.x + 0.5f) / width, (p.y + 0.5f) / height);
+
+	float Persistence = std::pow(lacunarity, -(1.0f - R));
+
+	float Frequency = frequency;
+	float Amplitude = A;
+
+	for (int i = 0; i < octaves; i++) {
+		float n = 0;
+		if (NoiseType == "Perlin") n = Perlin(point * Frequency, seed);
+		else if (NoiseType == "Simplex") n = Simplex(point * Frequency, seed);
+
+		Total += n * Amplitude;
+
+		Frequency *= lacunarity;
+		Amplitude *= Persistence;
+
+	}
+
+	return A * Total;
+}
+
+
+
 inline std::function<float(const glm::vec2&)> NoiseSelector(const float& width, const float& height, const int& seed,
 	float frequency, int octaves, float persistence, float lacunarity, const std::string& noiseType)
 {
@@ -161,4 +189,11 @@ inline std::function<float(const glm::vec2&)> NoiseSelector(const float& width, 
 		return NoiseCombiner1(p, width, height, seed, frequency, octaves, persistence, lacunarity, noiseType);
 		};
 
+}
+
+inline std::function<float(const glm::vec2&, const float A, const float R)> NoiseSelectorAR(const float width, const float height, const int seed,
+	float frequency, int octaves, float lacunarity, const std::string& NoiseType) {
+	return [width, height, seed, frequency, octaves, lacunarity, NoiseType](const glm::vec2& p, const float A, const float R) {
+		return NoiseCombinerAR(p, width, height, seed, frequency, octaves, lacunarity, A, R, NoiseType);
+		};
 }

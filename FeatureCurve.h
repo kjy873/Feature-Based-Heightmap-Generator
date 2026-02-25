@@ -85,13 +85,14 @@ enum class InputButton
 {
 	Left,
 	Right
-};;
+};
 
 enum class InputMode
 {
 	Default,
 	Ctrl,
-	Shift
+	Shift,
+	Alt
 };
 
 struct AABBXZ {
@@ -129,6 +130,7 @@ namespace FC {
 		ControlPoint(ControlPoint&&) noexcept = default;
 		ControlPoint& operator=(ControlPoint&&) noexcept = default;
 
+		void SetPosition(const glm::vec3& pos) { Position = pos; }
 		void SetMesh();
 		void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
 		ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
@@ -219,6 +221,7 @@ public:
 	void AddConstraintPoint(const glm::vec3 Pos, const float u);
 
 	int FindNearestCurvePoint(const glm::vec3 Pos);
+	int FIndNearestCurvePointByU(const float u);
 
 	const std::vector<ConstraintPoint>& GetConstraintPoints() const { return ConstraintPoints; }
 	std::vector<ConstraintPoint>& GetConstraintPoints() { return ConstraintPoints; }
@@ -409,6 +412,7 @@ public:
 
 	void UpdateConstraintPointPosByU(int CurveID, int ConstraintPointID); // ConstraintPoint의 u값에 따라 위치를 업데이트
 	void UpdateLastConstraint(int CurveID); // 마지막 ConstraintPoint의 u값에 따라 위치를 업데이트
+
 	void UpdateConstraintPoints(int CurveID); // 모든 ConstraintPoint의 u값에 따라 위치를 업데이트
 
 	void PrintPickResult(const PickResult& Picked) const;
@@ -427,4 +431,8 @@ public:
 		Pended.reset();
 		View = CurveManagerView();
 	}
+
+	void DeleteSelectedCurve();
+
+	void MoveSelectedControlPoint(const glm::vec3& Pos);
 };
