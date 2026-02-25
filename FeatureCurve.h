@@ -167,6 +167,8 @@ class FeatureCurve
 	int NextControlPointID = 0;
 	int NextConstraintPointID = 0;
 
+	int CommittedSegments = 0;
+
 
 
 public:
@@ -235,6 +237,9 @@ public:
 	int FindConstraintPointByU(float u) const;
 
 	int CreateControlPointID() { return NextControlPointID++; }
+
+	int CommitSegment() { return ++CommittedSegments; }
+	int GetCommittedSegments() const { return CommittedSegments; }
 
 
 };
@@ -306,7 +311,7 @@ class FeatureCurveManager
 
 	float r = 0.05f;
 
-	int CommittedSegments = 0;
+	
 
 	FC::ControlPoint HoveringControlPoint = FC::ControlPoint(glm::vec3(0.0f, 0.0f, 0.0f));
 	bool HoverIsDirty = false;
@@ -419,7 +424,6 @@ public:
 		SelectedConstraintPointID = -1;
 		NextCurveID = 0;
 		State = EditCurveState::None;
-		CommittedSegments = 0;
 		Pended.reset();
 		View = CurveManagerView();
 	}

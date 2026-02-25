@@ -835,7 +835,7 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 		Curve->BuildLinesLength();
 		UpdateAllBoundingBoxes();
 
-		if (CommittedSegments < 1) {
+		if (Curve->GetCommittedSegments() < 1) {
 			Curve->AddConstraintPoint(Curve->GetControlPoints().front().GetPosition(), 0.0f);
 			Curve->AddConstraintPoint(Pended->GetPosition(), 1.0f);
 		}
@@ -843,7 +843,7 @@ void FeatureCurveManager::AddControlPoint(const glm::vec3& Pos) {
 			UpdateLastConstraint(Curve->GetCurveID());
 		}
 
-		CommittedSegments++;
+		Curve->CommitSegment();
 
 
 
@@ -920,11 +920,13 @@ void FeatureCurveManager::Cancel() {
 
 	int Count = GetFeatureCurve(SelectedCurveID)->GetControlPoints().size();
 
+	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
+
 	switch (State) {
 	case EditCurveState::P0:
 		break;
 	case EditCurveState::P1:
-		if (CommittedSegments > 0) {
+		if (Curve->GetCommittedSegments() > 0) {
 			Pended.reset();
 			State = EditCurveState::CurveSelected;
 		}
@@ -936,7 +938,7 @@ void FeatureCurveManager::Cancel() {
 		break;
 
 	case EditCurveState::P3:
-		if (CommittedSegments > 0) {
+		if (Curve->GetCommittedSegments() > 0) {
 			GetFeatureCurve(SelectedCurveID)->PopBack();
 			Pended.reset();
 			State = EditCurveState::CurveSelected;
@@ -949,7 +951,7 @@ void FeatureCurveManager::Cancel() {
 		break;
 
 	case EditCurveState::P2:
-		if (CommittedSegments > 0) {
+		if (Curve->GetCommittedSegments() > 0) {
 			GetFeatureCurve(SelectedCurveID)->PopBack();
 			Pended.reset();
 			State = EditCurveState::CurveSelected;
@@ -1117,8 +1119,11 @@ void FeatureCurveManager::ImportSaveData(const SaveData& Data) {
 	for (int i = 0; i < Data.CurveCount; i++) {
 		AddFeatureCurve();
 		SelectedCurveID = i;
+		int ControlPointCount = 0;
 		for (const auto& cp : Data.ControlPoints[i]) {
 			GetFeatureCurve(i)->AddControlPoint(cp);
+			ControlPointCount++;
+			if ((ControlPointCount % 3 == 1) && (ControlPointCount >= 4)) GetFeatureCurve(i)->CommitSegment();
 		}
 		Cancel();
 
@@ -1129,21 +1134,12 @@ void FeatureCurveManager::ImportSaveData(const SaveData& Data) {
 			GetFeatureCurve(i)->AddConstraintPoint(Data.ConstraintPos[i][j], ConstraintData.u);
 
 			// AddConstraintPoint가 추가한 constraint point의 ID를 반환해서 GetConstraintPoint으로 접근해서 Data 업데이트하는 방식으로 개선할 수 있음
-			GetFeatureCurve(i)->GetConstraintPoints().back().Data = ConstraintData;
+			GetFeatureCurve(i)->GetConstraintPoints().back().SetConstraints(ConstraintData);
 		}
 		Cancel();
 
 		GetFeatureCurve(i)->BuildLinesLength();
 		UpdateAllBoundingBoxes();
 	}
-
-
-	// 아주 심각한 결함
-	// ControlPoint를 찍을 때 p2와 p3의 순서가 뒤바뀜
-	// 한 세그먼트가 완성될 때 constraint point가 2개 추가됨 -> Import하면 constraint point가 2개 더 많아짐
-	// Constraint Point는 첫점, 끝점, 직접 추가하는 점. 이 순서대로 저장됨
-
-	// 해결 : FetureCurve -> Add로 직접 추가해서 추가적인 동작을 방지함
-	// ID, CommittedSegment, BuildLines 등 추가적인 동작은 직접 호출하기
 	
 }
