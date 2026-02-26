@@ -29,11 +29,21 @@ public:
 	Rasterizer(const std::vector<CurveData>& curves) : Curves(curves) {};
 	~Rasterizer() {};
 
-	void SetCurves(const std::vector<CurveData>& curves) { Curves = curves; }
+	void SetCurves(const std::vector<CurveData>& curves) { Curves.clear(); Curves = curves; }
 	void Initialize(float ResU, float ResV) { 
 		Width = ResU;
 		Height = ResV;
+		
+		Map.ElevationMap.clear();
+		Map.NoiseMap.clear();
+		Map.ConstraintMaskMap.clear();
+		Map.Gradients.clear();
+		Map.CurveIDMap.clear();
+
+		Quads.clear();
+
 		TexelSize = std::min(1.0f / ResU, 1.0f / ResV); 
+		std::cout << "TexelSize: " << TexelSize << std::endl;
 		Map.ElevationMap.assign(ResU * ResV, 0.0f);
 		Map.NoiseMap.assign(ResU * ResV, glm::vec2(0.0f, 0.0f));
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);

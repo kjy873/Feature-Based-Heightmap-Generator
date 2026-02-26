@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 512;
-int HeightMapV = 512;
+int HeightMapU = 1024;
+int HeightMapV = 1024;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -684,7 +684,7 @@ void CallbackMouseButton(GLFWwindow* window, int button, int action, int mods) {
 
 	bool GizmoActive = false;
 	if(ImGuizmo::IsOver()) {
-		GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
+		//GizmoActive = true; // ImGuizmo가 활성화되어 있으면 마우스 이벤트를 무시
 		//cout << "is over true" << endl;
 	}
 	if (ImGuizmo::IsUsing()) {
@@ -957,7 +957,7 @@ void CurveManagerViewer() {
 		//glm::mat4 Origin = FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetControlPoint(CurveView.SelectedControlPointID).GetMesh()->GetTransformMatrix();
 		glm::mat4 Origin = glm::translate(glm::mat4(1.0f), FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetControlPoint(CurveView.SelectedControlPointID).GetPosition());
 		glm::vec3 NewPos = MoveControlPoint(Origin);
-		FeatureCurveMgr.MoveSelectedControlPoint(NewPos);
+		FeatureCurveMgr.MoveSelectedControlPoint(glm::vec3(NewPos.x, 0.0f, NewPos.z));
 		FeatureCurveMgr.UploadBuffers(BufferMgr);
 	}
 	else PickControlPoint = false;
@@ -1188,6 +1188,8 @@ void DrawPanel() {
 		if (ImGui::InputInt("Coarse Solver Iteration", &CoarseSolverIteration, 1, 10));
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
 
+			//DiffuseMgr.Initialize(HeightMapU, HeightMapV);
+
 			// 0. Rasterizer에서 맵 로드, 레벨 수만큼 텍스처 셋 추가
 			Maps ConstraintMap = RasterizerMgr.GetMaps();
 
@@ -1339,6 +1341,7 @@ void DrawPanel() {
 			DiffuseMgr.SetElevationMap(BufferMgr.ReadbackElevationTexture(ResU(0), ResV(0), 0));
 			DiffuseMgr.SetNoiseMap(BufferMgr.ReadbackNoiseTexture(ResU(0), ResV(0), 0));
 
+			//heightmap.ClearHeight();
 			heightmap.SetHeight(DiffuseMgr.GetElevationMap());
 
 			UpdateSplineSurface();
