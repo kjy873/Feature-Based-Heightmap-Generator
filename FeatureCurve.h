@@ -11,6 +11,18 @@
 #include "BufferManager.h"
 #include "Features.h"
 
+struct JunctionLinked {
+	int CurveID;
+	float u;
+	int Segment;
+	float t;
+};
+
+struct JunctionData {
+	glm::vec3 Pos;
+	std::vector<JunctionLinked> LinkedCurves;
+};
+
 struct SaveData {
 	int CurveCount = 0;
 	std::vector<std::vector<glm::vec3>> ControlPoints;
@@ -23,8 +35,11 @@ struct CurvePoint
 	glm::vec3 Position;
 	float u = 0.0f;
 
-	CurvePoint() : Position(glm::vec3(0.0f)), u(0.0f) {};
-	CurvePoint(const glm::vec3& pos, float uu) : Position(pos), u(uu) {};
+	int Segment;
+	float t;
+
+	CurvePoint() : Position(glm::vec3(0.0f)), u(0.0f), Segment(-1), t(0.0f) {};
+	CurvePoint(const glm::vec3& pos, float uu, int segment, float t) : Position(pos), u(uu), Segment(segment), t(t) {};
 };
 
 struct ConstraintPoint
@@ -79,6 +94,11 @@ struct ConstraintPoint
 	void SetConstraints(const Constraints& InputConstraints) { Data = InputConstraints; }
 	void SetConstraintMask(const ConstraintMask& InputConstraintMask) { Data.Mask = InputConstraintMask; }
 
+};
+
+class JunctionNode : public ConstraintPoint
+{
+	JunctionNode() : ConstraintPoint() {};
 };
 
 enum class InputButton
@@ -435,4 +455,16 @@ public:
 	void DeleteSelectedCurve();
 
 	void MoveSelectedControlPoint(const glm::vec3& Pos);
+
+	const std::vector<JunctionData> FindJunctions();
+
+	bool IntersectLine2D(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& q0, const glm::vec2& q1, float& OutAlpha, float& OutBeta, glm::vec2& OutPos, const float EPS = 1e-7f);
+
+	int FindMergeableJunction(const std::vector<JunctionData>& Junctions, const glm::vec2& Pos, float MergeEPS2);
+
+	void MergeJunctions(std::vector<JunctionLinked>& Junctions, const JunctionLinked& New);
+
+	void Weld();
+
+
 };

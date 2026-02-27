@@ -55,7 +55,7 @@ void FeatureCurve::BuildLines() {
 			glm::vec3 Pos = BezierCubic(P0, P1, P2, P3, t);
 			float u = (seg + t) / (float)SegmentCount;
 
-			SamplePoints.emplace_back(Pos, u);
+			SamplePoints.emplace_back(Pos, u, seg, t);
 		}
 	}
 
@@ -77,14 +77,16 @@ void FeatureCurve::BuildLinesLength() {
 		const glm::vec3& P2 = ControlPoints[i + 2].GetPosition();
 		const glm::vec3& P3 = ControlPoints[i + 3].GetPosition();
 
-		int SamplingStart = (i == 0) ? 0 : 1;
+		int SamplingStart = 0; // = (i == 0) ? 0 : 1;
+
+		int seg = i / 3;
 
 		for (int j = SamplingStart; j <= SamplePerSegment; j++) {
 			float t = (float)j / (float)SamplePerSegment;
 
 			glm::vec3 Pos = BezierCubic(P0, P1, P2, P3, t);
 
-			SamplePoints.emplace_back(Pos, 0.0f);
+			SamplePoints.emplace_back(Pos, 0.0f, seg, t);
 		}
 	}
 
@@ -94,7 +96,9 @@ void FeatureCurve::BuildLinesLength() {
 		SamplePoints[0].u = 0.0f;
 
 		for (int i = 1; i < SamplePoints.size(); i++) {
-			TotalLength += glm::length(SamplePoints[i].Position - SamplePoints[i - 1].Position);
+			
+			float Length = glm::length(SamplePoints[i].Position - SamplePoints[i - 1].Position);
+			if (Length > 1e-8f) TotalLength += Length;
 
 			SamplePoints[i].u = TotalLength;
 		}
@@ -1211,5 +1215,137 @@ void FeatureCurveManager::MoveSelectedControlPoint(const glm::vec3& Pos) {
 	Curve->UpdateBoundingBox();
 
 	UpdateConstraintPoints(SelectedCurveID);
+
+}
+
+bool FeatureCurveManager::IntersectLine2D(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& q0, const glm::vec2& q1, float& OutAlpha, float& OutBeta, glm::vec2& OutPos, const float EPS) {
+
+	glm::vec2 r = p1 - p0;
+	glm::vec2 s = q1 - q0;
+
+	float denom = r.x * s.y - r.y * s.x;
+
+	if (std::fabs(denom) < EPS) return false;
+
+	glm::vec2 qp = q0 - p0;
+
+	float t = (qp.x * s.y - qp.y * s.x) / denom;
+	float u = (qp.x * r.y - qp.y * r.x) / denom;
+
+	if (t < -EPS || t > 1.0f + EPS || u < -EPS || u > 1.0f + EPS) return false;
+
+	OutAlpha = glm::clamp(t, 0.0f, 1.0f);
+	OutBeta = glm::clamp(u, 0.0f, 1.0f);
+	OutPos = p0 + OutAlpha * r;
+	return true;
+
+}
+
+int FeatureCurveManager::FindMergeableJunction(const std::vector<JunctionData>& Junctions, const glm::vec2& Pos, float MergeEPS2) {
+
+	for (int i = 0; i < Junctions.size(); i++) {
+		glm::vec2 q(Junctions[i].Pos.x, Junctions[i].Pos.z);
+		glm::vec2 d = q - Pos;
+		if (d.x * d.x + d.y * d.y <= MergeEPS2) return i;
+	}
+
+	return -1;
+
+}
+
+void FeatureCurveManager::MergeJunctions(std::vector<JunctionLinked>& Junctions, const JunctionLinked& New) {
+
+	for (auto& Junction : Junctions) {
+		if (Junction.CurveID == New.CurveID) {
+			Junction.u = 0.5f * (Junction.u + New.u);
+			Junction.t = 0.5f * (Junction.t + New.t);
+			return;
+		}
+	}
+	Junctions.push_back(New);
+
+}
+
+const std::vector<JunctionData> FeatureCurveManager::FindJunctions() {
+
+	std::vector<JunctionData> Junctions;
+
+	const float MergeThreshold = 0.005f;
+
+	const float EPS = 1e-12f;
+
+	const int CurveCount = FeatureCurves.size();
+
+	for (int a = 0; a < CurveCount; a++) {
+
+		const std::vector<CurvePoint>& SamplePointsA = FeatureCurves[a].GetSamplePoints();
+		if (SamplePointsA.size() < 2) continue;
+
+		for (int b = a + 1; b < CurveCount; b++) {
+
+			const std::vector<CurvePoint>& SamplePointsB = FeatureCurves[b].GetSamplePoints();
+			if (SamplePointsB.size() < 2) continue;
+
+			for (int i = 0; i + 1 < SamplePointsA.size(); i++) {
+				glm::vec2 A0 = glm::vec2(SamplePointsA[i].Position.x, SamplePointsA[i].Position.z);
+				glm::vec2 A1 = glm::vec2(SamplePointsA[i + 1].Position.x, SamplePointsA[i + 1].Position.z);
+				glm::vec2 DA = A1 - A0;
+				if (DA.x * DA.x + DA.y * DA.y < EPS) continue;
+				
+				for (int j = 0; j + 1 < SamplePointsB.size(); j++) {
+					glm::vec2 B0 = glm::vec2(SamplePointsB[j].Position.x, SamplePointsB[j].Position.z);
+					glm::vec2 B1 = glm::vec2(SamplePointsB[j + 1].Position.x, SamplePointsB[j + 1].Position.z);
+					glm::vec2 DB = B1 - B0;
+					if (DB.x * DB.x + DB.y * DB.y < EPS) continue;
+
+					float Alpha, Beta;
+					glm::vec2 IntersectedPos;
+					if (!IntersectLine2D(A0, A1, B0, B1, Alpha, Beta, IntersectedPos)) continue;
+
+					float uA = glm::mix(SamplePointsA[i].u, SamplePointsA[i + 1].u, Alpha);
+					float tA = glm::mix(SamplePointsA[i].t, SamplePointsA[i + 1].t, Alpha);
+					int SegmentA = (SamplePointsA[i].Segment == SamplePointsA[i + 1].Segment) ?
+						SamplePointsA[i].Segment : (Alpha < 0.5f ? SamplePointsA[i].Segment : SamplePointsA[i + 1].Segment);
+
+					float uB = glm::mix(SamplePointsB[j].u, SamplePointsB[j + 1].u, Beta);
+					float tB = glm::mix(SamplePointsB[j].t, SamplePointsB[j + 1].t, Beta);
+					int SegmentB = (SamplePointsB[j].Segment == SamplePointsB[j + 1].Segment) ?
+						SamplePointsB[j].Segment : (Beta < 0.5f ? SamplePointsB[j].Segment : SamplePointsB[j + 1].Segment);
+
+					JunctionLinked HitA = { a, uA, SegmentA, tA };
+					JunctionLinked HitB = { b, uB, SegmentB, tB };
+
+					int MergeIndex = FindMergeableJunction(Junctions, IntersectedPos, MergeThreshold * MergeThreshold);
+
+					if (MergeIndex < 0) {
+						JunctionData JD;
+						JD.Pos = glm::vec3(IntersectedPos.x, 0.0f, IntersectedPos.y);
+						JD.LinkedCurves.reserve(4);
+						JD.LinkedCurves.push_back(HitA);
+						JD.LinkedCurves.push_back(HitB);
+						Junctions.push_back(std::move(JD));
+					}
+					else {
+						MergeJunctions(Junctions[MergeIndex].LinkedCurves, HitA);
+						MergeJunctions(Junctions[MergeIndex].LinkedCurves, HitB);
+					}
+
+				}
+			}
+
+
+		}
+
+	}
+
+	return Junctions;
+
+}
+
+void FeatureCurveManager::Weld() {
+
+	const std::vector<JunctionData> Junctions = FindJunctions();
+
+
 
 }
