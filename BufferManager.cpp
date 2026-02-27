@@ -520,6 +520,17 @@ void BufferManager::CreateDebugTextures(int ResU, int ResV) {
 
 	AllocateTexture2D(DebugTexture.Tex0, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
 	AllocateTexture2D(DebugTexture.Tex1, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	AllocateTexture2D(DebugTexture.Tex2, ResU, ResV, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+}
+
+void BufferManager::UploadDebugTexture(const std::vector<glm::vec4>& DataRGBA, const int Index) {
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	if (Index == 0) glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex0);
+	else if (Index == 1) glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
+	else if (Index == 2) glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex2);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RGBA, GL_FLOAT, DataRGBA.data());
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void BufferManager::UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec4>& PackedRGRC) {
@@ -531,6 +542,8 @@ void BufferManager::UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA
 
 	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DebugTexture.ResU, DebugTexture.ResV, GL_RGBA, GL_FLOAT, PackedRGRC.data());
+
+
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
@@ -552,15 +565,20 @@ void BufferManager::BindDebugTextures(GLuint ShaderProgramID) {
 
 	GLint loc0 = glGetUniformLocation(ShaderProgramID, "DebugTexture0");
 	GLint loc1 = glGetUniformLocation(ShaderProgramID, "DebugTexture1");
+	GLint loc2 = glGetUniformLocation(ShaderProgramID, "DebugTexture2");
 
 	if (loc0 >= 0) glUniform1i(loc0, DebugTexture.unit0);
 	if (loc1 >= 0) glUniform1i(loc1, DebugTexture.unit1);
+	if (loc2 >= 0) glUniform1i(loc2, DebugTexture.unit2);
 
 	glActiveTexture(GL_TEXTURE0 + DebugTexture.unit0);
 	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex0);
 
 	glActiveTexture(GL_TEXTURE0 + DebugTexture.unit1);
 	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex1);
+
+	glActiveTexture(GL_TEXTURE0 + DebugTexture.unit2);
+	glBindTexture(GL_TEXTURE_2D, DebugTexture.Tex2);
 }
 
 void BufferManager::SwapElevation(const int Index) { Textures[Index].Elevation.Swap(); }

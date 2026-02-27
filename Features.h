@@ -141,6 +141,7 @@
 		std::vector<glm::vec2> NoiseMap;
 		std::vector<uint8_t> ConstraintMaskMap;
 		std::vector<glm::vec3> Gradients;
+		std::vector<int> GradientDirectionMap; // -1 = a, 0 = none, 1 = b
 
 		std::vector<OwnerCurve> CurveIDMap;
 

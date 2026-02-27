@@ -39,6 +39,7 @@ public:
 		Map.ConstraintMaskMap.clear();
 		Map.Gradients.clear();
 		Map.CurveIDMap.clear();
+		Map.GradientDirectionMap.clear();
 
 		Quads.clear();
 
@@ -49,6 +50,7 @@ public:
 		Map.ConstraintMaskMap.assign(ResU * ResV, 0);
 		Map.Gradients.assign(ResU * ResV, glm::vec3(0.0f, 0.0f, 0.0f));
 		Map.CurveIDMap.assign(ResU * ResV, OwnerCurve());
+		Map.GradientDirectionMap.assign(ResU * ResV, 0);
 		//OwnerCurve emptyOwner{ -1, -1, -1 };
 		//Map.CurveIDMap.assign(ResU * ResV, emptyOwner);
 	}; // *0.5f °¡´É
@@ -75,7 +77,7 @@ public:
 
 	AABB ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3 v2, const glm::vec3 v3) const;
 
-	bool Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) const;
+	bool Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW);
 	void InterpolateQuad(const glm::vec2& p, const Quad& quad, const int index);
 	void InterpolateQuadIntersectDiffCurve(const glm::vec2& p, const Quad& quad, const int index);
 
@@ -98,5 +100,12 @@ public:
 
 	void CreatePolylineU();
 	void RemoveDuplicatePolylinePoints(std::vector<LinearCoord>& Src);
+
+	const std::vector<glm::vec4> ExtractDebugData();
+
+	inline double Cross2(const glm::dvec2& a, const glm::dvec2& b) {
+		return a.x * b.y - a.y * b.x;
+	}
+
 	
 };

@@ -274,6 +274,7 @@ bool Rasterizer::BuildQuad(const LinearCoord& p0, const LinearCoord& p1, Quad& O
 		RightWidthP1 = p1.Constraint.b;
 	}
 
+	//std::cout << "LeftWidthP0: " << LeftWidthP0 << ", LeftWidthP1: " << LeftWidthP1 << ", RightWidthP0: " << RightWidthP0 << ", RightWidthP1: " << RightWidthP1 << std::endl;
 	v0.Position = p0.Pos + p0.Normal * LeftWidthP0;
 	v0.Constraint = p0.Constraint;
 	v0.CurvePos = p0.Pos;
@@ -383,28 +384,41 @@ AABB Rasterizer::ComputeAABB(const glm::vec3& v0, const glm::vec3& v1, const glm
 	return AABB{ glm::vec2(MinX, MinZ), glm::vec2(MaxX, MaxZ) };
 }
 
-bool Rasterizer::Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) const {
+bool Rasterizer::Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, float& OutU, float& OutV, float& OutW) {
 
-	glm::vec2 v0 = b - a;
-	glm::vec2 v1 = c - a;
-	glm::vec2 v2 = p - a;
+	//glm::vec2 v0 = b - a;
+	//glm::vec2 v1 = c - a;
+	//glm::vec2 v2 = p - a;
 
-	float d00 = glm::dot(v0, v0);
-	float d01 = glm::dot(v0, v1);
-	float d11 = glm::dot(v1, v1);
-	float d20 = glm::dot(v2, v0);
-	float d21 = glm::dot(v2, v1);
+	//float d00 = glm::dot(v0, v0);
+	//float d01 = glm::dot(v0, v1);
+	//float d11 = glm::dot(v1, v1);
+	//float d20 = glm::dot(v2, v0);	
+	//float d21 = glm::dot(v2, v1);
 
-	float denom = d00 * d11 - d01 * d01;
-	if (abs(denom) < 1e-8f) return false;
+	//float denom = d00 * d11 - d01 * d01;
+	////std::cout << "denom: " << denom << std::endl;
+	//if (abs(denom) < 1e-14f) return false;
 
-	float v = (d11 * d20 - d01 * d21) / denom;
-	float w = (d00 * d21 - d01 * d20) / denom;
-	float u = 1.0f - v - w;
+	//float v = (d11 * d20 - d01 * d21) / denom;
+	//float w = (d00 * d21 - d01 * d20) / denom;
+	//float u = 1.0f - v - w;
 
-	OutU = u;
-	OutV = v;
-	OutW = w;
+	glm::dvec2 P(p), A(a), B(b), C(c);
+
+	double denom = Cross2(B - A, C - A);
+	if (std::abs(denom) < 1e-12) return false;
+
+	double u = Cross2(B - P, C - P) / denom;
+	double v = Cross2(C - P, A - P) / denom;
+	double w = Cross2(A - P, B - P) / denom;
+
+	OutU = static_cast<float>(u);
+	OutV = static_cast<float>(v);
+	OutW = static_cast<float>(w);
+
+	const float eps = -1e-8f;
+	
 
 	return (u >= 0) && (v >= 0) && (w >= 0);
 
@@ -413,6 +427,8 @@ bool Rasterizer::Barycentric(const glm::vec2& p, const glm::vec2& a, const glm::
 }
 
 void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int index) {
+
+	//std::cout << "Start Interpolation for Pixel" << std::endl;
 
 	QuadVertex V0, V1, V2;
 
@@ -466,8 +482,12 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 	else if (quad.HasGradient && (d > 0) && (ad <= a)) ApplyGradientA = true;
 	else if (quad.HasGradient && (d < 0) && (ad <= b)) ApplyGradientB = true;
 
+	//std::cout << "r: " << r << std::endl;
+	//std::cout << "d: " << d << std::endl;
+	//std::cout << "ad: " << ad << std::endl;
 
 	if (ApplyElevation) {
+		//std::cout << "Apply Elevation" << std::endl;
 		if (Map.ConstraintMaskMap[index] & (int)ConstraintMask::Elevation) {
 			if (Map.CurveIDMap[index].ElevationOwner != quad.CurveID) {
 				Map.CurveIDMap[index].SumElevation += h;
@@ -505,6 +525,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.Gradients[index].y = n.y;
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(theta)); // == norm
 				Map.CurveIDMap[index].GradientOwner = quad.CurveID;
+				Map.GradientDirectionMap[index] = -1;
 			}
 			else if (ApplyGradientB) {
 				GradientAttenuation = glm::clamp(1.0f - ad / b, 0.0f, 1.0f) * TexelSize;
@@ -514,6 +535,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.Gradients[index].y = -n.y;
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(phi));
 				Map.CurveIDMap[index].GradientOwner = quad.CurveID;
+				Map.GradientDirectionMap[index] = 1;
 			}
 
 		}
@@ -714,4 +736,22 @@ float Rasterizer::GradientAttenuation(glm::vec3& DstGradient, const glm::vec2& P
 
 
 
+}
+
+const std::vector<glm::vec4> Rasterizer:: ExtractDebugData() {
+
+	std::vector<glm::vec4> DebugData;
+	DebugData.reserve(Width * Height);
+
+	auto it = std::max_element(Map.Gradients.begin(), Map.Gradients.end(), [](const glm::vec3& a, const glm::vec3& b) {
+		return abs(a.z) < abs(b.z);
+		});
+	
+	float MaxNorm = it->z;
+
+	for (int i = 0; i < Width * Height; i++) {
+		DebugData.push_back(glm::vec4(Map.ConstraintMaskMap[i], Map.Gradients[i].z, Map.GradientDirectionMap[i], MaxNorm));
+	}
+
+	return DebugData;
 }

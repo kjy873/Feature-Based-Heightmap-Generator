@@ -17,9 +17,11 @@
 struct DebugTextures {
 	GLuint Tex0;
 	GLuint Tex1;
+	GLuint Tex2;
 	int ResU, ResV;
 	int unit0 = 8;
 	int unit1 = 9;
+	int unit2 = 10;
 };
 
 struct GradientRGBA {
@@ -163,6 +165,7 @@ public:
 
 	void AllocateTexture2D(GLuint& TextureID, int ResU, int ResV, GLenum InternalFormat, GLenum Format, GLenum Type, GLenum filter = GL_NEAREST, GLenum wrap = GL_CLAMP_TO_EDGE);
 	void CreateDebugTextures(int ResU, int ResV);
+	void UploadDebugTexture(const std::vector<glm::vec4>& DataRGBA, const int Index);
 	void UploadDebugTextures(const std::vector<glm::vec4>& PackedRGBA, const std::vector<glm::vec4>& PackedRGRC);
 	void BindDebugTextures(GLuint ShaderProgramID);
 

@@ -1142,6 +1142,7 @@ void DrawPanel() {
 			//std::vector<uint8_t> constraintMask = RasterizerMgr.GetMaps().ConstraintMaskMap;
 			//ExportConstraintMaskImage("ConstraintMask.png", constraintMask);
 
+			BufferMgr.UploadDebugTexture(RasterizerMgr.ExtractDebugData(), 2);
 			//RasterizerMgr.PrintPolylines();
 
 		}
@@ -1268,13 +1269,13 @@ void DrawPanel() {
 
 					BufferMgr.ClearElevationTextures(ResU(l + 1), ResV(l + 1), l + 1);
 
-					if (l == 0) {
+					/*if (l == 0) {
 						DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(ResU(l), ResV(l), l));
 						auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return std::abs(a) < std::abs(b); });
 						std::cout << "Max Residual Value(Before): " << *it << std::endl;
 						float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float a, float b) { return a + std::abs(b); });
 						std::cout << "Average Residual Value(Before): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;
-					}
+					}*/
 				}
 
 				// l + 1의 Elevation Texture를 0으로 클리어
@@ -1321,7 +1322,7 @@ void DrawPanel() {
 
 					// 여긴 디버깅용으로 residual pass를 1회 실행했는데, Coarse texture의 값을 덮어씀, outer loop가 2회 이상일 때에도 이렇게 값을 확인해도 문제가 없는지 확인해야 함
 					// 최종적으로 outer loop 내부에서 residual, correction 마다 max, avrg를 출력하고, 이걸 outer loop만큼 반복해서 디버깅
-					if (l == 0) {
+					/*if (l == 0) {
 						BufferMgr.BindElevationTextureResidual(l);
 						BufferMgr.BindResidualTextureWrite(l);
 						ShaderMgr.FindComputeProgram(ComputeType::ResidualFine).Use();
@@ -1334,7 +1335,7 @@ void DrawPanel() {
 						std::cout << "Max Residual Value(After): " << *it << std::endl;
 						float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float a, float b) { return a + std::abs(b); });
 						std::cout << "Average Residual Value(After): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;
-					}
+					}*/
 				}
 			}
 
@@ -1347,7 +1348,9 @@ void DrawPanel() {
 			UpdateSplineSurface();
 
 			DiffuseMgr.PackMaps();
-			BufferMgr.UploadDebugTextures(DiffuseMgr.GetPackedMapRGBA(), DiffuseMgr.GetPackedMapRGRC());
+			BufferMgr.UploadDebugTexture(DiffuseMgr.GetPackedMapRGBA(), 0);
+			BufferMgr.UploadDebugTexture(DiffuseMgr.GetPackedMapRGRC(), 1);
+
 
 		}
 
@@ -1384,6 +1387,10 @@ void DrawPanel() {
 		if (ImGui::Button("DebugNone", ImVec2(-FLT_MIN, 30))) {
 			CurrentDebugMode = DebugMode::None;
 			DebugOverlayAlpha = 0.0f;
+		}
+		if (ImGui::Button("DebugRasterizer", ImVec2(-FLT_MIN, 30))) {
+			CurrentDebugMode = DebugMode::RasterizerDebug;
+			DebugOverlayAlpha = 1.0f;
 		}
 		if (ImGui::Button("DebugElevation", ImVec2(-FLT_MIN, 30))) {
 			CurrentDebugMode = DebugMode::Elevation;

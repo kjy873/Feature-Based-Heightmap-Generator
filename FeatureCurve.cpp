@@ -1212,6 +1212,4 @@ void FeatureCurveManager::MoveSelectedControlPoint(const glm::vec3& Pos) {
 
 	UpdateConstraintPoints(SelectedCurveID);
 
-	std::cout << "Pos : " << Pos.x << ", " << Pos.y << ", " << Pos.z << std::endl;
-
 }

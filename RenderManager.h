@@ -14,7 +14,8 @@ enum class DebugMode : int {
 	Amplitude = 4,
 	Roughness = 5,
 	Residual = 6,
-	Correction = 7
+	Correction = 7,
+	RasterizerDebug = 8
 };
 
 struct RenderItem {
