@@ -1342,9 +1342,36 @@ const std::vector<JunctionData> FeatureCurveManager::FindJunctions() {
 
 }
 
+void FeatureCurve::ProcessSplitRequest(const SplitRequest& Request) {
+
+	for (int i = 0; i < SamplePoints.size(); i++) {
+		//if(Request.u >= SamplePoints.)
+	}
+
+}
+
 void FeatureCurveManager::Weld() {
 
 	const std::vector<JunctionData> Junctions = FindJunctions();
+
+	std::vector<std::vector<SplitRequest>> SplitRequestsPerCurve(FeatureCurves.size());
+
+	for (int i = 0; i < Junctions.size(); i++) {
+		//JunctionNodes.emplace_back(Junctions[i].Pos);
+
+		int JunctionIndex = i;
+
+		for (const auto& Linked : Junctions[i].LinkedCurves) {
+			//SplitRequestsPerCurve[Linked.CurveID].push_back({ JunctionIndex, Linked.u });
+		}
+	}
+
+	for (auto& Requests : SplitRequestsPerCurve) {
+		/*std::sort(Requests.begin(), Requests.end(), [](const SplitRequest& a, const SplitRequest& b) {
+			return a.u > b.u;
+			});*/
+	}
+
 
 
 

@@ -11,6 +11,11 @@
 #include "BufferManager.h"
 #include "Features.h"
 
+struct SplitRequest {
+	int JunctionIndex;
+	float u;
+};
+
 struct JunctionLinked {
 	int CurveID;
 	float u;
@@ -98,7 +103,9 @@ struct ConstraintPoint
 
 class JunctionNode : public ConstraintPoint
 {
-	JunctionNode() : ConstraintPoint() {};
+	JunctionNode() = default;
+	JunctionNode(glm::vec3 Pos) : ConstraintPoint(Pos) {}
+
 };
 
 enum class InputButton
@@ -264,6 +271,10 @@ public:
 	int CommitSegment() { return ++CommittedSegments; }
 	int GetCommittedSegments() const { return CommittedSegments; }
 
+	void ProcessSplitRequest(const SplitRequest& Request);
+
+	
+
 
 };
 
@@ -334,6 +345,7 @@ class FeatureCurveManager
 
 	float r = 0.05f;
 
+	std::vector<JunctionNode> JunctionNodes;
 	
 
 	FC::ControlPoint HoveringControlPoint = FC::ControlPoint(glm::vec3(0.0f, 0.0f, 0.0f));
