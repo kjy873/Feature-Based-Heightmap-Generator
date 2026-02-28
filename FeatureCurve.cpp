@@ -435,7 +435,7 @@ void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputM
 
 	PickResult Picked = Pick(Pos);
 
-	//PrintPickResult(Picked);
+	PrintPickResult(Picked);
 
 	/*if (Picked.Type == PickType::ControlPoint) std::cout << "Pick ControlPoint" << std::endl;
 	else if (Picked.Type == PickType::Curve) std::cout << "Pick Curve" << std::endl;
@@ -523,13 +523,21 @@ PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
 
 	PickResult Result;
 
-	Result = PickJunctionNode(Pos);
-	if (Result.Type != PickType::None) return Result;
+	if (State == EditCurveState::JunctionNodeSelected) {
+		Result = PickControlPoint(Pos);
+		if (Result.Type != PickType::None) return Result;
+	}
 
 	if (State == EditCurveState::ControlPointSelected) {
+		Result = PickJunctionNode(Pos);
+		if (Result.Type != PickType::None) return Result;
+
 		Result = PickConstraintPoint(Pos);
 		if (Result.Type != PickType::None) return Result;
 	}
+
+	Result = PickJunctionNode(Pos);
+	if (Result.Type != PickType::None) return Result;
 
 	Result = PickControlPoint(Pos);
 	if (Result.Type != PickType::None) return Result;
@@ -996,6 +1004,7 @@ void FeatureCurveManager::DeselectConstraintPoint() {
 }
 
 void FeatureCurveManager::DeselectAll() {
+	SelectedJunctionNodeID = -1;
 	if (SelectedCurveID == -1) return;
 
 	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
@@ -1297,6 +1306,34 @@ void FeatureCurveManager::MoveSelectedControlPoint(const glm::vec3& Pos) {
 
 }
 
+void FeatureCurveManager::MoveSelectedJunctionNode(const glm::vec3& Pos) {
+
+	if (SelectedJunctionNodeID == -1) return;
+
+	GetJunctionNode(SelectedJunctionNodeID).SetPosition(Pos);
+
+	for (auto& curve : FeatureCurves) {
+
+		for (auto& controlpoint : curve.GetControlPoints()) {
+			if (controlpoint.GetLinkedJunctionNodeID() == SelectedJunctionNodeID) {
+				curve.GetControlPoint(controlpoint.GetID()).SetPosition(Pos);
+				curve.GetControlPoint(controlpoint.GetID()).SetMesh();
+			}
+		}
+		curve.BuildLinesLength();
+		curve.UpdateBoundingBox();
+		for (auto& constraintpoint : curve.GetConstraintPoints()) {
+			if (constraintpoint.GetLinkedJunctionNodeID() == SelectedJunctionNodeID) {
+				int SampleIndex = curve.FindNearestCurvePoint(Pos);
+				curve.GetConstraintPoint(constraintpoint.GetID()).Data.u = curve.GetSamplePoints()[SampleIndex].u;
+				curve.GetConstraintPoint(constraintpoint.GetID()).CachedPos = curve.GetSamplePoints()[SampleIndex].Position;
+				UpdateConstraintPoints(curve.GetCurveID());
+			}
+		}
+	}
+
+}
+
 bool FeatureCurveManager::IntersectLine2D(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& q0, const glm::vec2& q1, float& OutAlpha, float& OutBeta, glm::vec2& OutPos, const float EPS) {
 
 	glm::vec2 r = p1 - p0;
@@ -1456,6 +1493,7 @@ void FeatureCurve::ProcessSplitRequest(const SplitRequest& Request) {
 
 	FC::ControlPoint CPF = FC::ControlPoint(NextControlPointID++, F);
 	CPF.SetMesh();
+	CPF.LinkToJunctionNode(Request.JunctionIndex);
 	FC::ControlPoint CPE = FC::ControlPoint(NextControlPointID++, E);
 	CPE.SetMesh();
 	FC::ControlPoint CPC = FC::ControlPoint(NextControlPointID++, C);
@@ -1545,7 +1583,7 @@ void FeatureCurveManager::Weld() {
 	std::vector<std::vector<SplitRequest>> SplitRequestsPerCurve(FeatureCurves.size());
 
 	for (int i = 0; i < Junctions.size(); i++) {
-		JunctionNode NewNode(Junctions[i].Pos, i);
+		JunctionNode NewNode(Junctions[i].Pos, NextJunctionNodeID++);
 		NewNode.SetMesh();
 		JunctionNodes.push_back(std::move(NewNode));
 
@@ -1571,5 +1609,20 @@ void FeatureCurveManager::Weld() {
 		}
 	}
 
+
+}
+
+void FeatureCurveManager::ApplyJunctionConstraint(int JunctionID) {
+
+	if (JunctionID == -1) return;
+
+	for (auto& curve : FeatureCurves) {
+		for (auto& constraintpoint : curve.GetConstraintPoints()) {
+			if (curve.GetConstraintPoint(constraintpoint.GetID()).GetLinkedJunctionNodeID() == JunctionID) {
+				constraintpoint.SetConstraints(GetJunctionNode(JunctionID).GetConstraints());
+				constraintpoint.SetConstraintMask(GetJunctionNode(JunctionID).GetConstraintMask());
+			}
+		}
+	}
 
 }

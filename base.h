@@ -515,3 +515,5 @@ void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr);
 SaveData LoadCurveData(const char* FileName);
 
 const glm::vec3 MoveControlPoint(const glm::mat4 Origin);
+
+void DrawJunctionNodePanel(const CurveManagerView& CurveView);

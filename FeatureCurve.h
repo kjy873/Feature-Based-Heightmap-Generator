@@ -102,6 +102,7 @@ struct ConstraintPoint
 	void SetConstraintMask(const ConstraintMask& InputConstraintMask) { Data.Mask = InputConstraintMask; }
 
 	void LinkToJunctionNode(int JunctionID) { LinkedJunctionNode = JunctionID; }
+	int GetLinkedJunctionNodeID() const { return LinkedJunctionNode; }
 
 };
 
@@ -113,7 +114,9 @@ class JunctionNode : public ConstraintPoint
 public:
 
 	JunctionNode() = default;
-	JunctionNode(glm::vec3 Pos, int ID) : ConstraintPoint(Pos), ID(ID) {};
+	JunctionNode(glm::vec3 Pos, int ID) : ConstraintPoint(ID, Pos) {};
+
+	void SetPosition(const glm::vec3& Pos) { CachedPos = Pos; Cached = true; SetMesh(); }
 
 };
 
@@ -153,6 +156,8 @@ namespace FC {
 
 		bool Dirty = true;
 
+		int LinkedJunctionNode = -1;
+
 	public:
 
 		ControlPoint() : Position(glm::vec3(0.0f)), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
@@ -181,6 +186,9 @@ namespace FC {
 		int GetID() const { return ID; }
 
 		bool GetDirty() const { return Dirty; }
+
+		void LinkToJunctionNode(int JunctionID) { LinkedJunctionNode = JunctionID; }
+		int GetLinkedJunctionNodeID() const { return LinkedJunctionNode; }
 	};
 
 }
@@ -356,6 +364,7 @@ class FeatureCurveManager
 	int SelectedJunctionNodeID = -1;
 
 	int NextCurveID = 0;
+	int NextJunctionNodeID = 0;
 
 	EditCurveState State = EditCurveState::None;
 
@@ -492,6 +501,7 @@ public:
 	void DeleteSelectedCurve();
 
 	void MoveSelectedControlPoint(const glm::vec3& Pos);
+	void MoveSelectedJunctionNode(const glm::vec3& Pos);
 
 	const std::vector<JunctionData> FindJunctions();
 
@@ -506,4 +516,6 @@ public:
 	std::vector<JunctionNode>& GetJunctionNodes() { return JunctionNodes; }
 
 	JunctionNode& GetJunctionNode(int ID);
+
+	void ApplyJunctionConstraint(int JunctionID);
 };

@@ -951,11 +951,19 @@ void CurveManagerViewer() {
 
 	CurveManagerView CurveView = FeatureCurveMgr.GetCurveManagerView();
 
-	if (CurveView.ConstraintPointPanelOpen) {
-
+	if (CurveView.ConstraintPointPanelOpen && CurveView.SelectedConstraintPointID != -1) {
 		DrawConstraintPointPanel(CurveView);
-
 	}
+
+	if (CurveView.SelectedJunctionNodeID != -1) {
+		DrawJunctionNodePanel(CurveView);
+		
+		glm::mat4 Origin = glm::translate(glm::mat4(1.0f), FeatureCurveMgr.GetJunctionNode(CurveView.SelectedJunctionNodeID).GetPosition());
+		glm::vec3 NewPos = MoveControlPoint(Origin);
+		FeatureCurveMgr.MoveSelectedJunctionNode(glm::vec3(NewPos.x, 0.0f, NewPos.z));
+		FeatureCurveMgr.UploadBuffers(BufferMgr);
+	}
+	
 
 	if (CurveView.SelectedControlPointID != -1) {
 		PickControlPoint = true;
@@ -991,13 +999,7 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 
 	ImVec2 pos = ImVec2(20.0f, io.DisplaySize.y / 4.0f);
 
-	ConstraintPoint& cp = ConstraintPoint();
-
-	if (CurveView.SelectedConstraintPointID != -1) 
 	auto& cp = FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID);
-
-	if (CurveView.SelectedJunctionNodeID != -1)
-		auto& cp = FeatureCurveMgr.GetJunctionNode(CurveView.SelectedJunctionNodeID);
 
 	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.9f);
@@ -1054,6 +1056,73 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 	ImGui::End();
 
 }
+
+void DrawJunctionNodePanel(const CurveManagerView& CurveView) {
+
+	ImGuiIO& io = ImGui::GetIO();
+
+	ImVec2 pos = ImVec2(20.0f, io.DisplaySize.y / 4.0f);
+
+	auto& cp = FeatureCurveMgr.GetJunctionNode(CurveView.SelectedJunctionNodeID);
+
+	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.9f);
+	ImGui::SetNextWindowSize(ImVec2(170.0f, io.DisplaySize.y / 2.0f), ImGuiCond_Always);
+
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar;
+
+	Constraints InputConstraints = cp.GetConstraints();
+	ConstraintMask InputConstraintMask = cp.GetConstraintMask();
+
+	ImGui::Begin("Junction Node", nullptr, flags);
+
+	bool elevation = HasMask(InputConstraintMask, ConstraintMask::Elevation);
+	if (ImGui::Checkbox("Elevation", &elevation)) {
+		if (elevation) InputConstraintMask |= ConstraintMask::Elevation;
+		else InputConstraintMask = static_cast<ConstraintMask>(static_cast<int>(InputConstraintMask) & ~static_cast<int>(ConstraintMask::Elevation));
+	}
+
+	if (elevation) {
+		ImGui::InputFloat("h", &InputConstraints.h, 0.0f, 1.0f);
+		ImGui::InputFloat("r", &InputConstraints.r, 0.0f, 1.0f);
+	}
+
+	bool gradient = HasMask(InputConstraintMask, ConstraintMask::Gradient);
+	if (ImGui::Checkbox("Gradient", &gradient)) {
+		if (gradient) InputConstraintMask |= ConstraintMask::Gradient;
+		else InputConstraintMask = static_cast<ConstraintMask>(static_cast<int>(InputConstraintMask) & ~static_cast<int>(ConstraintMask::Gradient));
+	}
+
+	if (gradient) {
+		ImGui::InputFloat("a", &InputConstraints.a, 0.0f, 1.0f);
+		ImGui::InputFloat("b", &InputConstraints.b, 0.0f, 1.0f);
+		ImGui::InputFloat("theta", &InputConstraints.theta, -90.0f, 90.0f);
+		ImGui::InputFloat("phi", &InputConstraints.phi, -90.0f, 90.0f);
+	}
+
+	bool noise = HasMask(InputConstraintMask, ConstraintMask::Noise);
+	if (ImGui::Checkbox("Noise", &noise)) {
+		if (noise) InputConstraintMask |= ConstraintMask::Noise;
+		else InputConstraintMask = static_cast<ConstraintMask>(static_cast<int>(InputConstraintMask) & ~static_cast<int>(ConstraintMask::Noise));
+	}
+
+	if (noise) {
+		ImGui::InputFloat("Amplitude", &InputConstraints.Amplitude, 0.0f, 1.0f);
+		ImGui::InputFloat("Roughness", &InputConstraints.Roughness, 0.0f, 1.0f);
+	}
+
+	cp.SetConstraints(InputConstraints);
+	cp.SetConstraintMask(InputConstraintMask);
+
+	FeatureCurveMgr.ApplyJunctionConstraint(CurveView.SelectedJunctionNodeID);
+
+	ImGui::End();
+
+}
+
 
 void DrawPanel() {
 
