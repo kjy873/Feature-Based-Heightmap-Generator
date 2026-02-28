@@ -445,6 +445,9 @@ GLvoid drawScene() {
 
 	for (auto& fc : FeatureCurveMgr.GetCurves()) {
 
+		if (fc.GetLineDirty()) fc.UploadBufferLine(BufferMgr);
+		fc.SetLineDirty(false);
+
 		for (const auto& cp : fc.GetControlPoints()) {
 			if (cp.GetMesh()) {
 				RenderMgr.UploadHighlightWeight(cp.GetHighlightWeight());
@@ -961,7 +964,7 @@ void CurveManagerViewer() {
 		glm::mat4 Origin = glm::translate(glm::mat4(1.0f), FeatureCurveMgr.GetJunctionNode(CurveView.SelectedJunctionNodeID).GetPosition());
 		glm::vec3 NewPos = MoveControlPoint(Origin);
 		FeatureCurveMgr.MoveSelectedJunctionNode(glm::vec3(NewPos.x, 0.0f, NewPos.z));
-		FeatureCurveMgr.UploadBuffers(BufferMgr);
+		//FeatureCurveMgr.UploadBuffers(BufferMgr);
 	}
 	
 
@@ -972,7 +975,8 @@ void CurveManagerViewer() {
 		glm::mat4 Origin = glm::translate(glm::mat4(1.0f), FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetControlPoint(CurveView.SelectedControlPointID).GetPosition());
 		glm::vec3 NewPos = MoveControlPoint(Origin);
 		FeatureCurveMgr.MoveSelectedControlPoint(glm::vec3(NewPos.x, 0.0f, NewPos.z));
-		FeatureCurveMgr.UploadBuffers(BufferMgr);
+		
+		//FeatureCurveMgr.UploadBuffers(BufferMgr);
 	}
 	else PickControlPoint = false;
 

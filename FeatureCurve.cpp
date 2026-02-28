@@ -2,8 +2,8 @@
 
 void FC::ControlPoint::SetMesh() {
 
-	Mesh->SetHexahedron(Position, half, glm::vec3(1.0f, 0.0f, 1.0f));
-
+	//Mesh->SetHexahedron(Position, half, glm::vec3(1.0f, 0.0f, 1.0f));
+	Mesh->SetCube(half, glm::vec3(1.0f, 0.0f, 1.0f));
 	Dirty = true;
 
 }
@@ -13,6 +13,7 @@ void FeatureCurve::AddControlPoint(const glm::vec3& pos) {
 	FC::ControlPoint cp(NextControlPointID++, pos);
 
 	cp.SetMesh();
+	cp.GetMesh()->Translate(pos);
 
 	ControlPoints.emplace_back(std::move(cp));
 
@@ -247,6 +248,7 @@ void FeatureCurve::AddConstraintPoint(const glm::vec3 Pos, const float u) {
 	cp.CachedPos = Pos;
 
 	cp.SetMesh();
+	cp.GetMesh()->Translate(Pos);
 		
 	ConstraintPoints.emplace_back(std::move(cp));
 	
@@ -466,6 +468,12 @@ void FeatureCurveManager::UploadBuffers(BufferManager& BufferMgr) {
 
 }
 
+void FeatureCurveManager::UploadBuffersLine(BufferManager& BufferMgr) {
+	for (auto& curve : FeatureCurves) {
+		curve.UploadBufferLine(BufferMgr);
+	}
+}
+
 const glm::vec3 FeatureCurveManager::AppliedTangentPos(const glm::vec3 P0, const glm::vec3& Pos, int Tangent) const {
 	
 	glm::vec3 v = glm::vec3(Pos.x - P0.x, 0.0f, Pos.z - P0.z);	
@@ -495,6 +503,7 @@ void FeatureCurveManager::PendControlPoint(const glm::vec3& Pos) {
 
 	Pended.emplace(GetFeatureCurve(SelectedCurveID)->CreateControlPointID(), Pos);
 	Pended->SetMesh();
+	Pended->GetMesh()->Translate(Pos);
 
 }
 
@@ -1157,7 +1166,8 @@ void FeatureCurveManager::UpdateLastConstraint(int CurveID) {
 	Curve->GetConstraintPoint(id).CachedPos = NewPos;
 	Curve->GetConstraintPoint(id).Cached = true;
 	Curve->GetConstraintPoint(id).Uploaded = true;
-	Curve->GetConstraintPoint(id).SetMesh();
+	Curve->GetConstraintPoint(id).GetMesh()->Translate(NewPos);
+	//Curve->GetConstraintPoint(id).SetMesh();
 
 }
 
@@ -1182,7 +1192,8 @@ void FeatureCurveManager::UpdateConstraintPoints(int CurveID) {
 			ConstraintPoint.CachedPos = NewPos;
 			ConstraintPoint.Cached = true;
 			ConstraintPoint.Uploaded = true;
-			ConstraintPoint.SetMesh();
+			//ConstraintPoint.SetMesh();
+			ConstraintPoint.GetMesh()->Translate(NewPos);
 		}
 	}
 
@@ -1296,7 +1307,8 @@ void FeatureCurveManager::MoveSelectedControlPoint(const glm::vec3& Pos) {
 	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
 
 	Curve->GetControlPoint(SelectedControlPointID).SetPosition(Pos);
-	Curve->GetControlPoint(SelectedControlPointID).SetMesh();
+	//Curve->GetControlPoint(SelectedControlPointID).SetMesh();
+	Curve->GetControlPoint(SelectedControlPointID).GetMesh()->Translate(Pos);
 	//Curve->GetControlPoint(SelectedControlPointID).GetMesh()->Translate(Pos);
 
 	Curve->BuildLinesLength();
@@ -1311,13 +1323,16 @@ void FeatureCurveManager::MoveSelectedJunctionNode(const glm::vec3& Pos) {
 	if (SelectedJunctionNodeID == -1) return;
 
 	GetJunctionNode(SelectedJunctionNodeID).SetPosition(Pos);
+	//GetJunctionNode(SelectedJunctionNodeID).SetMesh();
+	GetJunctionNode(SelectedJunctionNodeID).GetMesh()->Translate(Pos);
 
 	for (auto& curve : FeatureCurves) {
 
 		for (auto& controlpoint : curve.GetControlPoints()) {
 			if (controlpoint.GetLinkedJunctionNodeID() == SelectedJunctionNodeID) {
 				curve.GetControlPoint(controlpoint.GetID()).SetPosition(Pos);
-				curve.GetControlPoint(controlpoint.GetID()).SetMesh();
+				//curve.GetControlPoint(controlpoint.GetID()).SetMesh();
+				curve.GetControlPoint(controlpoint.GetID()).GetMesh()->Translate(Pos);
 			}
 		}
 		curve.BuildLinesLength();
@@ -1487,10 +1502,12 @@ void FeatureCurve::ProcessSplitRequest(const SplitRequest& Request) {
 
 	// [P0, A, D, F] [F, E, C, P3]
 	ControlPoints[FirstPoint + 1].SetPosition(A);
-	ControlPoints[FirstPoint + 1].SetMesh();
+	ControlPoints[FirstPoint + 1].GetMesh()->Translate(A);
+	//ControlPoints[FirstPoint + 1].SetMesh();
 	ControlPoints[FirstPoint + 2].SetPosition(D);
-	ControlPoints[FirstPoint + 2].SetMesh();
-
+	ControlPoints[FirstPoint + 2].GetMesh()->Translate(D);
+	//ControlPoints[FirstPoint + 2].SetMesh();
+	
 	FC::ControlPoint CPF = FC::ControlPoint(NextControlPointID++, F);
 	CPF.SetMesh();
 	CPF.LinkToJunctionNode(Request.JunctionIndex);

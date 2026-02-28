@@ -120,6 +120,9 @@ public:
 	//void SetHexahedron(std::vector<Mesh>& dst, const glm::vec3 vertices[8], const glm::vec3* c);
 
 	void SetHexahedron(const glm::vec3 center, float half, const glm::vec3& c);
+	void SetCube(float half, const glm::vec3& c) {
+		SetHexahedron(glm::vec3(0.0f, 0.0f, 0.0f), half, c);
+	}
 
 };
 

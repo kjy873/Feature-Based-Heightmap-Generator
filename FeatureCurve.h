@@ -83,7 +83,10 @@ struct ConstraintPoint
 
 
 	void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
-	void SetMesh() { Mesh->SetHexahedron(CachedPos, half, glm::vec3(0.0f, 1.0f, 1.0f)); }
+	void SetMesh() { 
+		//Mesh->SetHexahedron(CachedPos, half, glm::vec3(0.0f, 1.0f, 1.0f)); 
+		Mesh->SetCube(half, glm::vec3(0.0f, 1.0f, 1.0f));
+	}
 
 	ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
 
@@ -116,7 +119,7 @@ public:
 	JunctionNode() = default;
 	JunctionNode(glm::vec3 Pos, int ID) : ConstraintPoint(ID, Pos) {};
 
-	void SetPosition(const glm::vec3& Pos) { CachedPos = Pos; Cached = true; SetMesh(); }
+	void SetPosition(const glm::vec3& Pos) { CachedPos = Pos; Cached = true; }
 
 };
 
@@ -295,7 +298,8 @@ public:
 	void ProcessSplitRequest(const SplitRequest& Request);
 	bool GetSegTFromU(float u, int& OutSeg, float& OutT);
 	
-
+	bool GetLineDirty() const { return LineDirty; }
+	void SetLineDirty(bool dirty) { LineDirty = dirty; }
 
 };
 
@@ -414,6 +418,7 @@ public:
 
 	void UploadBuffers(BufferManager& BufferMgr);
 	void UploadBufferJunctionNode(BufferManager& BufferMgr);
+	void UploadBuffersLine(BufferManager& BufferMgr);
 
 	std::vector<FeatureCurve>& GetCurves() { return FeatureCurves; }
 
