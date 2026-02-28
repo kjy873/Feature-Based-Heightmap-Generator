@@ -4,6 +4,8 @@ void FC::ControlPoint::SetMesh() {
 
 	Mesh->SetHexahedron(Position, half, glm::vec3(1.0f, 0.0f, 1.0f));
 
+	Dirty = true;
+
 }
 	
 void FeatureCurve::AddControlPoint(const glm::vec3& pos) {
@@ -154,6 +156,20 @@ void FeatureCurve::UploadBufferConstraintPoint(BufferManager& BufferMgr) {
 	}
 }
 
+void FeatureCurveManager::UploadBufferJunctionNode(BufferManager& BufferMgr) {
+	for (const auto& node : JunctionNodes) {
+		if (node.GetMesh() == nullptr) continue;
+		ControlPointVisualMesh* mesh = node.GetMesh();
+		if (mesh) {
+			mesh->SetMeshID(BufferMgr.CreateMeshID());
+			BufferMgr.CreateBufferData(mesh->GetMeshID(), true);
+			BufferMgr.BindVertexBufferObjectByID(mesh->GetMeshID(), mesh->GetPosition().data(), mesh->GetPosition().size(),
+				mesh->GetColor().data(), mesh->GetColor().size(), mesh->GetNormal().data(), mesh->GetNormal().size());
+			BufferMgr.BindElementBufferObjectByID(mesh->GetMeshID(), mesh->GetIndex().data(), mesh->GetIndex().size());
+		}
+	}
+}
+
 void FeatureCurve::UpdateBoundingBox() {
 
 	BoundingBox.Valid = false;
@@ -296,6 +312,17 @@ ConstraintPoint& FeatureCurve::GetConstraintPoint(int id) {
 	return *cp;
 }
 
+JunctionNode* FeatureCurveManager::GetJunctionNodePtr(int ID) {
+	auto it = std::find_if(JunctionNodes.begin(), JunctionNodes.end(), [ID](const JunctionNode& node) { return node.GetID() == ID; });
+	return (it == JunctionNodes.end()) ? nullptr : &(*it);
+}
+
+JunctionNode& FeatureCurveManager::GetJunctionNode(int id) {
+	JunctionNode* node = GetJunctionNodePtr(id);
+	if (!node) throw std::runtime_error("JunctionNode ID not found");
+	return *node;
+}
+
 int FeatureCurve::FindConstraintPointByU(float u) const {
 
 	auto it = std::find_if(ConstraintPoints.begin(), ConstraintPoints.end(), [u](const ConstraintPoint& cp) { return glm::abs(cp.Data.u - u) < 1e-6f; }); // 또는 a == b
@@ -435,6 +462,7 @@ void FeatureCurveManager::UploadBuffers(BufferManager& BufferMgr) {
 		curve.UploadBufferLine(BufferMgr);
 		curve.UploadBufferConstraintPoint(BufferMgr);
 	}
+	UploadBufferJunctionNode(BufferMgr);
 
 }
 
@@ -495,6 +523,9 @@ PickResult FeatureCurveManager::Pick(const glm::vec3& Pos) {
 
 	PickResult Result;
 
+	Result = PickJunctionNode(Pos);
+	if (Result.Type != PickType::None) return Result;
+
 	if (State == EditCurveState::ControlPointSelected) {
 		Result = PickConstraintPoint(Pos);
 		if (Result.Type != PickType::None) return Result;
@@ -526,6 +557,9 @@ void FeatureCurveManager::PrintPickResult(const PickResult& Result) const {
 		break;
 	case PickType::ConstraintPoint:
 		std::cout << "PickResult: ConstraintPoint, CurveID = " << Result.CurveID << ", ConstraintPointID = " << Result.ConstraintPointID << std::endl;
+		break;
+	case PickType::JunctionNode:
+		std::cout << "PickResult: JunctionNode, JunctionNodeID = " << Result.JunctionNodeID << std::endl;
 		break;
 	default:
 		break;
@@ -566,6 +600,21 @@ PickResult FeatureCurveManager::PickConstraintPoint(const glm::vec3& Pos) {
 			}
 		}
 	}
+	return Result;
+}
+
+PickResult FeatureCurveManager::PickJunctionNode(const glm::vec3& Pos) {
+
+	PickResult Result;
+	for (const auto& JunctionNode : JunctionNodes) {
+		glm::vec3 PosJN = JunctionNode.GetPosition();
+		if (Pos.x >= PosJN.x - JunctionNode.GetHalf() && Pos.x <= PosJN.x + JunctionNode.GetHalf() && Pos.z >= PosJN.z - JunctionNode.GetHalf() && Pos.z <= PosJN.z + JunctionNode.GetHalf()) {
+			Result.Type = PickType::JunctionNode;
+			Result.JunctionNodeID = JunctionNode.GetID();
+			return Result;
+		}
+	}
+
 	return Result;
 }
 
@@ -616,6 +665,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 	const bool CurvePicked = (Picked.Type == PickType::Curve);
 	const bool ControlPointPicked = (Picked.Type == PickType::ControlPoint);
 	const bool ConstraintPointPicked = (Picked.Type == PickType::ConstraintPoint);
+	const bool JunctionNodePicked = (Picked.Type == PickType::JunctionNode);
 
 	//std::cout << "Curve Pick(" << CurvePicked << ")" << std::endl;
 
@@ -642,6 +692,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 
 		if (Mode == InputMode::Alt) return Decision::DeleteSelectedCurve;
 
+		if (JunctionNodePicked) return Decision::SelectJunctionNode;
 		if (ControlPointPicked) return Decision::SelectControlPoint;
 		if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 		if (CurvePicked) return Decision::SelectCurve;
@@ -651,34 +702,39 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 
 		break;
 
+	case EditCurveState::JunctionNodeSelected:
 	case EditCurveState::ControlPointSelected:
-		if (Button != InputButton::Left) return Decision::None;
-
-		if (Mode == InputMode::Ctrl) return Decision::None;
-		if (Mode == InputMode::Shift) return Decision::None;
-
-		if (ControlPointPicked) return Decision::SelectControlPoint;
-		if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
-		if (CurvePicked) return Decision::SelectCurve;
-		if (NonePicked) return Decision::Deselect;
-
-		return Decision::None;
-
-		break;
-
 	case EditCurveState::ConstraintPointSelected:
 		if (Button != InputButton::Left) return Decision::None;
 
 		if (Mode == InputMode::Ctrl) return Decision::None;
 		if (Mode == InputMode::Shift) return Decision::None;
 
+		if (JunctionNodePicked) return Decision::SelectJunctionNode;
 		if (ControlPointPicked) return Decision::SelectControlPoint;
 		if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 		if (CurvePicked) return Decision::SelectCurve;
 		if (NonePicked) return Decision::Deselect;
 
 		return Decision::None;
+
 		break;
+
+	/*case EditCurveState::ConstraintPointSelected:
+		if (Button != InputButton::Left) return Decision::None;
+
+		if (Mode == InputMode::Ctrl) return Decision::None;
+		if (Mode == InputMode::Shift) return Decision::None;
+
+		if (JunctionNodePicked) return Decision::SelectJunctionNode;
+		if (ControlPointPicked) return Decision::SelectControlPoint;
+		if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
+		if (CurvePicked) return Decision::SelectCurve;
+		if (NonePicked) return Decision::Deselect;
+
+		return Decision::None;
+		break;*/
+
 
 	case EditCurveState::None:
 
@@ -687,12 +743,15 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 		if (Mode == InputMode::Ctrl) {
 			if (NonePicked) return Decision::AddCurve;
 			if (CurvePicked) return Decision::ExtendCurve;
+			if (JunctionNodePicked) return Decision::SelectJunctionNode;
 			if (ControlPointPicked) return Decision::SelectControlPoint; // 또는 ExtendCurve로 바꿔도 됨
 			if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
+
 			return Decision::None;
 		}
 
 		if (Mode == InputMode::Default) {
+			if (JunctionNodePicked) return Decision::SelectJunctionNode;
 			if (ControlPointPicked) return Decision::SelectControlPoint;
 			if (ConstraintPointPicked) return Decision::SelectConstraintPoint;
 			if (CurvePicked) return Decision::SelectCurve;
@@ -749,6 +808,9 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 		break;
 	case Decision::SelectConstraintPoint:
 		SelectConstraintPoint(Picked);
+		break;
+	case Decision::SelectJunctionNode:
+		SelectJunctionNode(Picked);
 		break;
 	case Decision::CommitSegment:
 	case Decision::None:
@@ -808,6 +870,22 @@ void FeatureCurveManager::SelectConstraintPoint(const PickResult& Picked) {
 	View.ConstraintPointPanelOpen = true;
 
 	return;
+}
+
+void FeatureCurveManager::SelectJunctionNode(const PickResult& Picked) {
+
+	DeselectAll();
+
+	SelectedJunctionNodeID = Picked.JunctionNodeID;
+
+	GetJunctionNode(SelectedJunctionNodeID).SetHighlightWeight(1.0f);
+
+	State = EditCurveState::JunctionNodeSelected;
+
+	View.ConstraintPointPanelOpen = true;
+
+	return;
+
 }
 
 void FeatureCurveManager::AddFeatureCurve() {
@@ -935,6 +1013,7 @@ void FeatureCurveManager::DeselectAll() {
 	SelectedCurveID = -1;
 	SelectedControlPointID = -1;
 	SelectedConstraintPointID = -1;
+	SelectedJunctionNodeID = -1;
 
 	State = EditCurveState::None;
 
@@ -1349,34 +1428,51 @@ void FeatureCurve::ProcessSplitRequest(const SplitRequest& Request) {
 
 	GetSegTFromU(Request.u, Segment, NewT);
 
-	//// 첫/끝
-	//if (Request.u <= SamplePoints.front().u + 1e-6f) {
-	//	Segment = SamplePoints.front().Segment;
-	//	NewT = SamplePoints.front().t;
-	//}
-	//if (Request.u >= SamplePoints.back().u - 1e-6f) {
-	//	Segment = SamplePoints.back().Segment;
-	//	NewT = SamplePoints.back().t;
-	//}
+	if (NewT <= 1e-6f || NewT >= 1.0f - 1e-6f) return;
+	
+	const int FirstPoint = Segment * 3;
+	if (FirstPoint < 0 || FirstPoint + 3 >= ControlPoints.size()) return;
 
-	//for (int i = 0; i < SamplePoints.size(); i++) {
-	//	if (Request.u >= SamplePoints[i].u && Request.u <= SamplePoints[i].u) {
-	//		if (SamplePoints[i + 1].u - SamplePoints[i].u > 1e-6f) {
-	//			float Alpha = (Request.u - SamplePoints[i].u) / (SamplePoints[i + 1].u - SamplePoints[i].u);
+	const glm::vec3 P0 = ControlPoints[FirstPoint].GetPosition();
+	const glm::vec3 P1 = ControlPoints[FirstPoint + 1].GetPosition();
+	const glm::vec3 P2 = ControlPoints[FirstPoint + 2].GetPosition();
+	const glm::vec3 P3 = ControlPoints[FirstPoint + 3].GetPosition();
 
-	//			Segment = (SamplePoints[i].Segment == SamplePoints[i + 1].Segment) ?
-	//				SamplePoints[i].Segment : (Alpha < 0.5f ? SamplePoints[i].Segment : SamplePoints[i + 1].Segment);
-	//			NewT = (SamplePoints[i].Segment == SamplePoints[i + 1].Segment) ?
-	//				glm::mix(SamplePoints[i].t, SamplePoints[i + 1].t, Alpha) :
-	//				(Alpha < 0.5f ? SamplePoints[i].t : SamplePoints[i + 1].t);
+	// Level 1
+	const glm::vec3 A = Lerp(P0, P1, NewT);
+	const glm::vec3 B = Lerp(P1, P2, NewT);
+	const glm::vec3 C = Lerp(P2, P3, NewT);
+	// Level 2
+	const glm::vec3 D = Lerp(A, B, NewT);
+	const glm::vec3 E = Lerp(B, C, NewT);
+	// Level 3
+	const glm::vec3 F = Lerp(D, E, NewT);
 
-	//			NewT = glm::clamp(NewT, 0.0f, 1.0f);
-	//		}
-	//		else {
-	//			if ((i + 1) < SamplePoints.size());
-	//		}
-	//	}
-	//}
+	// [P0, A, D, F] [F, E, C, P3]
+	ControlPoints[FirstPoint + 1].SetPosition(A);
+	ControlPoints[FirstPoint + 1].SetMesh();
+	ControlPoints[FirstPoint + 2].SetPosition(D);
+	ControlPoints[FirstPoint + 2].SetMesh();
+
+	FC::ControlPoint CPF = FC::ControlPoint(NextControlPointID++, F);
+	CPF.SetMesh();
+	FC::ControlPoint CPE = FC::ControlPoint(NextControlPointID++, E);
+	CPE.SetMesh();
+	FC::ControlPoint CPC = FC::ControlPoint(NextControlPointID++, C);
+	CPC.SetMesh();
+
+	auto it = ControlPoints.begin() + (FirstPoint + 3);
+
+	it = ControlPoints.insert(it, std::move(CPF));
+	it++;
+	it = ControlPoints.insert(it, std::move(CPE));
+	it++;
+	it = ControlPoints.insert(it, std::move(CPC));
+
+	CommitSegment();
+
+	AddConstraintPoint(F, Request.u);
+	ConstraintPoints.back().LinkToJunctionNode(Request.JunctionIndex);
 
 }
 
@@ -1449,7 +1545,9 @@ void FeatureCurveManager::Weld() {
 	std::vector<std::vector<SplitRequest>> SplitRequestsPerCurve(FeatureCurves.size());
 
 	for (int i = 0; i < Junctions.size(); i++) {
-		JunctionNodes.emplace_back(Junctions[i].Pos);
+		JunctionNode NewNode(Junctions[i].Pos, i);
+		NewNode.SetMesh();
+		JunctionNodes.push_back(std::move(NewNode));
 
 		int JunctionIndex = i;
 
@@ -1464,7 +1562,14 @@ void FeatureCurveManager::Weld() {
 			});
 	}
 
-
+	for (int i = 0; i < SplitRequestsPerCurve.size(); i++) {
+		// i == CurveID
+		for (const auto& Request : SplitRequestsPerCurve[i]) {
+			GetFeatureCurve(i)->ProcessSplitRequest(Request);
+			GetFeatureCurve(i)->BuildLinesLength();
+			GetFeatureCurve(i)->UpdateBoundingBox();
+		}
+	}
 
 
 }

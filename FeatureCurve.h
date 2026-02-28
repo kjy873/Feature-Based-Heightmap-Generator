@@ -69,6 +69,8 @@ struct ConstraintPoint
 
 	float half = 0.005f;
 
+	int LinkedJunctionNode = -1;
+
 	ConstraintPoint() : Mesh(std::make_unique<ControlPointVisualMesh>(8)) {};
 	ConstraintPoint(int id) : ID(id), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
 	ConstraintPoint(const glm::vec3& Pos) : CachedPos(Pos), Cached(true), Mesh(std::make_unique<ControlPointVisualMesh>(8)) {}
@@ -81,7 +83,7 @@ struct ConstraintPoint
 
 
 	void CreateMesh() { Mesh = std::make_unique<ControlPointVisualMesh>(8); }
-	void SetMesh() { Mesh->SetHexahedron(CachedPos, half, glm::vec3(1.0f, 0.0f, 1.0f)); }
+	void SetMesh() { Mesh->SetHexahedron(CachedPos, half, glm::vec3(0.0f, 1.0f, 1.0f)); }
 
 	ControlPointVisualMesh* GetMesh() const { return Mesh.get(); }
 
@@ -99,15 +101,19 @@ struct ConstraintPoint
 	void SetConstraints(const Constraints& InputConstraints) { Data = InputConstraints; }
 	void SetConstraintMask(const ConstraintMask& InputConstraintMask) { Data.Mask = InputConstraintMask; }
 
+	void LinkToJunctionNode(int JunctionID) { LinkedJunctionNode = JunctionID; }
+
 };
 
 class JunctionNode : public ConstraintPoint
 {
 
+	int ID = -1;
+
 public:
 
 	JunctionNode() = default;
-	JunctionNode(glm::vec3 Pos) : ConstraintPoint(Pos) {}
+	JunctionNode(glm::vec3 Pos, int ID) : ConstraintPoint(Pos), ID(ID) {};
 
 };
 
@@ -145,6 +151,7 @@ namespace FC {
 
 		int ID = -1;
 
+		bool Dirty = true;
 
 	public:
 
@@ -172,6 +179,8 @@ namespace FC {
 		void SetHighlightWeight(float weight) { HighlightWeight = weight; }
 
 		int GetID() const { return ID; }
+
+		bool GetDirty() const { return Dirty; }
 	};
 
 }
@@ -202,6 +211,7 @@ class FeatureCurve
 	int CommittedSegments = 0;
 
 
+	static inline glm::vec3 Lerp(const glm::vec3& a, const glm::vec3& b, float t) { return a * (1.0f - t) + b * t; }
 
 public:
 
@@ -290,11 +300,12 @@ enum class EditCurveState
 	CurveSelected,
 	ControlPointSelected,
 	ConstraintPointSelected,
+	JunctionNodeSelected,
 	None
 
 };
 
-enum class PickType { Curve, ControlPoint, ConstraintPoint, None };
+enum class PickType { Curve, ControlPoint, ConstraintPoint, JunctionNode, None };
 
 enum class Decision { 
 	None,
@@ -309,7 +320,8 @@ enum class Decision {
 	Cancel,
 	DeleteSelectedControlPoint,
 	DeleteSelectedCurve,
-	AddConstraintPoint
+	AddConstraintPoint,
+	SelectJunctionNode
 
 
 };
@@ -321,6 +333,7 @@ struct CurveManagerView {
 	int SelectedCurveID = -1;
 	int SelectedControlPointID = -1;
 	int SelectedConstraintPointID = -1;
+	int SelectedJunctionNodeID = -1;
 
 };
 
@@ -330,6 +343,7 @@ struct PickResult
 	int CurveID = -1;
 	int ControlPointID = -1;
 	int ConstraintPointID = -1;
+	int JunctionNodeID = -1;
 };
 
 class FeatureCurveManager
@@ -339,6 +353,7 @@ class FeatureCurveManager
 	int SelectedCurveID = -1;
 	int SelectedControlPointID = -1;
 	int SelectedConstraintPointID = -1;
+	int SelectedJunctionNodeID = -1;
 
 	int NextCurveID = 0;
 
@@ -358,6 +373,8 @@ class FeatureCurveManager
 
 	CurveManagerView View;
 
+
+	JunctionNode* GetJunctionNodePtr(int ID);
 
 public:
 
@@ -387,6 +404,7 @@ public:
 	void RightClick();
 
 	void UploadBuffers(BufferManager& BufferMgr);
+	void UploadBufferJunctionNode(BufferManager& BufferMgr);
 
 	std::vector<FeatureCurve>& GetCurves() { return FeatureCurves; }
 
@@ -404,6 +422,7 @@ public:
 	PickResult PickControlPoint(const glm::vec3& Pos);
 	PickResult PickConstraintPoint(const glm::vec3& Pos);
 	PickResult PickCurve(const glm::vec3& Pos);
+	PickResult PickJunctionNode(const glm::vec3& Pos);
 
 
 	Decision Decide(InputButton Button, InputMode Mode, EditCurveState State, const PickResult& Picked);
@@ -412,6 +431,7 @@ public:
 	void SelectCurve(const PickResult& Picked);
 	void SelectControlPoint(const PickResult& Picked);
 	void SelectConstraintPoint(const PickResult& Picked);
+	void SelectJunctionNode(const PickResult& Picked);
 	void ExtendCurve(const PickResult& Picked);
 	void AddControlPoint(const glm::vec3& Pos);
 
@@ -442,6 +462,7 @@ public:
 		View.SelectedCurveID = SelectedCurveID;
 		View.SelectedControlPointID = SelectedControlPointID;
 		View.SelectedConstraintPointID = SelectedConstraintPointID;
+		View.SelectedJunctionNodeID = SelectedJunctionNodeID;
 		return View; 
 	};
 
@@ -461,6 +482,7 @@ public:
 		SelectedCurveID = -1;
 		SelectedControlPointID = -1;
 		SelectedConstraintPointID = -1;
+		SelectedJunctionNodeID = -1;
 		NextCurveID = 0;
 		State = EditCurveState::None;
 		Pended.reset();
@@ -481,5 +503,7 @@ public:
 
 	void Weld();
 
+	std::vector<JunctionNode>& GetJunctionNodes() { return JunctionNodes; }
 
+	JunctionNode& GetJunctionNode(int ID);
 };

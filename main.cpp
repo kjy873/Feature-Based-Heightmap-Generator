@@ -468,6 +468,12 @@ GLvoid drawScene() {
 
 	}
 
+	for (auto& jn : FeatureCurveMgr.GetJunctionNodes()) {
+		if (jn.GetMesh()) {
+			RenderMgr.Draw(*jn.GetMesh());
+		}
+	}
+
 	
 	//if (FeatureCurveMgr.GetPendedControlPoint().GetMesh()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint().GetMesh());
 	if (FeatureCurveMgr.GetPendedControlPoint().has_value()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint()->GetMesh());
@@ -985,7 +991,13 @@ void DrawConstraintPointPanel(const CurveManagerView& CurveView) {
 
 	ImVec2 pos = ImVec2(20.0f, io.DisplaySize.y / 4.0f);
 
+	ConstraintPoint& cp = ConstraintPoint();
+
+	if (CurveView.SelectedConstraintPointID != -1) 
 	auto& cp = FeatureCurveMgr.GetFeatureCurve(CurveView.SelectedCurveID)->GetConstraintPoint(CurveView.SelectedConstraintPointID);
+
+	if (CurveView.SelectedJunctionNodeID != -1)
+		auto& cp = FeatureCurveMgr.GetJunctionNode(CurveView.SelectedJunctionNodeID);
 
 	ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.9f);
@@ -1487,6 +1499,12 @@ void DrawPanel() {
 	}
 	ImGui::SameLine();
 
+	if (ImGui::Button("Auto Weld")) {
+		FeatureCurveMgr.Weld();
+		FeatureCurveMgr.UploadBuffers(BufferMgr);
+	}
+
+	ImGui::SameLine();
 	if(ImGui::Button("Draw Right Panel")) {
 		DrawRightPanel = !DrawRightPanel;
 	}
