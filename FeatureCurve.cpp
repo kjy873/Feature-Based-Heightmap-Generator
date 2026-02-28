@@ -1344,10 +1344,102 @@ const std::vector<JunctionData> FeatureCurveManager::FindJunctions() {
 
 void FeatureCurve::ProcessSplitRequest(const SplitRequest& Request) {
 
-	for (int i = 0; i < SamplePoints.size(); i++) {
-		//if(Request.u >= SamplePoints.)
+	float NewU, NewT;
+	int Segment;
+
+	GetSegTFromU(Request.u, Segment, NewT);
+
+	//// Ã¹/³¡
+	//if (Request.u <= SamplePoints.front().u + 1e-6f) {
+	//	Segment = SamplePoints.front().Segment;
+	//	NewT = SamplePoints.front().t;
+	//}
+	//if (Request.u >= SamplePoints.back().u - 1e-6f) {
+	//	Segment = SamplePoints.back().Segment;
+	//	NewT = SamplePoints.back().t;
+	//}
+
+	//for (int i = 0; i < SamplePoints.size(); i++) {
+	//	if (Request.u >= SamplePoints[i].u && Request.u <= SamplePoints[i].u) {
+	//		if (SamplePoints[i + 1].u - SamplePoints[i].u > 1e-6f) {
+	//			float Alpha = (Request.u - SamplePoints[i].u) / (SamplePoints[i + 1].u - SamplePoints[i].u);
+
+	//			Segment = (SamplePoints[i].Segment == SamplePoints[i + 1].Segment) ?
+	//				SamplePoints[i].Segment : (Alpha < 0.5f ? SamplePoints[i].Segment : SamplePoints[i + 1].Segment);
+	//			NewT = (SamplePoints[i].Segment == SamplePoints[i + 1].Segment) ?
+	//				glm::mix(SamplePoints[i].t, SamplePoints[i + 1].t, Alpha) :
+	//				(Alpha < 0.5f ? SamplePoints[i].t : SamplePoints[i + 1].t);
+
+	//			NewT = glm::clamp(NewT, 0.0f, 1.0f);
+	//		}
+	//		else {
+	//			if ((i + 1) < SamplePoints.size());
+	//		}
+	//	}
+	//}
+
+}
+
+bool FeatureCurve::GetSegTFromU(float u, int& OutSeg, float& OutT)
+{
+	const float epsU = 1e-7f;
+
+	if (SamplePoints.size() < 2) return false;
+
+	u = glm::clamp(u, 0.0f, 1.0f);
+
+	if (u <= SamplePoints.front().u + epsU) {
+		OutSeg = SamplePoints.front().Segment;
+		OutT = SamplePoints.front().t;
+		return true;
+	}
+	if (u >= SamplePoints.back().u - epsU) {
+		OutSeg = SamplePoints.back().Segment;
+		OutT = SamplePoints.back().t;
+		return true;
 	}
 
+	auto it = std::lower_bound(SamplePoints.begin(), SamplePoints.end(), u, [](const CurvePoint& sp, float value) { return sp.u < value; });
+
+	int i1 = (int)std::distance(SamplePoints.begin(), it);
+	if (i1 <= 0) i1 = 1;
+	if (i1 >= (int)SamplePoints.size()) i1 = (int)SamplePoints.size() - 1;
+	int i0 = i1 - 1;
+
+	while (i0 >= 0 && i1 < (int)SamplePoints.size())
+	{
+		float u0 = SamplePoints[i0].u;
+		float u1 = SamplePoints[i1].u;
+
+		if (u1 - u0 > epsU) {
+			float alpha = (u - u0) / (u1 - u0);
+			alpha = glm::clamp(alpha, 0.0f, 1.0f);
+
+			if (SamplePoints[i0].Segment == SamplePoints[i1].Segment) {
+				OutSeg = SamplePoints[i0].Segment;
+				OutT = glm::mix(SamplePoints[i0].t, SamplePoints[i1].t, alpha);
+			}
+			else {
+
+				if (alpha < 0.5f) {
+					OutSeg = SamplePoints[i0].Segment;
+					OutT = SamplePoints[i0].t;
+				}
+				else {
+					OutSeg = SamplePoints[i1].Segment;
+					OutT = SamplePoints[i1].t;
+				}
+			}
+			OutT = glm::clamp(OutT, 0.0f, 1.0f);
+			return true;
+		}
+
+		if (i1 + 1 < (int)SamplePoints.size()) ++i1;
+		else if (i0 - 1 >= 0) --i0;
+		else break;
+	}
+
+	return false;
 }
 
 void FeatureCurveManager::Weld() {
@@ -1357,19 +1449,19 @@ void FeatureCurveManager::Weld() {
 	std::vector<std::vector<SplitRequest>> SplitRequestsPerCurve(FeatureCurves.size());
 
 	for (int i = 0; i < Junctions.size(); i++) {
-		//JunctionNodes.emplace_back(Junctions[i].Pos);
+		JunctionNodes.emplace_back(Junctions[i].Pos);
 
 		int JunctionIndex = i;
 
 		for (const auto& Linked : Junctions[i].LinkedCurves) {
-			//SplitRequestsPerCurve[Linked.CurveID].push_back({ JunctionIndex, Linked.u });
+			SplitRequestsPerCurve[Linked.CurveID].push_back({ JunctionIndex, Linked.u });
 		}
 	}
 
 	for (auto& Requests : SplitRequestsPerCurve) {
-		/*std::sort(Requests.begin(), Requests.end(), [](const SplitRequest& a, const SplitRequest& b) {
+		std::sort(Requests.begin(), Requests.end(), [](const SplitRequest& a, const SplitRequest& b) {
 			return a.u > b.u;
-			});*/
+			});
 	}
 
 

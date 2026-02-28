@@ -103,6 +103,9 @@ struct ConstraintPoint
 
 class JunctionNode : public ConstraintPoint
 {
+
+public:
+
 	JunctionNode() = default;
 	JunctionNode(glm::vec3 Pos) : ConstraintPoint(Pos) {}
 
@@ -272,7 +275,7 @@ public:
 	int GetCommittedSegments() const { return CommittedSegments; }
 
 	void ProcessSplitRequest(const SplitRequest& Request);
-
+	bool GetSegTFromU(float u, int& OutSeg, float& OutT);
 	
 
 
