@@ -390,6 +390,9 @@ void FeatureCurveManager::PrintDecision(const Decision& Decision) const {
 	case Decision::Cancel:
 		std::cout << "Decision: Cancel" << std::endl;
 		break;
+	case Decision::DeleteSelectedConstraintPoint:
+		std::cout << "Decision: DeleteSelectConstraintPoint" << std::endl;
+		break;
 	case Decision::DeleteSelectedControlPoint:
 		std::cout << "Decision: DeleteSelectedControlPoint" << std::endl;
 		break;
@@ -439,21 +442,17 @@ void FeatureCurveManager::Click(const glm::vec3& Pos, InputButton Button, InputM
 
 	PrintPickResult(Picked);
 
-	/*if (Picked.Type == PickType::ControlPoint) std::cout << "Pick ControlPoint" << std::endl;
-	else if (Picked.Type == PickType::Curve) std::cout << "Pick Curve" << std::endl;
-	else std::cout << "Pick None" << std::endl;*/
-
 	Decision Dec = Decide(Button, Mode, State, Picked);
 
-	/*std::cout << "Decided Result: ";
+	std::cout << "Decided Result: ";
 	PrintDecision(Dec);
-	std::cout << std::endl;*/
+	std::cout << std::endl;
 
 	Execute(Dec, Picked, Pos);
 
-	//std::cout << "Next State: ";
-	//PrintState();
-	//std::cout << std::endl;
+	std::cout << "Next State: ";
+	PrintState();
+	std::cout << std::endl;
 	
 
 }
@@ -726,6 +725,7 @@ Decision FeatureCurveManager::Decide(InputButton Button, InputMode Mode, EditCur
 
 		if (Mode == InputMode::Ctrl) return Decision::None;
 		if (Mode == InputMode::Shift) return Decision::None;
+		if (Mode == InputMode::Alt) return Decision::DeleteSelectedConstraintPoint;
 
 		if (JunctionNodePicked) return Decision::SelectJunctionNode;
 		if (ControlPointPicked) return Decision::SelectControlPoint;
@@ -816,8 +816,12 @@ void FeatureCurveManager::Execute(Decision DecidedResult, const PickResult& Pick
 	case Decision::AddConstraintPoint:
 		AddConstraintPoint(Pos);
 		break;
+	case Decision::DeleteSelectedConstraintPoint:
+		DeleteSelectedConstraintPoint();
+		break;
 	case Decision::DeleteSelectedControlPoint:
 	case Decision::DeleteSelectedCurve:
+		//std::cout << "Delete: Not implemented yet." << std::endl;
 		DeleteSelectedCurve();
 		break;
 	case Decision::SelectControlPoint:
@@ -1285,19 +1289,54 @@ void FeatureCurveManager::ImportSaveData(const SaveData& Data) {
 }
 
 void FeatureCurveManager::DeleteSelectedCurve() {
-	if (SelectedCurveID == -1 || SelectedControlPointID) return;
-
-	DeselectAll();
+	if (SelectedCurveID == -1 && SelectedControlPointID == -1) {
+		std::cout << "SelectedCurveID : " << SelectedCurveID << ", SelectedControlPointID: " << SelectedControlPointID << std::endl;
+		return;
+	}
 
 	const int deleteID = SelectedCurveID;
 
+	DeselectAll();
+
 	auto it = std::find_if(FeatureCurves.begin(), FeatureCurves.end(),
 		[&](const FeatureCurve& c) { return c.GetCurveID() == deleteID; });
+
+	if (it == FeatureCurves.end()) {
+		std::cout << "DeleteSelectedCurve Error: Curve not found!" << std::endl;
+		return;
+	}
 
 	if (it != FeatureCurves.end()) {
 		FeatureCurves.erase(it);
 		std::cout << "Deleted Curve (ID: " << deleteID << ")" << std::endl;
 	}
+}
+
+void FeatureCurve::DeleteConstraintPoint(const int ID) {
+	const auto it = std::find_if(ConstraintPoints.begin(), ConstraintPoints.end(),
+		[&](const ConstraintPoint& cp) { return cp.GetID() == ID; });
+
+	if (it->Data.u == 0.0f || it->Data.u == 1.0f) {
+		std::cout << "DeleteConstraintPoint Error: Cannot delete constraint point at the end of the curve!" << std::endl;
+		return;
+	}
+
+	if (it != ConstraintPoints.end()) {
+		ConstraintPoints.erase(it);
+		//std::cout << "Deleted Constraint Point (ID: " << ID << ")" << std::endl;
+	}
+	//else std::cout << "DeleteConstraintPoint Error: Constraint Point not found!" << std::endl;
+}
+
+void FeatureCurveManager::DeleteSelectedConstraintPoint() {
+	if (SelectedCurveID == -1 || SelectedConstraintPointID == -1) return;
+
+	FeatureCurve* Curve = GetFeatureCurve(SelectedCurveID);
+
+	Curve->DeleteConstraintPoint(SelectedConstraintPointID);
+
+	DeselectAll();
+
 }
 
 void FeatureCurveManager::MoveSelectedControlPoint(const glm::vec3& Pos) {

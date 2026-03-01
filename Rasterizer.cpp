@@ -513,6 +513,10 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.ConstraintMaskMap[index] &= ~(int)ConstraintMask::Gradient;
 				Map.Gradients[index] = glm::vec3(0.0f, 0.0f, 0.0f);
 				Map.CurveIDMap[index].GradientConflict = true;
+				Map.CurveIDMap[index].BestDistance = std::numeric_limits<float>::max();
+			}
+			else if(Map.CurveIDMap[index].GradientOwner == quad.CurveID) {
+				
 			}
 		}
 		else {
@@ -526,6 +530,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(theta)); // == norm
 				Map.CurveIDMap[index].GradientOwner = quad.CurveID;
 				Map.GradientDirectionMap[index] = -1;
+				Map.CurveIDMap[index].BestDistance = ad;
 			}
 			else if (ApplyGradientB) {
 				GradientAttenuation = glm::clamp(1.0f - ad / b, 0.0f, 1.0f) * TexelSize;
@@ -536,6 +541,7 @@ void Rasterizer::InterpolateQuad(const glm::vec2& p, const Quad& quad, const int
 				Map.Gradients[index].z = GradientAttenuation * glm::tan(glm::radians(phi));
 				Map.CurveIDMap[index].GradientOwner = quad.CurveID;
 				Map.GradientDirectionMap[index] = 1;
+				Map.CurveIDMap[index].BestDistance = ad;
 			}
 
 		}

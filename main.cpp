@@ -17,8 +17,8 @@ static uniform_real_distribution<> distribution(0, 2.0 * PI);
 DebugMode CurrentDebugMode = DebugMode::None;
 float DebugOverlayAlpha = 0.0f;
 
-int HeightMapU = 1024;
-int HeightMapV = 1024;
+int HeightMapU = 2048;
+int HeightMapV = 2048;
 
 bool MoveCameraForward = false;
 bool MoveCameraBackward = false;
@@ -441,52 +441,45 @@ GLvoid drawScene() {
 				RenderMgr.Draw(*FeatureCurveMgr.GetHoveringConstraintPoint().GetMesh());
 			}
 		}
-	}
 
-	for (auto& fc : FeatureCurveMgr.GetCurves()) {
+		for (auto& fc : FeatureCurveMgr.GetCurves()) {
 
-		if (fc.GetLineDirty()) fc.UploadBufferLine(BufferMgr);
-		fc.SetLineDirty(false);
+			if (fc.GetLineDirty()) fc.UploadBufferLine(BufferMgr);
+			fc.SetLineDirty(false);
 
-		for (const auto& cp : fc.GetControlPoints()) {
-			if (cp.GetMesh()) {
-				RenderMgr.UploadHighlightWeight(cp.GetHighlightWeight());
-				RenderMgr.Draw(*cp.GetMesh());
+			for (const auto& cp : fc.GetControlPoints()) {
+				if (cp.GetMesh()) {
+					RenderMgr.UploadHighlightWeight(cp.GetHighlightWeight());
+					RenderMgr.Draw(*cp.GetMesh());
+				}
+			}
+			for (const auto& csp : fc.GetConstraintPoints()) {
+				if (csp.GetMesh()) {
+					RenderMgr.UploadHighlightWeight(csp.GetHighlightWeight());
+					RenderMgr.Draw(*csp.GetMesh());
+				}
+			}
+
+			RenderMgr.UploadHighlightWeight(fc.GetHighlightWeight());
+			const LineMesh* Line = fc.GetLineMesh();
+			if (!Line) continue;
+			if (Line->GetPosition().size() == 0) continue;
+			if (!Line->GetMeshID()) continue;
+			RenderMgr.Draw(*Line);
+
+
+		}
+
+		for (auto& jn : FeatureCurveMgr.GetJunctionNodes()) {
+			if (jn.GetMesh()) {
+				RenderMgr.Draw(*jn.GetMesh());
 			}
 		}
-		for (const auto& csp : fc.GetConstraintPoints()) {
-			if (csp.GetMesh()) {
-				RenderMgr.UploadHighlightWeight(csp.GetHighlightWeight());
-				RenderMgr.Draw(*csp.GetMesh());
-			}
-		}
 
-		RenderMgr.UploadHighlightWeight(fc.GetHighlightWeight());
-		const LineMesh* Line = fc.GetLineMesh();
-		if (!Line) continue;
-		if (Line->GetPosition().size() == 0) continue;
-		if (!Line->GetMeshID()) continue;
-		RenderMgr.Draw(*Line);
-
-
-	}
-
-	for (auto& jn : FeatureCurveMgr.GetJunctionNodes()) {
-		if (jn.GetMesh()) {
-			RenderMgr.Draw(*jn.GetMesh());
-		}
+		if (FeatureCurveMgr.GetPendedControlPoint().has_value()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint()->GetMesh());
 	}
 
 	
-	//if (FeatureCurveMgr.GetPendedControlPoint().GetMesh()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint().GetMesh());
-	if (FeatureCurveMgr.GetPendedControlPoint().has_value()) RenderMgr.Draw(*FeatureCurveMgr.GetPendedControlPoint()->GetMesh());
-	//draw(rectangles);
-
-	//RenderMgr.Draw(Surface);
-
-	//draw(ShaderMgr.GetShaderProgramID(), Surface);
-
-	//if (WireFrame) drawWireframe(ShaderMgr.GetShaderProgramID(), SurfaceWire);
 
 	RenderMgr.UploadHighlightWeight(0.0f);
 

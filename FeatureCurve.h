@@ -301,6 +301,8 @@ public:
 	bool GetLineDirty() const { return LineDirty; }
 	void SetLineDirty(bool dirty) { LineDirty = dirty; }
 
+	void DeleteConstraintPoint(const int ID);
+
 };
 
 enum class EditCurveState
@@ -332,6 +334,7 @@ enum class Decision {
 	Cancel,
 	DeleteSelectedControlPoint,
 	DeleteSelectedCurve,
+	DeleteSelectedConstraintPoint,
 	AddConstraintPoint,
 	SelectJunctionNode
 
@@ -504,6 +507,7 @@ public:
 	}
 
 	void DeleteSelectedCurve();
+	void DeleteSelectedConstraintPoint();
 
 	void MoveSelectedControlPoint(const glm::vec3& Pos);
 	void MoveSelectedJunctionNode(const glm::vec3& Pos);

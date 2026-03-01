@@ -97,6 +97,8 @@
 
 		bool GradientConflict = false;
 
+		float BestDistance = std::numeric_limits<float>::max();
+
 		OwnerCurve() {};
 	};
 
