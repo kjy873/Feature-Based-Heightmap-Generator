@@ -97,7 +97,12 @@ void main(){
 	float ProlongedR = BilinearProlongB(p);
 	float NewR = OldR + ProlongedR;
 
-	imageStore(ElevationWrite, p, vec4(NewH, Fine.g, Fine.b, Fine.a));	
+	if((Mask & MASK_NOISE) != 0u){
+		NewA = OldA;
+		NewR = OldR;
+	}
+
+	imageStore(ElevationWrite, p, vec4(NewH, NewA, NewR, Fine.a));	
 
 
 }

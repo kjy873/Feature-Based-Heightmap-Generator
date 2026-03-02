@@ -447,16 +447,17 @@ GLvoid drawScene() {
 			if (fc.GetLineDirty()) fc.UploadBufferLine(BufferMgr);
 			fc.SetLineDirty(false);
 
-			for (const auto& cp : fc.GetControlPoints()) {
-				if (cp.GetMesh()) {
-					RenderMgr.UploadHighlightWeight(cp.GetHighlightWeight());
-					RenderMgr.Draw(*cp.GetMesh());
-				}
-			}
 			for (const auto& csp : fc.GetConstraintPoints()) {
 				if (csp.GetMesh()) {
 					RenderMgr.UploadHighlightWeight(csp.GetHighlightWeight());
 					RenderMgr.Draw(*csp.GetMesh());
+				}
+			}
+
+			for (const auto& cp : fc.GetControlPoints()) {
+				if (cp.GetMesh()) {
+					RenderMgr.UploadHighlightWeight(cp.GetHighlightWeight());
+					RenderMgr.Draw(*cp.GetMesh());
 				}
 			}
 
@@ -1347,13 +1348,13 @@ void DrawPanel() {
 
 					BufferMgr.ClearElevationTextures(ResU(l + 1), ResV(l + 1), l + 1);
 
-					/*if (l == 0) {
-						DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(ResU(l), ResV(l), l));
+					if (l == 0) {
+						/*DiffuseMgr.SetResidualMap(BufferMgr.ReadbackResidualTexture(ResU(l), ResV(l), l));
 						auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return std::abs(a) < std::abs(b); });
 						std::cout << "Max Residual Value(Before): " << *it << std::endl;
 						float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float a, float b) { return a + std::abs(b); });
-						std::cout << "Average Residual Value(Before): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;
-					}*/
+						std::cout << "Average Residual Value(Before): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;*/
+					}
 				}
 
 				// l + 1의 Elevation Texture를 0으로 클리어
@@ -1400,8 +1401,8 @@ void DrawPanel() {
 
 					// 여긴 디버깅용으로 residual pass를 1회 실행했는데, Coarse texture의 값을 덮어씀, outer loop가 2회 이상일 때에도 이렇게 값을 확인해도 문제가 없는지 확인해야 함
 					// 최종적으로 outer loop 내부에서 residual, correction 마다 max, avrg를 출력하고, 이걸 outer loop만큼 반복해서 디버깅
-					/*if (l == 0) {
-						BufferMgr.BindElevationTextureResidual(l);
+					if (l == 0) {
+						/*BufferMgr.BindElevationTextureResidual(l);
 						BufferMgr.BindResidualTextureWrite(l);
 						ShaderMgr.FindComputeProgram(ComputeType::ResidualFine).Use();
 
@@ -1412,8 +1413,8 @@ void DrawPanel() {
 						auto it = std::max_element(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), [](float a, float b) { return std::abs(a) < std::abs(b); });
 						std::cout << "Max Residual Value(After): " << *it << std::endl;
 						float acc = std::accumulate(DiffuseMgr.GetResidualMap().begin(), DiffuseMgr.GetResidualMap().end(), 0.0f, [](float a, float b) { return a + std::abs(b); });
-						std::cout << "Average Residual Value(After): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;
-					}*/
+						std::cout << "Average Residual Value(After): " << acc / DiffuseMgr.GetResidualMap().size() << std::endl;*/
+					}
 				}
 			}
 
@@ -1522,7 +1523,7 @@ void DrawPanel() {
 
 		ImGui::Separator();
 		if (ImGui::Button("Export", ImVec2((panel_width), button_height))) {
-			ExportHeightMap("heightmap.txt");
+			ExportHeightMap("heightmap.r16");
 			cout << "Exported heightmap.r16" << endl;
 		}
 
@@ -1656,22 +1657,18 @@ void ExportHeightMap(const char* FileName) {
 
 	for (int Row = 0; Row < HeightMapV; Row++) {
 		for (int Col = 0; Col < HeightMapU; Col++) {
-			//uint8_t mask = RasterizerMgr.GetMaps().ConstraintMaskMap[Row * HeightMapU + Col];
 			float height = heightmap(Col, Row);
-			file.write(reinterpret_cast<const char*>(&height), sizeof(float));
-			//file << (int)mask << " ";
-		}
-		//file << "\n";
-	}
+			height = glm::clamp(height, -1.0f, 1.0f);
 
-	//for (int x = 0; x < sampleCount; x++) {
-	//	for (int z = 0; z < sampleCount; z++) {
-	//		float height = SurfacePoints[x * sampleCount + z].y;
-	//		height = glm::clamp(height, 0.0f, 1.0f);
-	//		uint16_t height16 = static_cast<uint16_t>(height * 65535.0f);
-	//		file.write(reinterpret_cast<const char*>(&height16), sizeof(height16));
-	//	}
-	//}
+			float ZScale = 195.0f;
+			float Raw = height * 128.0f / ZScale + 32768.0f;
+			Raw = glm::clamp(Raw, 0.0f, 65535.0f);
+
+			uint16_t v = (uint16_t)std::lround(Raw) * 65535;
+			uint16_t height16 = static_cast<uint16_t>(height * 65535.0f);
+			file.write(reinterpret_cast<const char*>(&v), sizeof(v));
+		}
+	}
 
 	file.close();
 }

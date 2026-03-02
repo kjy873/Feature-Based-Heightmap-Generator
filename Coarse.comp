@@ -76,11 +76,17 @@ void main(){
 
 	float NewE = Alpha * E_L + Beta * E_N + RHS;
 
+	float RHS_A = imageLoad(ResidualCoarse, p).g;
+
 	float LeftA = imageLoad(ElevationRead, Left).g;
 	float RightA = imageLoad(ElevationRead, Right).g;
 	float DownA = imageLoad(ElevationRead, Down).g;
 	float UpA = imageLoad(ElevationRead, Up).g;
 	float A_L = 0.25f * (LeftA + RightA + DownA + UpA);
+
+	float RHS_R = imageLoad(ResidualCoarse, p).b;
+
+	float NewA = A_L + RHS_A;
 
 	float LeftR = imageLoad(ElevationRead, Left).b;
 	float RightR = imageLoad(ElevationRead, Right).b;
@@ -88,10 +94,17 @@ void main(){
 	float UpR = imageLoad(ElevationRead, Up).b;
 	float R_L = 0.25f * (LeftR + RightR + DownR + UpR);
 
+	float NewR = R_L + RHS_R;
+
+	if(NoiseMask){
+		NewA = 0.0f;
+		NewR = 0.0f;
+	}
+
 	// Relaxation code
 
 
-	imageStore(ElevationWrite, p, vec4(NewE, A_L, R_L, imageLoad(ResidualCoarse, p).a));
+	imageStore(ElevationWrite, p, vec4(NewE, NewA, NewR, imageLoad(ResidualCoarse, p).a));
 	return;
 
 }
