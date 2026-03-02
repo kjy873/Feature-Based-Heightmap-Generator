@@ -95,7 +95,6 @@ void main(){
 
 	if(!IsValidFloat(NewHeight)){
 		NewHeight = imageLoad(ElevationRead, p).r;
-		return;
 	}
 
 	if(p == DebugPixel0){

@@ -38,17 +38,17 @@ bool ControlPointRender = false;
 
 bool PickControlPoint = false;
 
-double windowWidth = 1920;
-double windowHeight = 1080;
+double windowWidth = 1600;
+double windowHeight = 900;
 int FrameBufferWidth;
 int FrameBufferHeight;
 const float defaultSize = 0.05;
 
 int ElevationIteration = 5;
 int GradientIteration = 1000;
-int NoiseIteration = 1000;
-int DiffusionLevel = 5;
-int MultigridIteration = 50;
+int NoiseIteration = 0;
+int DiffusionLevel = 8;
+int MultigridIteration = 200;
 int CoarseSolverIteration = 5;
 int PreSmoothing = 5;
 int PostSmoothing = 5;
@@ -1156,52 +1156,49 @@ void DrawPanel() {
 
 		ImGui::Text("modify noise");
 		ImGui::Separator();
-		if (ImGui::Button("Random Value Noise", ImVec2(-FLT_MIN, 30))) {
-
-		}
 
 		if (ImGui::InputFloat("frequency", &noiseParameters.frequency, 0.1f, 1.0f));
 		if (ImGui::InputInt("octaves", &noiseParameters.octaves, 1, 5));
 		if (ImGui::InputFloat("persistence", &noiseParameters.persistence, 0.1f, 1.0f));
 		if (ImGui::InputFloat("lacunarity", &noiseParameters.lacunarity, 0.1f, 1.0f));
 
-		if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
+		//if (ImGui::Button("Perlin Noise", ImVec2(-FLT_MIN, 30))) {
 
-			NoiseGen.GeneratePerlinNoise(
-				16542,
-				noiseParameters.frequency,
-				noiseParameters.octaves,
-				noiseParameters.persistence,
-				noiseParameters.lacunarity);
+		//	NoiseGen.GeneratePerlinNoise(
+		//		16542,
+		//		noiseParameters.frequency,
+		//		noiseParameters.octaves,
+		//		noiseParameters.persistence,
+		//		noiseParameters.lacunarity);
 
-		}
-		if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
+		//}
+		//if (ImGui::Button("Simplex Noise", ImVec2(-FLT_MIN, 30))) {
 
-			NoiseGen.GenerateSimplexNoise(
-				16542,
-				noiseParameters.frequency,
-				noiseParameters.octaves,
-				noiseParameters.persistence,
-				noiseParameters.lacunarity);
+		//	NoiseGen.GenerateSimplexNoise(
+		//		16542,
+		//		noiseParameters.frequency,
+		//		noiseParameters.octaves,
+		//		noiseParameters.persistence,
+		//		noiseParameters.lacunarity);
 
-		}
+		//}
 
 		ImGui::Text("Rendering");
 		ImGui::Separator();
-		if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
-			ControlPointRender = !ControlPointRender;
-		}
-		if (ImGui::Button("enable surface wire render", ImVec2(-FLT_MIN, 30))) {
-			WireFrame = !WireFrame;
-		}
-		if (ImGui::Button("increase resolution", ImVec2(-FLT_MIN, 30))) {
-			SAMPLE_INTERVAL *= 1.0f / 2.0f;
-			if (SAMPLE_INTERVAL < 1.0f / 1024.0f) SAMPLE_INTERVAL = 1.0f / 1024.0f;
-		}
-		if (ImGui::Button("decrease resolution", ImVec2(-FLT_MIN, 30))) {
-			SAMPLE_INTERVAL *= 2.0f;
-			if (SAMPLE_INTERVAL > 1.0f / 2.0f) SAMPLE_INTERVAL = 1.0f / 2.0f;
-		}
+		//if (ImGui::Button("enable controlpoint render", ImVec2(-FLT_MIN, 30))) {
+		//	ControlPointRender = !ControlPointRender;
+		//}
+		//if (ImGui::Button("enable surface wire render", ImVec2(-FLT_MIN, 30))) {
+		//	WireFrame = !WireFrame;
+		//}
+		//if (ImGui::Button("increase resolution", ImVec2(-FLT_MIN, 30))) {
+		//	SAMPLE_INTERVAL *= 1.0f / 2.0f;
+		//	if (SAMPLE_INTERVAL < 1.0f / 1024.0f) SAMPLE_INTERVAL = 1.0f / 1024.0f;
+		//}
+		//if (ImGui::Button("decrease resolution", ImVec2(-FLT_MIN, 30))) {
+		//	SAMPLE_INTERVAL *= 2.0f;
+		//	if (SAMPLE_INTERVAL > 1.0f / 2.0f) SAMPLE_INTERVAL = 1.0f / 2.0f;
+		//}
 		if (ImGui::Button("lighting", ImVec2(-FLT_MIN, 30))) {
 			if (LightSource == glm::vec3(0.0f, 0.0f, 0.0f))LightSource = glm::vec3(0.5f, 10.0f, 0.5f);
 			else LightSource = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -1225,47 +1222,10 @@ void DrawPanel() {
 			//RasterizerMgr.PrintPolylines();
 
 		}
-
-		// Iteration 기본 요구사항
-		// Rasterizer에서 Maps 가져오기
-		// 레벨 수만큼 AddTextureSet
-		// 
-		// gradient diffusion 요구사항
-		// UploadElevationTexture, UploadGradientTexture
-		// BindElevationTextureDiffusion, BindGradientTexture
-		// Compute. (Swap)
-		// 
-		// Elevation Diffusion 요구사항 (fine)
-		// DiffuseManager에 GradientTexture Set -> Normalize -> UploadGradientTexture (1회, fine), ResetGradientPingPong
-		// BindElevationTextureDiffusion, BindGradientReadOnly
-		// Compute. (Swap)
-		//
-		// Residual pass 요구사항
-		// AllocateResidualTexture, AllocateCoarseTextures로 텍스처 할당 ( ResidualTexture은 fine 해상도, CoarseTexture는 coarse 해상도 )
-		// BindElevationTextureResidual(fine), BindCoarseTextureWriteInResidualPass(coarse), BindResidualTextureWrite(fine) 
-		// Compute. (1/2 res, iteration = 1)
-		//
-		// Coarse pass 요구사항
-		// BindCoarseTextureInCoarsePass(coarse)
-		// Compute. (1/2 res, Swap)
-		// 
-		// Correction pass 요구사항
-		// BindElevationTextureDiffusion(fine), BindCoarseTextureInCorrectionPass(coarse)
-		// Compute. (1/2 res)
-		//
-		// 다 끝난 후 OR 필요할 때
-		// DiffuseMgr에 텍스처 저장 (fine)
-		// DiffuseMgr에 저장된 텍스처로 PackMaps (디버깅용 텍스처 패킹)
-		// BufferMgr에 PackMaps로부터 GetTexture-> UploadDebugTextures(디버깅용)
-		// SetHeightMap, UpdateSplineSurface
 		
-
 		if (ImGui::InputInt("GradientIteration", &GradientIteration, 1, 100));
-		if (ImGui::InputInt("ElevationIteration", &ElevationIteration, 1, 100));
-		if (ImGui::InputInt("NoiseIteration", &NoiseIteration, 1, 100));
 		if (ImGui::InputInt("Level", &DiffusionLevel, 1, 5));
 		if (ImGui::InputInt("Multigrid Iteration", &MultigridIteration, 1, 10));
-		if (ImGui::InputInt("Coarse Solver Iteration", &CoarseSolverIteration, 1, 10));
 		if (ImGui::Button("Diffusion", ImVec2(-FLT_MIN, 30))) {
 
 			//DiffuseMgr.Initialize(HeightMapU, HeightMapV);
@@ -1440,16 +1400,6 @@ void DrawPanel() {
 			UpdateSplineSurface();
 		}
 
-		if(ImGui::Button("Export Constraint Maps", ImVec2(-FLT_MIN, 30))) {
-			
-			//ExportGradientImage("gradient.png", BufferMgr.ReadbackGradientTexture(HeightMapU, HeightMapV, 0), true);
-			//ExportHeightmapImage("heightmap.png", heightmap.GetHeightMap());
-			//ExportConstraintMaskImage("constraintmask.png", RasterizerMgr.GetMaps().ConstraintMaskMap);
-			//ExportGradientText("gradient.txt", DiffuseMgr.GetGradientMap());
-			//ExportDiffusedGradientDot("dt.txt", DiffuseMgr.GetGradientMap());
-			//cout << "Exported constraint maps" << endl;
-		}
-
 		if (ImGui::Button("SaveCurveData", ImVec2(-FLT_MIN, 30))) {
 			SaveCurveData("CurveData", FeatureCurveMgr);
 		}
@@ -1501,7 +1451,6 @@ void DrawPanel() {
 		}
 
 
-		ImGui::EndChild();
 
 		// 하단 confirm, reset 버튼
 		ImGui::Separator();
@@ -1521,11 +1470,11 @@ void DrawPanel() {
 			initSplineSurface();
 		}
 
-		ImGui::Separator();
 		if (ImGui::Button("Export", ImVec2((panel_width), button_height))) {
 			ExportHeightMap("heightmap.r16");
 			cout << "Exported heightmap.r16" << endl;
 		}
+		ImGui::EndChild();
 
 		ImGui::End();
 	}
@@ -1653,19 +1602,19 @@ void ExportHeightMapFromRGBATexture(const char* FileName, const std::vector<floa
 
 void ExportHeightMap(const char* FileName) {
 
-	ofstream file(FileName, ios::binary);
 
-	for (int Row = 0; Row < HeightMapV; Row++) {
-		for (int Col = 0; Col < HeightMapU; Col++) {
-			float height = heightmap(Col, Row);
-			height = glm::clamp(height, -1.0f, 1.0f);
+	std::ofstream file(FileName, std::ios::binary);
+	if (!file) return;
 
-			float ZScale = 195.0f;
-			float Raw = height * 128.0f / ZScale + 32768.0f;
-			Raw = glm::clamp(Raw, 0.0f, 65535.0f);
+	for (int Row = 0; Row < HeightMapV; ++Row)
+	{
+		for (int Col = 0; Col < HeightMapU; ++Col)
+		{
+			float h = std::clamp(heightmap(Row, Col), -1.0f, 1.0f);
 
-			uint16_t v = (uint16_t)std::lround(Raw) * 65535;
-			uint16_t height16 = static_cast<uint16_t>(height * 65535.0f);
+			float raw = 32768.0f + h * 32767.0f;
+			uint16_t v = (uint16_t)std::lround(std::clamp(raw, 0.0f, 65535.0f));
+
 			file.write(reinterpret_cast<const char*>(&v), sizeof(v));
 		}
 	}

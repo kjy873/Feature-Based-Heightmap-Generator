@@ -224,8 +224,10 @@ void Rasterizer::InterpolateConstraints(CurveData& Curve) {
 		}
 
 		if (HasMask(Curve.ConstraintPoints[Segment].Mask, ConstraintMask::Noise) && HasMask(Curve.ConstraintPoints[Segment + 1].Mask, ConstraintMask::Noise)) {
+			point.Constraint.r = Lerp(Curve.ConstraintPoints[Segment].r, Curve.ConstraintPoints[Segment + 1].r, t);
 			point.Constraint.Amplitude = Lerp(Curve.ConstraintPoints[Segment].Amplitude, Curve.ConstraintPoints[Segment + 1].Amplitude, t);
 			point.Constraint.Roughness = Lerp(Curve.ConstraintPoints[Segment].Roughness, Curve.ConstraintPoints[Segment + 1].Roughness, t);
+
 
 			point.Constraint.Mask |= ConstraintMask::Noise;
 		}
@@ -263,7 +265,7 @@ bool Rasterizer::BuildQuad(const LinearCoord& p0, const LinearCoord& p1, Quad& O
 		RightWidthP0 = std::max(p0.Constraint.b, p0.Constraint.r);
 		RightWidthP1 = std::max(p1.Constraint.b, p1.Constraint.r);
 	}
-	else if (HasElevation) {
+	else if (HasElevation || HasNoise) {
 		LeftWidthP0 = RightWidthP0 = p0.Constraint.r;
 		LeftWidthP1 = RightWidthP1 = p1.Constraint.r;
 	}

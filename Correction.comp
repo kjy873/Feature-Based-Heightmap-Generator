@@ -78,16 +78,17 @@ void main(){
 
 	uint Mask = uint(round(Fine.a));
 
-	if((Mask & MASK_ELEVATION) != 0u){
-		imageStore(ElevationWrite, p, Fine);
-		return;
-	}
+
 
 	float OldH = Fine.r;
 
 	float ProlongedE = BilinearProlong(p);
 
 	float NewH = OldH + ProlongedE;
+
+	if((Mask & MASK_ELEVATION) != 0u){
+		NewH = OldH;
+	}
 
 	float OldA = Fine.g;
 	float ProlongedA = BilinearProlongA(p);

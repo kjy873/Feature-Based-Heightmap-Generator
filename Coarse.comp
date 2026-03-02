@@ -24,10 +24,7 @@ void main(){
 	float Alpha;
 	float Beta;
 
-	if (HasElevationMask) {
-    imageStore(ElevationWrite, p, vec4(0.0));
-    return;
-	}
+
 
 	if(HasElevationMask){
 		Alpha = 0.0f;
@@ -75,6 +72,10 @@ void main(){
 	}
 
 	float NewE = Alpha * E_L + Beta * E_N + RHS;
+
+	if (HasElevationMask) {
+    NewE = 0.0f;
+	}
 
 	float RHS_A = imageLoad(ResidualCoarse, p).g;
 
