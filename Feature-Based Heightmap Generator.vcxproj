@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>GLEW_STATIC;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include\imGuiFileDialog;$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\GL$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
@@ -130,7 +130,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL;$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include\imGuiFileDialog;$(ProjectDir)\include\imguizmo;$(ProjectDir)\include;$(ProjectDir)\include\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GL;$(ProjectDir)\include\GLFW;%(AdditionalIncludeDirectories);$(ProjectDir)\imgui;$(ProjectDir)\include\GL$(ProjectDir)\include;$(ProjectDir)\include\GL;$(ProjectDir)\imgui;$(ProjectDir)\include\GLM;$(ProjectDir)\include\GLFW;$(ProjectDir)\include\GL</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
@@ -160,6 +160,7 @@
     <ClCompile Include="DiffuseManager.cpp" />
     <ClCompile Include="FeatureCurve.cpp" />
     <ClCompile Include="HeightMap.cpp" />
+    <ClCompile Include="include\imGuiFileDialog\ImGuiFileDialog.cpp" />
     <ClCompile Include="include\imguizmo\GraphEditor.cpp" />
     <ClCompile Include="include\imguizmo\ImCurveEdit.cpp" />
     <ClCompile Include="include\imguizmo\ImGradient.cpp" />
@@ -188,6 +189,11 @@
     <ClInclude Include="FeatureCurve.h" />
     <ClInclude Include="Features.h" />
     <ClInclude Include="HeightMap.h" />
+    <ClInclude Include="include\imGuiFileDialog\dirent.h" />
+    <ClInclude Include="include\imGuiFileDialog\ImGuiFileDialog.h" />
+    <ClInclude Include="include\imGuiFileDialog\ImGuiFileDialogConfig.h" />
+    <ClInclude Include="include\imGuiFileDialog\stb\stb_image_resize2.h" />
+    <ClInclude Include="include\imGuiFileDialog\stb_image.h" />
     <ClInclude Include="include\imguizmo\GraphEditor.h" />
     <ClInclude Include="include\imguizmo\ImCurveEdit.h" />
     <ClInclude Include="include\imguizmo\ImGradient.h" />

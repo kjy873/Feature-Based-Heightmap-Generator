@@ -8,6 +8,8 @@
 
 #include "ImGuizmo.h"
 
+#include "ImGuiFileDialog.h"
+
 #include "Mesh.h"
 
 #include <glew.h>
@@ -511,8 +513,8 @@ void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum seve
 		<< ", message = " << message << std::endl;
 }
 
-void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr);
-SaveData LoadCurveData(const char* FileName);
+void SaveCurveData(const std::string& FileName, FeatureCurveManager& CurveMgr);
+SaveData LoadCurveData(const std::string& FileName);
 
 const glm::vec3 MoveControlPoint(const glm::mat4 Origin);
 

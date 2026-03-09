@@ -25,6 +25,18 @@
     <Filter Include="소스 파일\imguizmo">
       <UniqueIdentifier>{242fc96e-0e76-4507-b218-f9623976e880}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\imGuiFileDialog">
+      <UniqueIdentifier>{7e6c087f-2c23-408c-8205-acbd7fb5d42e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\imGuiFileDialog">
+      <UniqueIdentifier>{93294257-586f-4c84-9cee-27f24c93c292}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\imGuiFileDialog\stb">
+      <UniqueIdentifier>{67c0e511-df40-4e45-ae97-910a71b2de28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\imGuiFileDialog\dirent">
+      <UniqueIdentifier>{b7c6eff7-3807-444b-9e7a-4f08fb64f666}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="vertex.glsl">
@@ -131,6 +143,9 @@
     <ClCompile Include="DiffuseManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="include\imGuiFileDialog\ImGuiFileDialog.cpp">
+      <Filter>소스 파일\imGuiFileDialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base.h">
@@ -222,6 +237,21 @@
     </ClInclude>
     <ClInclude Include="Rasterizer.h">
       <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imGuiFileDialog\ImGuiFileDialog.h">
+      <Filter>헤더 파일\imGuiFileDialog</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imGuiFileDialog\ImGuiFileDialogConfig.h">
+      <Filter>헤더 파일\imGuiFileDialog</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imGuiFileDialog\stb_image.h">
+      <Filter>헤더 파일\imGuiFileDialog\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imGuiFileDialog\stb\stb_image_resize2.h">
+      <Filter>헤더 파일\imGuiFileDialog\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imGuiFileDialog\dirent.h">
+      <Filter>헤더 파일\imGuiFileDialog\dirent</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -15,6 +15,9 @@ static mt19937 gen(random());
 static uniform_real_distribution<> distribution(0, 2.0 * PI);
 
 DebugMode CurrentDebugMode = DebugMode::None;
+
+std::string CurrentFilePath = std::string();
+
 float DebugOverlayAlpha = 0.0f;
 
 int HeightMapU = 2048;
@@ -275,6 +278,37 @@ int main() {
 
 		DrawPanel();
 		DrawMouseOverlay(window);
+
+		if (ImGuiFileDialog::Instance()->Display("SaveCurveDataDialog"))
+		{
+			if (ImGuiFileDialog::Instance()->IsOk())
+			{
+				std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+				if (!filePathName.empty())
+				{
+					SaveCurveData(filePathName, FeatureCurveMgr);
+				}
+			}
+			ImGuiFileDialog::Instance()->Close();
+		}
+
+		if (ImGuiFileDialog::Instance()->Display("LoadCurveDataDialog"))
+		{
+			if (ImGuiFileDialog::Instance()->IsOk())
+			{
+				std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+				if (!filePathName.empty())
+				{
+					FeatureCurveMgr.ImportSaveData(LoadCurveData(filePathName));
+					FeatureCurveMgr.UploadBuffers(BufferMgr);
+					FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
+					FeatureCurveMgr.UploadBuffers(BufferMgr);
+					FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
+				}
+
+			}
+			ImGuiFileDialog::Instance()->Close();
+		}
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -1401,14 +1435,19 @@ void DrawPanel() {
 		}
 
 		if (ImGui::Button("SaveCurveData", ImVec2(-FLT_MIN, 30))) {
-			SaveCurveData("CurveData", FeatureCurveMgr);
+			IGFD::FileDialogConfig config;
+			config.path = ".";
+			config.fileName = "CurveData.r16";
+
+			ImGuiFileDialog::Instance()->OpenDialog("SaveCurveDataDialog", "Save Curve Data", ".r16", config);
+
 		}
 		if (ImGui::Button("LoadCurveData", ImVec2(-FLT_MIN, 30))) {
-			FeatureCurveMgr.ImportSaveData(LoadCurveData("CurveData"));
-			FeatureCurveMgr.UploadBuffers(BufferMgr);
-			FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
-			FeatureCurveMgr.UploadBuffers(BufferMgr);
-			FeatureCurveMgr.UploadPendedBuffer(BufferMgr);
+			IGFD::FileDialogConfig config;
+			config.path = ".";
+			config.fileName = "CurveData.r16";
+			ImGuiFileDialog::Instance()->OpenDialog("LoadCurveDataDialog", "Load Curve Data", ".r16", config);
+
 		}
 
 		ImGui::Text("Debug Modes");
@@ -1783,7 +1822,7 @@ void ExportDebugData(const std::vector<glm::vec4>& Map, const int Iteration) {
 	file4.close();
 }
 
-void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr) {
+void SaveCurveData(const std::string& FileName, FeatureCurveManager& CurveMgr) {
 		
 	SaveData Data = CurveMgr.ExtractSaveData();
 
@@ -1825,7 +1864,7 @@ void SaveCurveData(const char* FileName, FeatureCurveManager& CurveMgr) {
 
 }
 
-SaveData LoadCurveData(const char* FileName) {
+SaveData LoadCurveData(const std::string& FileName) {
 
 	ifstream file(FileName, ios::binary);
 
